@@ -5,7 +5,7 @@ import { cx } from '../lib/format'
 const ASSET_BASE = import.meta.env.BASE_URL
 // Bumped when the artwork changes: the service worker caches /assets/ by URL,
 // so a new query string is what makes an updated image actually replace an old one.
-const ART_VERSION = 'v3'
+const ART_VERSION = 'v4'
 const MARK_LIGHT = `${ASSET_BASE}assets/3d/wallet-hero.png?${ART_VERSION}`
 const MARK_DARK = `${ASSET_BASE}assets/3d/wallet-hero-dark.png?${ART_VERSION}`
 
