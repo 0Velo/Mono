@@ -3,8 +3,11 @@ import type { ReactNode } from 'react'
 import { cx } from '../lib/format'
 
 const ASSET_BASE = import.meta.env.BASE_URL
-const MARK_LIGHT = `${ASSET_BASE}assets/3d/wallet-hero.png`
-const MARK_DARK = `${ASSET_BASE}assets/3d/wallet-hero-dark.png`
+// Bumped when the artwork changes: the service worker caches /assets/ by URL,
+// so a new query string is what makes an updated image actually replace an old one.
+const ART_VERSION = 'v2'
+const MARK_LIGHT = `${ASSET_BASE}assets/3d/wallet-hero.png?${ART_VERSION}`
+const MARK_DARK = `${ASSET_BASE}assets/3d/wallet-hero-dark.png?${ART_VERSION}`
 
 /**
  * The Mono mark: the same sculptural matte emblem the app icon is cut from.
@@ -70,8 +73,7 @@ function SolanaGlyph({ size }: { size: number }) {
 
 /**
  * The real thing: a matte 3D coin carrying the official Solana three-bar
- * emblem, rendered on white. `mix-blend-multiply` makes the white plate vanish
- * on the light UI, so there is no square box around the disc.
+ * emblem, cut out of its white plate so it sits on either theme.
  */
 export function SolCoin3D({ size = 40 }: { size?: number }) {
   const [failed, setFailed] = useState(false)
@@ -87,7 +89,7 @@ export function SolCoin3D({ size = 40 }: { size?: number }) {
   }
   return (
     <img
-      src={`${ASSET_BASE}assets/3d/sol-coin.png`}
+      src={`${ASSET_BASE}assets/3d/sol-coin.png?${ART_VERSION}`}
       alt=""
       width={size}
       height={size}
