@@ -3,7 +3,11 @@
 **Mono** is a private Solana wallet that runs entirely in the browser. No account, no backend, no
 telemetry — the seed phrase is encrypted on the device with a PIN and never leaves it.
 
-**Live:** https://0velo.github.io/mono/ · Installable as a PWA on iPhone (Safari → 홈 화면에 추가)
+**Live:** https://0velo.github.io/Mono/ · Installable as a PWA on iPhone (Safari → 홈 화면에 추가)
+
+> The Pages path follows the repository name exactly as GitHub stores it (`Mono`), so the canonical
+> address is `/Mono/`. The build uses relative asset paths, so it also works unchanged if the
+> repository is ever renamed to lowercase `mono` (which would make `/mono/` the address).
 
 ---
 
@@ -40,7 +44,7 @@ Mono는 비수탁(non-custodial) 지갑입니다. 시드 문구와 PIN을 잃으
 
 ### iPhone에 설치
 
-1. Safari에서 https://0velo.github.io/mono/ 열기
+1. Safari에서 https://0velo.github.io/Mono/ 열기
 2. 공유 → **홈 화면에 추가**
 3. 홈 화면 아이콘으로 실행 (주소창 없는 전체 화면, 생체 인증 사용 가능)
 
@@ -66,7 +70,7 @@ npm run preview
 ```
 
 배포는 `tmp/deploy.sh` — `main`에 소스를, `dist/`를 `gh-pages`에 올리고 GitHub Pages를 갱신합니다.
-(https://0velo.github.io/mono/)
+(https://0velo.github.io/Mono/)
 
 ---
 
