@@ -1,11 +1,11 @@
 /* Minimal app-shell service worker: enables install + offline shell.
  * Scope-aware, so it also works when the app is served from a sub path
- * (GitHub Pages: https://cbalhub.github.io/sol-wallet/).
+ * (GitHub Pages: https://cbalhub.github.io/mono/).
  *
  * v5 (Mono): hashed asset names change with every deploy, so a new SW drops
  * the old caches on activate and the iPhone picks the new build on the next
  * launch. Also stops caching the boot shell under the old brand key. */
-const ROOT = new URL(self.registration.scope).pathname // e.g. '/sol-wallet/'
+const ROOT = new URL(self.registration.scope).pathname // e.g. '/mono/'
 const CACHE_PREFIX = 'mono-shell-'
 const CACHE = `${CACHE_PREFIX}v5`
 

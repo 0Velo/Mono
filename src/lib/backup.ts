@@ -1,7 +1,7 @@
 /**
  * One-tap encrypted backup file.
  *
- * The file carries the *sealed* vault that already sits in localStorage — the
+ * The file carries the *sealed* vault that already sits in IndexedDB — the
  * same AES-256-GCM ciphertext the PIN unlocks. No seed word, private key or
  * PIN ever enters the file, so it can live in iCloud Drive or Files without
  * exposing anything. Restoring still needs the PIN.
@@ -9,9 +9,11 @@
 
 import { isVaultShape, type Vault } from './vault'
 
+export type BackupApp = 'mono' | 'sol-wallet'
+
 export interface BackupFile extends Vault {
-  app: 'sol-wallet'
-  kind: 'sol-wallet-backup'
+  app: BackupApp
+  kind: string
   exportedAt: number
   /** Public key — identifies the file without revealing any secret. */
   address?: string
@@ -20,8 +22,8 @@ export interface BackupFile extends Vault {
 export function buildBackupFile(vault: Vault, address?: string): BackupFile {
   return {
     ...vault,
-    app: 'sol-wallet',
-    kind: 'sol-wallet-backup',
+    app: 'mono',
+    kind: 'mono-backup',
     exportedAt: Date.now(),
     ...(address ? { address } : {}),
   }
@@ -31,7 +33,7 @@ export function backupFileName(date = new Date()): string {
   const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(
     date.getDate(),
   ).padStart(2, '0')}`
-  return `sol-wallet-backup-${stamp}.json`
+  return `mono-backup-${stamp}.json`
 }
 
 export type BackupSaveResult = 'shared' | 'downloaded'
@@ -89,7 +91,8 @@ export function parseBackupFile(text: string): ParsedBackup {
     throw new Error('Mono 백업 파일이 아닙니다.')
   }
   const record = parsed as BackupFile
-  if (record.app && record.app !== 'sol-wallet') {
+  // Files exported before the rename carry app: 'sol-wallet' — still valid.
+  if (record.app && record.app !== 'mono' && record.app !== 'sol-wallet') {
     throw new Error('Mono 백업 파일이 아닙니다.')
   }
   return {

@@ -10,4 +10,4 @@ design
 tmp
 *.log
 .cache-tok
-.deploy-gh-pages
+.deploy-gh-pages*
