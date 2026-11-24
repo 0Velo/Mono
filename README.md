@@ -21,7 +21,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 - **지갑** — SOL · SPL 잔액과 평가금액, 24시간 변동, 실시간 시세(CoinGecko → Binance → DexScreener 폴백)
 - **보내기 / 받기** — 주소·수량 확인 단계, 토큰 계정 생성 수수료 미리 표시, Solscan 링크, QR 받기
 - **주소록** — "투빗 입금", "내 팬텀" 같은 이름으로 저장하고 보내기 화면에서 한 번에 선택
-- **계정 전환** — 같은 시드 문구에서 `m/44'/501'/n/0'` 파생. 이름을 붙여 여러 계정을 오가며 사용
+- **계정 전환** — 같은 시드 문구에서 `m/44'/501'/n'/0'` 파생. 이름을 붙여 여러 계정을 오가며 사용
 - **스왑** — Jupiter 애그리게이터 견적·실행, 슬리피지(0.5 / 1 / 3%), 가격 영향·최소 수령·경로 표시
 - **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장)
 - **숨긴 토큰** — 에어드랍 스팸을 목록에서 숨기고 필요할 때만 다시 보기
@@ -36,8 +36,19 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 | 잠금 해제 | 6자리 PIN 또는 Face ID(WebAuthn platform authenticator, `userVerification: required`) |
 | Face ID 봉인 | PRF 지원 시 HKDF로 키 유도, 미지원(iOS Safari/PWA) 시 **추출 불가능한** AES 키를 IndexedDB에 보관하고 인증 성공 후에만 사용 |
 | 잠금 시 | 복호화된 키페어의 `secretKey` 바이트를 `fill(0)`으로 덮어쓰고 메모리 참조 해제 |
-| 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음) |
+| 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음, `form-action 'none'`, `frame-src 'none'`) |
+| 스왑 서명 | Jupiter가 만든 트랜잭션을 **서명 전에** 검사: 수수료 지불자·서명자 확인, 허용 프로그램 목록, System/토큰 권한 명령 차단, 시뮬레이션 잔액 변화가 견적과 일치하는지 확인 |
+| RPC | 사용자 지정 RPC는 https만 허용(로컬 검증기용 localhost 예외) |
 | 백업 | PIN으로 암호화된 `.json` 한 개. 파일 안에 시드 문구 평문은 없음 |
+
+보안 감사 결과와 자동 검사 방법은 [`docs/SECURITY_AUDIT_REPORT.md`](docs/SECURITY_AUDIT_REPORT.md)에
+정리되어 있습니다. 직접 돌려 보려면:
+
+```bash
+npm run test:security        # 정적 검사 + 비밀키 스캔 + npm audit + crypto/tx 단위 테스트
+npm run test:security:ui     # 빌드된 앱을 Chromium에서 실제로 구동 (CSP·저장소·pagehide·XSS)
+npm run security:gate        # 배포 차단 게이트 (Critical/High)
+```
 
 Mono는 비수탁(non-custodial) 지갑입니다. 시드 문구와 PIN을 잃으면 복구할 수 없고, 누구도
 대신 복구해 줄 수 없습니다.

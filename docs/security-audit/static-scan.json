@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-11-24T21:06:23.333Z",
+  "checks": [
+    {
+      "id": "SS-01",
+      "title": "No unescaped HTML sinks (innerHTML / dangerouslySetInnerHTML / document.write)",
+      "status": "PASS",
+      "detail": "no hits"
+    },
+    {
+      "id": "SS-02",
+      "title": "No dynamic code evaluation (eval / new Function)",
+      "status": "PASS",
+      "detail": "no hits"
+    },
+    {
+      "id": "SS-03",
+      "title": "No console logging of application state (secrets must never reach a log)",
+      "status": "PASS",
+      "detail": "no hits"
+    },
+    {
+      "id": "SS-04",
+      "title": "No plaintext http:// endpoints outside localhost",
+      "status": "PASS",
+      "detail": "no hits"
+    },
+    {
+      "id": "SS-05",
+      "title": "External origin inventory",
+      "status": "INFO",
+      "detail": "api.binance.com (src/lib/chart.ts, src/lib/prices.ts) ; api.coingecko.com (src/lib/chart.ts, src/lib/prices.ts) ; api.devnet.solana.com (src/lib/rpc.ts) ; api.dexscreener.com (src/lib/prices.ts) ; api.mainnet-beta.solana.com (src/lib/rpc.ts) ; dashboard.helius.dev (src/screens/Settings.tsx) ; dashboard.quicknode.com (src/screens/Settings.tsx) ; devnet.helius-rpc.com (src/lib/rpc.ts) ; lite-api.jup.ag (src/lib/swap.ts) ; mainnet.helius-rpc.com (src/lib/rpc.ts) ; open.er-api.com (src/lib/prices.ts) ; quote-api.jup.ag (src/lib/swap.ts) ; solana-rpc.publicnode.com (src/lib/connection.ts) ; solana.drpc.org (src/lib/connection.ts) ; solscan.io (src/lib/rpc.ts)"
+    },
+    {
+      "id": "SS-06",
+      "title": "CSP blocks inline/external script, plugins, base-uri override, forms and frames",
+      "status": "PASS",
+      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+    },
+    {
+      "id": "SS-07",
+      "title": "CSP connect-src scope",
+      "status": "REVIEW",
+      "detail": "connect-src allows any https origin because the user may point the wallet at their own RPC; script execution stays self-only, so this cannot load code."
+    },
+    {
+      "id": "SS-08",
+      "title": "CSP img-src scope",
+      "status": "REVIEW",
+      "detail": "img-src allows https so token logos from DexScreener render; images cannot execute script and referrer/URLs are external-visible."
+    },
+    {
+      "id": "SS-09",
+      "title": "index.html has no inline script body, inline handler or external script",
+      "status": "PASS",
+      "detail": "inlineScript=false inlineHandler=false externalScript=false"
+    },
+    {
+      "id": "SS-10",
+      "title": "Service worker caches same-origin assets only and prunes old caches",
+      "status": "PASS",
+      "detail": "cacheVersion=10"
+    },
+    {
+      "id": "SS-11",
+      "title": "localStorage key inventory (no plaintext secret keys expected)",
+      "status": "INFO",
+      "detail": "faceid-wrap.v2, keys, mono.addressBook.v1, mono.faceid.v2, mono.meta.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.faceid.v1, solwallet.meta.v1, solwallet.vault.v1"
+    },
+    {
+      "id": "SS-12",
+      "title": "No mnemonic/secretKey written to localStorage",
+      "status": "PASS",
+      "detail": "no hits"
+    },
+    {
+      "id": "SS-13",
+      "title": "Every dependency version is pinned to a semver range",
+      "status": "PASS",
+      "detail": "@noble/hashes@^1.7.1, @solana/spl-token@^0.4.9, @solana/web3.js@^1.98.0, bip39@^3.1.0, bs58@^6.0.0, lucide-react@^0.468.0, qrcode.react@^4.2.0, react@^18.3.1, react-dom@^18.3.1"
+    },
+    {
+      "id": "SS-14",
+      "title": "Deployed bundle has no source maps",
+      "status": "PASS",
+      "detail": "none"
+    },
+    {
+      "id": "SS-15",
+      "title": "Built dist/index.html carries the CSP",
+      "status": "PASS",
+      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+    },
+    {
+      "id": "SS-16",
+      "title": "package-lock.json present and structurally valid",
+      "status": "PASS",
+      "detail": "394 locked package entries"
+    }
+  ],
+  "counts": {
+    "PASS": 12,
+    "INFO": 2,
+    "REVIEW": 2
+  }
+}

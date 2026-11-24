@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Connection, Keypair } from '@solana/web3.js'
-import { VersionedTransaction } from '@solana/web3.js'
 import { ArrowDownUp, Check, ChevronDown, ExternalLink, Info, Loader2 } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
@@ -19,12 +18,13 @@ import { KNOWN_TOKENS, type Portfolio } from '../lib/tokens'
 import {
   USDC_MINT,
   USDT_MINT,
-  base64ToBytes,
   fetchSwapQuote,
   fetchSwapTransaction,
   type SwapQuote,
 } from '../lib/swap'
 import { explorerTx, type NetworkId } from '../lib/rpc'
+import { executeSwap } from '../lib/swapExecute'
+import { SwapGuardError } from '../lib/swapGuard'
 
 interface SwapProps {
   portfolio: Portfolio | null
@@ -199,29 +199,22 @@ export default function Swap({
     setStep('sending')
     try {
       const built = await fetchSwapTransaction(quote, keypair.publicKey.toBase58())
-      const tx = VersionedTransaction.deserialize(base64ToBytes(built.transaction))
-      tx.sign([keypair])
-      const sig = await connection.sendRawTransaction(tx.serialize(), {
-        skipPreflight: false,
-        maxRetries: 3,
-        preflightCommitment: 'confirmed',
-      })
-      const blockhash = tx.message.recentBlockhash
-      const lastValidBlockHeight =
-        built.lastValidBlockHeight ?? (await connection.getBlockHeight('confirmed')) + 150
-      await connection.confirmTransaction(
-        { signature: sig, blockhash, lastValidBlockHeight },
-        'confirmed',
-      )
+      // Guard → simulate → sign → send happens in one place (lib/swapExecute).
+      // Nothing is signed unless the transaction pays with this key, needs only
+      // this signature, calls only swap programs, and the simulated balance
+      // changes match this quote.
+      const sig = await executeSwap({ connection, keypair, built, quote })
       setSignature(sig)
       setStep('done')
       onDone()
     } catch (error) {
       const message = String((error as Error)?.message ?? '')
       setSendError(
-        /reject|denied|User rejected/i.test(message)
-          ? '서명이 취소되었습니다.'
-          : message || '스왑에 실패했습니다.',
+        error instanceof SwapGuardError
+          ? message
+          : /reject|denied|User rejected/i.test(message)
+            ? '서명이 취소되었습니다.'
+            : message || '스왑에 실패했습니다.',
       )
       setStep('confirm')
     } finally {
@@ -487,8 +480,9 @@ export default function Swap({
         </div>
 
         <p className="mt-3 px-1 pb-6 text-[10.5px] leading-[1.65] text-faint">
-          Jupiter 애그리게이터가 최적 경로를 찾고, 서명은 이 기기에서만 이루어집니다. 가격 영향이
-          큰 거래는 손실이 될 수 있습니다.
+          Jupiter 애그리게이터가 최적 경로를 찾고, 서명은 이 기기에서만 이루어집니다. 서명 전에
+          트랜잭션을 네트워크에서 시뮬레이션해 잔액 변화가 이 견적과 같은지 확인하며, 다르면
+          서명하지 않습니다. 가격 영향이 큰 거래는 손실이 될 수 있습니다.
         </p>
       </div>
 

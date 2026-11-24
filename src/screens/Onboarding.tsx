@@ -8,6 +8,7 @@ import { showToast } from '../components/Toast'
 import { useWallet } from '../state/WalletProvider'
 import { loadKeys, prefetchKeys } from '../lib/keys'
 import { hasMnemonicShape, looksLikeSecretKey, mnemonicWords, normalizeMnemonic } from '../lib/words'
+import { DEFAULT_DERIVATION_PATH } from '../lib/paths'
 import { parseBackupFile, type ParsedBackup } from '../lib/backup'
 import type { SecretPayload } from '../lib/vault'
 import { cx, shortAddress } from '../lib/format'
@@ -90,7 +91,7 @@ export function Onboarding() {
   }
 
   const beginWithBackup = () => {
-    setPayload({ kind: 'mnemonic', mnemonic, path: "m/44'/501'/0'/0'" })
+    setPayload({ kind: 'mnemonic', mnemonic, path: DEFAULT_DERIVATION_PATH })
     setStep('pin')
   }
 
@@ -107,10 +108,10 @@ export function Onboarding() {
         setPayload({
           kind: 'mnemonic',
           mnemonic: normalizeMnemonic(importText),
-          path: "m/44'/501'/0'/0'",
+          path: DEFAULT_DERIVATION_PATH,
         })
       } else {
-        setPayload({ kind: 'secretKey', secretKey: importText.trim(), path: "m/44'/501'/0'/0'" })
+        setPayload({ kind: 'secretKey', secretKey: importText.trim(), path: DEFAULT_DERIVATION_PATH })
       }
       setStep('pin')
     } finally {

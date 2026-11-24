@@ -5,6 +5,7 @@
  * key derived from the user's 6-digit PIN via PBKDF2-SHA256 (210k rounds) and
  * sealed with AES-256-GCM before it is written to localStorage.
  */
+import { normalizePayloadPath } from './paths'
 
 export type SecretPayload =
   | { kind: 'mnemonic'; mnemonic: string; path: string }
@@ -83,6 +84,26 @@ export class InvalidPinError extends Error {
   }
 }
 
+/** The vault opened but does not hold a secret payload (corrupt or foreign file). */
+export class VaultFormatError extends Error {
+  constructor(message = '지갑 데이터를 읽을 수 없습니다.') {
+    super(message)
+    this.name = 'VaultFormatError'
+  }
+}
+
+function assertPayload(value: unknown): SecretPayload {
+  const candidate = value as Partial<SecretPayload> | null
+  if (!candidate || typeof candidate !== 'object') throw new VaultFormatError()
+  if (candidate.kind === 'mnemonic' && typeof candidate.mnemonic === 'string' && candidate.mnemonic.trim()) {
+    return normalizePayloadPath({ ...candidate, kind: 'mnemonic', mnemonic: candidate.mnemonic }) as SecretPayload
+  }
+  if (candidate.kind === 'secretKey' && typeof candidate.secretKey === 'string' && candidate.secretKey.trim()) {
+    return normalizePayloadPath({ ...candidate, kind: 'secretKey', secretKey: candidate.secretKey }) as SecretPayload
+  }
+  throw new VaultFormatError()
+}
+
 export async function decryptSecret(vault: Vault, pin: string): Promise<SecretPayload> {
   const key = await deriveAesKey(pin, fromBase64(vault.salt), vault.iter)
   try {
@@ -91,7 +112,7 @@ export async function decryptSecret(vault: Vault, pin: string): Promise<SecretPa
       key,
       buf(fromBase64(vault.ct)),
     )
-    return JSON.parse(new TextDecoder().decode(plaintext)) as SecretPayload
+    return assertPayload(JSON.parse(new TextDecoder().decode(plaintext)))
   } catch {
     throw new InvalidPinError()
   }

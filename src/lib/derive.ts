@@ -5,6 +5,11 @@
  * seed phrase, so implementing the standard directly (instead of a wrapper
  * library) keeps the browser bundle small and auditable, and guarantees the
  * same address for the same 12/24 words.
+ *
+ * SLIP-0010 defines ed25519 derivation for hardened indices only: there is no
+ * public (non-hardened) derivation for this curve. Accepting a non-hardened
+ * segment anyway would silently produce a key that no other wallet can
+ * reproduce, so it is a hard error here.
  */
 import { hmac } from '@noble/hashes/hmac'
 import { sha512 } from '@noble/hashes/sha512'
@@ -26,13 +31,23 @@ export function parseDerivationPath(path: string): number[] {
   })
 }
 
+/** Parses a path that ed25519 can actually derive: every segment hardened. */
+export function parseHardenedPath(path: string): number[] {
+  const indices = parseDerivationPath(path)
+  if (indices.length === 0) throw new Error('Derivation path must have at least one segment')
+  if (indices.some((index) => index < HARDENED_OFFSET)) {
+    throw new Error(`ed25519 (SLIP-0010) requires hardened derivation segments: ${path}`)
+  }
+  return indices
+}
+
 /** Returns the 32-byte ed25519 private seed for the path. */
 export function deriveEd25519Seed(seed: Uint8Array, path: string): Uint8Array {
   let digest = hmac(sha512, utf8ToBytes('ed25519 seed'), seed)
   let key = digest.slice(0, 32)
   let chainCode = digest.slice(32)
 
-  for (const index of parseDerivationPath(path)) {
+  for (const index of parseHardenedPath(path)) {
     // ed25519 only supports hardened derivation: 0x00 || key || ser32(index)
     const data = new Uint8Array(37)
     data[0] = 0

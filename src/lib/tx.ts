@@ -168,6 +168,52 @@ export async function maxTransferableSol(
   return balance > fee ? balance - fee : 0n
 }
 
+export type SendAffordabilityReason = 'ok' | 'amount' | 'insufficient-asset' | 'insufficient-fee'
+
+export interface SendAffordabilityInput {
+  kind: 'sol' | 'spl'
+  /** Base units of the asset being sent. */
+  amount: bigint
+  /** Balance of that asset in base units. */
+  balance: bigint
+  /** SOL balance in lamports (pays the fee and any new token account). */
+  solBalance: bigint
+  feeLamports: bigint
+  rentLamports: bigint
+}
+
+/**
+ * Whether a send can actually be paid for.
+ *
+ * Sending a whole SPL balance is not enough to know a send will succeed: the
+ * network fee — and the ~0.00204 SOL rent when the recipient has no token
+ * account yet — comes out of the SOL balance, which the token balance says
+ * nothing about. Checking both before enabling the button is what stops a
+ * "보내기" that can only fail at the RPC.
+ */
+export function assessSend(input: SendAffordabilityInput): {
+  ok: boolean
+  reason: SendAffordabilityReason
+  shortfallLamports: bigint
+} {
+  if (input.amount <= 0n) return { ok: false, reason: 'amount', shortfallLamports: 0n }
+  if (input.amount > input.balance) {
+    return { ok: false, reason: 'insufficient-asset', shortfallLamports: 0n }
+  }
+  const reserve = input.feeLamports + input.rentLamports
+  if (input.kind === 'sol') {
+    const needed = input.amount + reserve
+    if (needed > input.solBalance) {
+      return { ok: false, reason: 'insufficient-fee', shortfallLamports: needed - input.solBalance }
+    }
+    return { ok: true, reason: 'ok', shortfallLamports: 0n }
+  }
+  if (reserve > input.solBalance) {
+    return { ok: false, reason: 'insufficient-fee', shortfallLamports: reserve - input.solBalance }
+  }
+  return { ok: true, reason: 'ok', shortfallLamports: 0n }
+}
+
 export interface TokenDelta {
   mint: string
   amount: string

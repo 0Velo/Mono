@@ -495,7 +495,7 @@ export function Settings({
       <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-faint">
         <span>Mono 2.0.0</span>
         <span className="tnum">
-          Mono · v9 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
+          Mono · v10 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
         </span>
       </div>
     </div>

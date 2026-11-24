@@ -2,13 +2,11 @@ import * as bip39 from 'bip39'
 import { Keypair } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { deriveEd25519Seed } from './derive'
+import { DEFAULT_DERIVATION_PATH, accountPath, normalizePayloadPath } from './paths'
 import { mnemonicWords, normalizeMnemonic } from './words'
 import type { SecretPayload } from './vault'
 
-/** Phantom-compatible first account path. */
-export const DEFAULT_DERIVATION_PATH = "m/44'/501'/0'/0'"
-
-export { mnemonicWords, normalizeMnemonic }
+export { DEFAULT_DERIVATION_PATH, accountPath, mnemonicWords, normalizeMnemonic }
 export type { Keypair }
 
 export function generateMnemonic(words: 12 | 24 = 12): string {
@@ -41,10 +39,6 @@ export function keypairFromMnemonic(mnemonic: string, path = DEFAULT_DERIVATION_
 }
 
 /** Phantom-style additional accounts: m/44'/501'/index'/0'. */
-export function accountPath(index: number): string {
-  return `m/44'/501'/${Math.max(0, Math.trunc(index))}'/0'`
-}
-
 export function keypairForAccount(mnemonic: string, index: number): Keypair {
   return keypairFromMnemonic(mnemonic, accountPath(index))
 }
@@ -84,8 +78,9 @@ export function keypairFromSecretKeyBase58(secret: string): Keypair {
 }
 
 export function keypairFromPayload(payload: SecretPayload): Keypair {
-  if (payload.kind === 'mnemonic') return keypairFromMnemonic(payload.mnemonic, payload.path)
-  return keypairFromSecretKeyBase58(payload.secretKey)
+  const safe = normalizePayloadPath(payload)
+  if (safe.kind === 'mnemonic') return keypairFromMnemonic(safe.mnemonic, safe.path)
+  return keypairFromSecretKeyBase58(safe.secretKey)
 }
 
 export function secretPayloadFromMnemonic(mnemonic: string): SecretPayload {
@@ -103,9 +98,13 @@ export function secretPayloadFromKeypair(keypair: Keypair): SecretPayload {
 export function isValidAddress(address: string): boolean {
   try {
     const value = address.trim()
+    // Solana addresses are a Base58-encoded 32-byte public key: 32-44
+    // characters, but the decoded length is what actually matters. A 43-char
+    // string that decodes to 31 bytes is not an address and must not be
+    // offered as a recipient.
     if (value.length < 32 || value.length > 44) return false
-    bs58.decode(value)
-    return true
+    if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(value)) return false
+    return bs58.decode(value).length === 32
   } catch {
     return false
   }

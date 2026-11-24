@@ -1,0 +1,43 @@
+{
+  "status": "REVIEW",
+  "steps": [
+    "quote",
+    "swap-transaction",
+    "lookup-tables",
+    "guard",
+    "simulate"
+  ],
+  "rpc": "https://api.mainnet-beta.solana.com",
+  "user": "7kfAuKF5shD5Bx9q6i4bKP3knXEMjchuNWXZ8oUNGget",
+  "quote": {
+    "inAmount": "10000000",
+    "outAmount": "692056",
+    "otherAmountThreshold": "688596",
+    "priceImpactPct": 0,
+    "route": [
+      "Kipseli"
+    ],
+    "base": "https://lite-api.jup.ag/swap/v1"
+  },
+  "lookupTables": 1,
+  "instructionCount": 8,
+  "guard": {
+    "verdict": "PASS",
+    "programs": [
+      "ComputeBudget111111111111111111111111111111",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "11111111111111111111111111111111",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+    ],
+    "requiredSigners": [
+      "7kfAuKF5shD5Bx9q6i4bKP3knXEMjchuNWXZ8oUNGget"
+    ]
+  },
+  "simulation": {
+    "err": "AccountNotFound",
+    "logs": []
+  },
+  "simulationVerdict": "simulation-failed",
+  "simulationError": "시뮬레이션에서 스왑이 실패했습니다. 서명하지 않았습니다."
+}

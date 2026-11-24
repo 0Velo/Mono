@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:security": "node scripts/security/run.mjs",
+    "test:security:ui": "node scripts/security/run.mjs --ui",
+    "test:security:live": "node scripts/security/run.mjs --live",
+    "security:gate": "node scripts/security/gate.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^1.7.1",

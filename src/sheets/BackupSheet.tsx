@@ -23,8 +23,9 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
   const [revealed, setRevealed] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  // Resets on open and on close: the decrypted mnemonic must not stay in React
+  // state after the sheet is dismissed.
   useEffect(() => {
-    if (!open) return
     setPin('')
     setSecret(null)
     setError(null)

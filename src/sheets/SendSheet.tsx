@@ -21,6 +21,7 @@ import { isValidAddress } from '../lib/wallet'
 import { useAddressBook, removeEntry, saveEntry } from '../lib/addressBook'
 import {
   BASE_FEE_LAMPORTS,
+  assessSend,
   estimateFee,
   sendSol,
   sendSplToken,
@@ -78,7 +79,6 @@ export function SendSheet({
     setSaveOpen(false)
     setSaveLabel('')
   }, [open, initialMint])
-
   const assets: Asset[] = useMemo(() => buildAssets(portfolio), [portfolio])
 
   const asset = assets.find((item) => item.key === mint) ?? assets[0]
@@ -90,14 +90,42 @@ export function SendSheet({
       ? formatAmount(asset.amount, 9, 6)
       : formatAmount(asset.amount, asset.decimals, 6)
     : '0'
-  const insufficient = asset
-    ? asset.isSol
-      ? baseUnits + BASE_FEE_LAMPORTS > asset.amount
-      : baseUnits > asset.amount
-    : false
+  // Fee and rent known so far. The token-account rent is fetched below once
+  // the recipient address is valid; until then only the base fee is assumed.
+  const feeLamportsForCheck = fee?.feeLamports ?? BASE_FEE_LAMPORTS
+  const rentLamportsForCheck = fee?.rentLamports ?? 0n
+  const solBalance = portfolio?.solLamports ?? 0n
+  const affordability = assessSend({
+    kind: asset?.isSol ? 'sol' : 'spl',
+    amount: baseUnits,
+    balance: asset?.amount ?? 0n,
+    solBalance,
+    feeLamports: feeLamportsForCheck,
+    rentLamports: rentLamportsForCheck,
+  })
+  const insufficient = !affordability.ok && affordability.reason !== 'amount'
   const recipientValid = isValidAddress(recipient)
   const amountValid = baseUnits > 0n && !insufficient
   const canContinue = recipientValid && amountValid
+
+  // A token send needs its real fee + rent before the button can be trusted:
+  // whether the recipient already has a token account decides the
+  // ~0.00204 SOL rent, and that is read from chain as soon as the address is valid.
+  useEffect(() => {
+    if (!open || !connection || !keypair || !asset || asset.isSol || !recipientValid) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void estimateFee(connection, 'spl', keypair.publicKey, asset.mint, recipient)
+        .then((estimate) => {
+          if (!cancelled) setFee(estimate)
+        })
+        .catch(() => undefined)
+    }, 260)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [open, connection, keypair, asset, recipientValid, recipient])
 
   const setMax = () => {
     if (!asset) return
@@ -143,8 +171,12 @@ export function SendSheet({
       setError('보낼 수량을 입력하세요.')
       return
     }
-    if (insufficient) {
-      setError('잔액이 부족합니다.')
+    if (!affordability.ok) {
+      setError(
+        affordability.reason === 'insufficient-fee'
+          ? '수수료로 쓸 SOL이 부족합니다. SOL을 조금 남겨 두세요.'
+          : '잔액이 부족합니다.',
+      )
       return
     }
     setStep('confirm')
@@ -433,7 +465,11 @@ export function SendSheet({
 
           <div className="mt-5 text-[11.5px] leading-relaxed text-faint">
             네트워크 수수료 {formatTxAmount(feeLamports, 9)} SOL
-            {!asset.isSol && ' · 받는 지갑에 토큰 계정이 없으면 약 0.002 SOL이 추가됩니다.'}
+            {rentLamports > 0n
+              ? ` · 토큰 계정 생성 ${formatTxAmount(rentLamports, 9)} SOL`
+              : !asset.isSol
+                ? ' · 받는 지갑에 토큰 계정이 없으면 약 0.002 SOL이 추가됩니다.'
+                : ''}
           </div>
 
           {error && (

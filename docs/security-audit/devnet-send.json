@@ -1,0 +1,34 @@
+{
+  "status": "SIMULATED",
+  "rpc": "https://api.devnet.solana.com",
+  "airdrop": {
+    "attempted": true,
+    "ok": false,
+    "error": "https://api.devnet.solana.com: 410 Gone:  {\"jsonrpc\":\"2.0\",\"error\":{\"code\": 410, \"message\":\"The RPC faucet is closed on this cluster. Request test SOL at https://faucet.solana.com\"}, \"id\": \"3ae9679f-5139-4023-8a91-e898e676dd60\" } | https://api.devnet.solana.com: 410 Gone:  {\"jsonrpc\":\"2.0\",\"error\":{\"code\": 410, \"message\":\"The RPC faucet is closed on this cluster. Request test SOL at https://faucet.solana.com\"}, \"id\": \"c7e0c0ce-9202-4244-8144-7fd42c11edd8\" } | https://solana-devnet.publicnode.com: 404 Not Found: | https://solana-devnet.publicnode.com: 404 Not Found:"
+  },
+  "notes": [
+    "payer=7VWEfZ4A7egRM2Q1LHhx3TWvS9ktMCDz8xcA4BsZHmpH",
+    "recipient=2nprxPabhTV2HURUue5BD1CjLkTA6paKYqv1aykoaVKa",
+    "faucet did not fund the disposable key; falling back to a signature-verified simulation"
+  ],
+  "faucetProbes": [
+    {
+      "url": "https://faucet.solana.com/api/request",
+      "httpStatus": 400,
+      "body": "GitHub authentication is required. Please sign in with GitHub to use the faucet."
+    },
+    {
+      "url": "https://faucet.triangleplatform.com/solana/devnet",
+      "httpStatus": 503,
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>Service Suspended</title>\n</head>\n<body>\nThis s"
+    }
+  ],
+  "simulation": {
+    "err": "InvalidAccountForFee",
+    "logs": [],
+    "unitsConsumed": 0,
+    "localSignatureVerified": true,
+    "tamperedSignatureRejected": true,
+    "tamperedSignatureError": "SignatureFailure"
+  }
+}

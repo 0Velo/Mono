@@ -1,0 +1,73 @@
+name: security
+
+# Blocks mainnet publishing: this repository deploys by pushing `dist/` to the
+# `gh-pages` branch, so make this workflow a required status check on `main`
+# (Settings → Branches → Branch protection) before any deploy job runs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Static, secrets, dependencies, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The secret scan walks every commit, so history is required.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck and build
+        run: npm run build
+      - name: Security suite (crypto, tx, swap guard, static, secrets, npm audit)
+        run: npm run test:security
+      - name: Deploy gate (Critical/High findings block the build)
+        run: npm run security:gate
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit
+          path: docs/security-audit/
+          retention-days: 30
+
+  browser:
+    name: Built-app checks (CSP, storage, pagehide, XSS)
+    runs-on: ubuntu-latest
+    needs: audit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npm run build
+      - run: pip install --disable-pip-version-check playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Drive the production build in Chromium
+        run: npm run test:security:ui
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-ui
+          path: docs/security-audit/
+          retention-days: 30

@@ -1,0 +1,914 @@
+{
+  "startedAt": "2026-11-24T21:06:22.730Z",
+  "node": "v20.18.1",
+  "sections": {
+    "static": {
+      "generatedAt": "2026-11-24T21:06:23.333Z",
+      "checks": [
+        {
+          "id": "SS-01",
+          "title": "No unescaped HTML sinks (innerHTML / dangerouslySetInnerHTML / document.write)",
+          "status": "PASS",
+          "detail": "no hits"
+        },
+        {
+          "id": "SS-02",
+          "title": "No dynamic code evaluation (eval / new Function)",
+          "status": "PASS",
+          "detail": "no hits"
+        },
+        {
+          "id": "SS-03",
+          "title": "No console logging of application state (secrets must never reach a log)",
+          "status": "PASS",
+          "detail": "no hits"
+        },
+        {
+          "id": "SS-04",
+          "title": "No plaintext http:// endpoints outside localhost",
+          "status": "PASS",
+          "detail": "no hits"
+        },
+        {
+          "id": "SS-05",
+          "title": "External origin inventory",
+          "status": "INFO",
+          "detail": "api.binance.com (src/lib/chart.ts, src/lib/prices.ts) ; api.coingecko.com (src/lib/chart.ts, src/lib/prices.ts) ; api.devnet.solana.com (src/lib/rpc.ts) ; api.dexscreener.com (src/lib/prices.ts) ; api.mainnet-beta.solana.com (src/lib/rpc.ts) ; dashboard.helius.dev (src/screens/Settings.tsx) ; dashboard.quicknode.com (src/screens/Settings.tsx) ; devnet.helius-rpc.com (src/lib/rpc.ts) ; lite-api.jup.ag (src/lib/swap.ts) ; mainnet.helius-rpc.com (src/lib/rpc.ts) ; open.er-api.com (src/lib/prices.ts) ; quote-api.jup.ag (src/lib/swap.ts) ; solana-rpc.publicnode.com (src/lib/connection.ts) ; solana.drpc.org (src/lib/connection.ts) ; solscan.io (src/lib/rpc.ts)"
+        },
+        {
+          "id": "SS-06",
+          "title": "CSP blocks inline/external script, plugins, base-uri override, forms and frames",
+          "status": "PASS",
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+        },
+        {
+          "id": "SS-07",
+          "title": "CSP connect-src scope",
+          "status": "REVIEW",
+          "detail": "connect-src allows any https origin because the user may point the wallet at their own RPC; script execution stays self-only, so this cannot load code."
+        },
+        {
+          "id": "SS-08",
+          "title": "CSP img-src scope",
+          "status": "REVIEW",
+          "detail": "img-src allows https so token logos from DexScreener render; images cannot execute script and referrer/URLs are external-visible."
+        },
+        {
+          "id": "SS-09",
+          "title": "index.html has no inline script body, inline handler or external script",
+          "status": "PASS",
+          "detail": "inlineScript=false inlineHandler=false externalScript=false"
+        },
+        {
+          "id": "SS-10",
+          "title": "Service worker caches same-origin assets only and prunes old caches",
+          "status": "PASS",
+          "detail": "cacheVersion=10"
+        },
+        {
+          "id": "SS-11",
+          "title": "localStorage key inventory (no plaintext secret keys expected)",
+          "status": "INFO",
+          "detail": "faceid-wrap.v2, keys, mono.addressBook.v1, mono.faceid.v2, mono.meta.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.faceid.v1, solwallet.meta.v1, solwallet.vault.v1"
+        },
+        {
+          "id": "SS-12",
+          "title": "No mnemonic/secretKey written to localStorage",
+          "status": "PASS",
+          "detail": "no hits"
+        },
+        {
+          "id": "SS-13",
+          "title": "Every dependency version is pinned to a semver range",
+          "status": "PASS",
+          "detail": "@noble/hashes@^1.7.1, @solana/spl-token@^0.4.9, @solana/web3.js@^1.98.0, bip39@^3.1.0, bs58@^6.0.0, lucide-react@^0.468.0, qrcode.react@^4.2.0, react@^18.3.1, react-dom@^18.3.1"
+        },
+        {
+          "id": "SS-14",
+          "title": "Deployed bundle has no source maps",
+          "status": "PASS",
+          "detail": "none"
+        },
+        {
+          "id": "SS-15",
+          "title": "Built dist/index.html carries the CSP",
+          "status": "PASS",
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+        },
+        {
+          "id": "SS-16",
+          "title": "package-lock.json present and structurally valid",
+          "status": "PASS",
+          "detail": "394 locked package entries"
+        }
+      ],
+      "counts": {
+        "PASS": 12,
+        "INFO": 2,
+        "REVIEW": 2
+      }
+    },
+    "secrets": {
+      "generatedAt": "2026-11-24T21:06:25.663Z",
+      "scanned": {
+        "trackedFiles": 109,
+        "commits": 16
+      },
+      "workingTree": {
+        "findings": [],
+        "allowedTestVectors": 9
+      },
+      "builtArtifacts": {
+        "findings": []
+      },
+      "gitHistory": {
+        "findings": [],
+        "error": null
+      },
+      "status": "PASS"
+    },
+    "dependencies": {
+      "counts": {
+        "info": 0,
+        "low": 6,
+        "moderate": 7,
+        "high": 4,
+        "critical": 0,
+        "total": 17
+      },
+      "advisories": [
+        {
+          "package": "@solana/buffer-layout-utils",
+          "severity": "high",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/spl-token",
+            "version": "0.1.8",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "@solana/spl-token",
+          "severity": "high",
+          "range": "*",
+          "direct": true,
+          "fixAvailable": {
+            "name": "@solana/spl-token",
+            "version": "0.1.8",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "@solana/spl-token-group",
+          "severity": "moderate",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/spl-token",
+            "version": "0.1.8",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "@solana/spl-token-metadata",
+          "severity": "moderate",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/spl-token",
+            "version": "0.1.8",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "@solana/web3.js",
+          "severity": "moderate",
+          "range": "<=0.0.0-pr-29130 || 0.0.4 - 1.99.0",
+          "direct": true,
+          "fixAvailable": {
+            "name": "@solana/web3.js",
+            "version": "3.2.1",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "bigint-buffer",
+          "severity": "high",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/spl-token",
+            "version": "0.1.8",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "bigint-buffer Vulnerable to Buffer Overflow via toBigIntLE() Function",
+              "url": "https://github.com/advisories/GHSA-3gc7-fjrx-p6mg",
+              "cvss": 7.5,
+              "cwe": [
+                "CWE-120"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "browserify-sign",
+          "severity": "low",
+          "range": ">=2.4.0",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "create-ecdh",
+          "severity": "low",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "crypto-browserify",
+          "severity": "low",
+          "range": ">=3.4.0",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "elliptic",
+          "severity": "low",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "Elliptic Uses a Cryptographic Primitive with a Risky Implementation",
+              "url": "https://github.com/advisories/GHSA-848j-6mx2-7j84",
+              "cvss": 5.6,
+              "cwe": [
+                "CWE-1240"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "esbuild",
+          "severity": "moderate",
+          "range": "<=0.24.2",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite",
+            "version": "6.4.6",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "esbuild enables any website to send any requests to the development server and read the response",
+              "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+              "cvss": 5.3,
+              "cwe": [
+                "CWE-346"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "jayson",
+          "severity": "moderate",
+          "range": "2.0.6 - 4.3.0",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/web3.js",
+            "version": "3.2.1",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "node-stdlib-browser",
+          "severity": "low",
+          "range": "*",
+          "direct": false,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        },
+        {
+          "package": "stream-json",
+          "severity": "moderate",
+          "range": "<=3.5.0",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/web3.js",
+            "version": "3.2.1",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "stream-json: pick/ignore/filter/replace filters are O(depth²) on nested input — small crafted JSON blocks the event loop for seconds→minutes (DoS)",
+              "url": "https://github.com/advisories/GHSA-528h-pc64-c93x",
+              "cvss": 6.2,
+              "cwe": [
+                "CWE-407"
+              ]
+            },
+            {
+              "title": "stream-json: JSONC parser and verifier re-scan the whole accumulated comment on every input chunk",
+              "url": "https://github.com/advisories/GHSA-hqr4-qq8f-hg3x",
+              "cvss": 6.2,
+              "cwe": [
+                "CWE-407"
+              ]
+            },
+            {
+              "title": "stream-json has a prototype pollution issue: Assembler writes this.current[this.key] on plain objects",
+              "url": "https://github.com/advisories/GHSA-mjw6-4jj6-33hc",
+              "cvss": 5.1,
+              "cwe": [
+                "CWE-1321"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "uuid",
+          "severity": "moderate",
+          "range": "<11.1.1",
+          "direct": false,
+          "fixAvailable": {
+            "name": "@solana/web3.js",
+            "version": "3.2.1",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+              "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+              "cvss": 7.5,
+              "cwe": [
+                "CWE-787",
+                "CWE-1285"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "vite",
+          "severity": "high",
+          "range": "<=6.4.3",
+          "direct": true,
+          "fixAvailable": {
+            "name": "vite",
+            "version": "6.4.6",
+            "isSemVerMajor": true
+          },
+          "advisories": [
+            {
+              "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
+              "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
+              "cvss": 0,
+              "cwe": [
+                "CWE-22",
+                "CWE-200"
+              ]
+            },
+            {
+              "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
+              "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
+              "cvss": 0,
+              "cwe": [
+                "CWE-73",
+                "CWE-522"
+              ]
+            },
+            {
+              "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
+              "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
+              "cvss": 0,
+              "cwe": [
+                "CWE-78"
+              ]
+            },
+            {
+              "title": "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
+              "url": "https://github.com/advisories/GHSA-r825-w8mm-5pxw",
+              "cvss": 0,
+              "cwe": [
+                "CWE-88"
+              ]
+            },
+            {
+              "title": "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
+              "url": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
+              "cvss": 0,
+              "cwe": [
+                "CWE-77"
+              ]
+            },
+            {
+              "title": "Vite: Cross origin script execution through Vite custom middleware",
+              "url": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw",
+              "cvss": 0,
+              "cwe": [
+                "CWE-80"
+              ]
+            },
+            {
+              "title": "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
+              "url": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22",
+              "cvss": 0,
+              "cwe": [
+                "CWE-22",
+                "CWE-284"
+              ]
+            },
+            {
+              "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
+              "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
+              "cvss": 0,
+              "cwe": [
+                "CWE-22",
+                "CWE-200"
+              ]
+            }
+          ]
+        },
+        {
+          "package": "vite-plugin-node-polyfills",
+          "severity": "low",
+          "range": ">=0.3.0",
+          "direct": true,
+          "fixAvailable": {
+            "name": "vite-plugin-node-polyfills",
+            "version": "0.2.0",
+            "isSemVerMajor": true
+          },
+          "advisories": []
+        }
+      ],
+      "prodDependencies": 82,
+      "totalDependencies": 393
+    },
+    "unit": {
+      "tests": [
+        {
+          "name": "an exported backup file contains no seed words, key material or PIN",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "export → parse → decrypt reproduces the original secret payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wrong PIN cannot restore a backup file",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered backup ciphertext is rejected on restore",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a backup whose iteration count was lowered to speed up brute force still fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "non-backup files are rejected with a readable message",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the backup file name is date-stamped and .json",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "derived addresses match the independent Python oracle for 12 and 24 words",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the well-known BIP39 test phrase derives the published Phantom address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "accountPath hardens both the 501 and the account index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "deriveAccounts derives exactly what keypairForAccount derives, per index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "parseDerivationPath rejects non-numeric and out-of-range segments",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "ed25519 derivation refuses non-hardened segments (SLIP-0010 has no public derivation)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "secretPayloadFromMnemonic stores the hardened Phantom path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "looksLikeRpc accepts https endpoints",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "looksLikeRpc refuses plain http (the RPC URL is typed in and can be remote)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "looksLikeRpc refuses non-http schemes and junk",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an empty custom RPC falls back to the official default per network",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "explorer links are always https and keep the query for devnet only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL: a send is affordable only if the amount plus the fee fits",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL: more than the balance is the asset shortfall, not the fee",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a zero or negative amount is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL: sending the whole token balance needs SOL for the fee and the new token account",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL: a token amount above the balance is rejected before the fee is considered",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the source uses the shared affordability check, not an inline balance compare",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no HTML injection sinks",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no code-evaluation sinks",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no console logging (keys must never reach a log)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no plaintext http:// endpoint outside localhost",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the document CSP denies frames, forms, plugins and base-uri override",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "index.html loads only same-origin scripts, with no inline handler attributes",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker is same-origin only and drops old caches on activate",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the shipped build carries no source maps and no /src/ path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "derivation path literals in the app are hardened",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the onboarding screen names the shared standard path instead of a literal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "custom RPC input is validated as https-only in the settings screen",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a normal Jupiter swap passes the structural guard",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction paid for by another key is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that requires a second signature is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that does not need this wallet signature is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unknown program is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL transfer to a stranger hidden in the swap is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL transfer to the wallet own wSOL account is allowed (wrap)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unexpected System instruction (assign/allocate) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token approve (delegate to a third party) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token setAuthority (hand over account ownership) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "closing a token account into another wallet is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token transfer authorized by someone else is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that matches the quote passes",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation error blocks the swap",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that takes more SOL than the quoted input is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that pays less than the minimum received is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation without balance data fails closed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an SPL input that is over-drawn is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the SOL fee tolerance is small enough to be a real bound",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap runs guard → simulate → sign → send → confirm and returns the signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts a draining transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts when the simulation fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts when the simulation moves more than quoted",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap rejects a payload that is not a transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "maxTransferableSol always leaves the network fee behind",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "estimateFee charges rent only when the recipient token account must be created",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL send to your own address and a zero amount are refused before any RPC call",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an invalid recipient address never reaches signing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "vault declares PBKDF2-SHA256 with 210,000 iterations, 16-byte salt, 12-byte IV",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "encrypt → decrypt round-trips the exact payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wrong PIN is rejected with InvalidPinError and yields no payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered authentication tag (last ciphertext byte) throws instead of returning data",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered ciphertext body throws",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered IV throws (GCM must not open with the wrong nonce)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered salt throws (key derivation must not silently succeed)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a downgraded iteration count throws (KDF parameters are authenticated by use)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a truncated ciphertext throws instead of returning a partial payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "IV and salt are fresh for every vault (no key/nonce reuse)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the vault never contains the mnemonic in clear text",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "isVaultShape accepts a real vault and rejects malformed records",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "validateMnemonic accepts 12 and 24 valid words and rejects everything else",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "normalizeMnemonic folds case, newlines and full-width spaces",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a 64-byte Base58 secret key imports and round-trips its address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a 32-byte Base58 seed imports as a valid keypair",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "wrong-length and non-Base58 keys are rejected with a readable error",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "isValidAddress accepts real addresses and rejects malformed input",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a mnemonic-derived payload always reports the same address",
+          "status": "PASS",
+          "file": null
+        }
+      ],
+      "pass": 85,
+      "fail": 0,
+      "compileErrors": []
+    }
+  },
+  "durationSeconds": 18.67,
+  "blockingFailures": []
+}

@@ -509,9 +509,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener('visibilitychange', onVisibility)
 
-    // Last line of defence: never leave a decrypted key behind a closed tab.
+    // Last line of defence: when the page is put away (tab closed, app
+    // backgrounded into a frozen page) drop the decrypted key AND the decrypted
+    // payload, and return the UI to the locked state. Wiping only the key bytes
+    // left `unlocked` true with a dead keypair, so the next send signed garbage
+    // while the mnemonic was still in memory.
     const onPageHide = () => {
-      wipeKeypair(keypairRef.current)
+      lock()
     }
     window.addEventListener('pagehide', onPageHide)
 
@@ -521,7 +525,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('pagehide', onPageHide)
     }
-  }, [isUnlocked, autoLockMinutes, setKeypair])
+  }, [isUnlocked, autoLockMinutes, lock, setKeypair])
 
   const activeAccount = accounts.find((account) => account.index === activeIndex) ?? accounts[0] ?? null
 

@@ -2,14 +2,13 @@
  * Scope-aware, so it also works when the app is served from a sub path
  * (GitHub Pages: https://cbalhub.github.io/mono/).
  *
- * v9 (Mono): knob alignment fix — the toggle knob is pinned with left-0 so it
- * no longer drifts right inside the settings button (IMG_0160). v9 also shows a
- * "Mono · v9" label in 설정. v8 rule unchanged: hashed asset names change with
- * every deploy, so a new SW drops the old caches on activate and the iPhone picks
- * the new build on the next launch. */
+ * v10 (Mono): security build. Same caching rules as v9 (knob alignment fix,
+ * "Mono · v10" label in 설정); hashed asset names change with every deploy, so a
+ * new SW drops the old caches on activate and the iPhone picks the new build on
+ * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v9`
+const CACHE = `${CACHE_PREFIX}v10`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

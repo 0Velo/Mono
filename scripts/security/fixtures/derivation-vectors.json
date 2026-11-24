@@ -1,0 +1,59 @@
+{
+  "generator": "slip10_oracle.py (BIP39 + SLIP-0010 reference)",
+  "vectors": [
+    {
+      "name": "bip39-test-12",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "path": "m/44'/501'/0'/0'",
+      "address": "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk"
+    },
+    {
+      "name": "bip39-test-12",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "path": "m/44'/501'/1'/0'",
+      "address": "Hh8QwFUA6MtVu1qAoq12ucvFHNwCcVTV7hpWjeY1Hztb"
+    },
+    {
+      "name": "bip39-test-12",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "path": "m/44'/501'/2'/0'",
+      "address": "7WktogJEd2wQ9eH2oWusmcoFTgeYi6rS632UviTBJ2jm"
+    },
+    {
+      "name": "bip39-test-24",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+      "path": "m/44'/501'/0'/0'",
+      "address": "3Cy3YNTFywCmxoxt8n7UH6hg6dLo5uACowX3CFceaSnx"
+    },
+    {
+      "name": "bip39-test-24",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+      "path": "m/44'/501'/1'/0'",
+      "address": "5frqxtii9LeGq2bz3dSNokvZcEooF483MzeU24JrhcTA"
+    },
+    {
+      "name": "bip39-test-24",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+      "path": "m/44'/501'/2'/0'",
+      "address": "3SuKj3MZU9dMZ9oR1R7afttihZFkWpfUmduuv9rmfMa1"
+    },
+    {
+      "name": "mixed-12",
+      "mnemonic": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "path": "m/44'/501'/0'/0'",
+      "address": "BLeUXTx9thHGT7VJUtF9vHEmfMDgW1nnKZ9UVer2CoLX"
+    },
+    {
+      "name": "mixed-12",
+      "mnemonic": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "path": "m/44'/501'/1'/0'",
+      "address": "EdjcxP8MmXP4yRHguEVoH75kbXVfZNFXPgNfL9NqcXXK"
+    },
+    {
+      "name": "mixed-12",
+      "mnemonic": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "path": "m/44'/501'/2'/0'",
+      "address": "AFG4eoTGSCdNemYFQhhJBqT7tJwo3WdC4Raeq9SkXx7p"
+    }
+  ]
+}
