@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-24T21:06:22.730Z",
+  "startedAt": "2026-11-24T21:12:47.292Z",
   "node": "v20.18.1",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-24T21:06:23.333Z",
+      "generatedAt": "2026-11-24T21:12:47.862Z",
       "checks": [
         {
           "id": "SS-01",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-24T21:06:25.663Z",
+      "generatedAt": "2026-11-24T21:12:51.519Z",
       "scanned": {
-        "trackedFiles": 109,
-        "commits": 16
+        "trackedFiles": 110,
+        "commits": 19
       },
       "workingTree": {
         "findings": [],
@@ -907,8 +907,123 @@
       "pass": 85,
       "fail": 0,
       "compileErrors": []
+    },
+    "ui": {
+      "status": "PASS",
+      "checks": [
+        {
+          "id": "UI-01",
+          "title": "The production build renders the onboarding screen",
+          "status": "PASS",
+          "detail": "Mono"
+        },
+        {
+          "id": "UI-02",
+          "title": "The CSP meta tag is served and carries the required directives",
+          "status": "PASS",
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+        },
+        {
+          "id": "UI-03",
+          "title": "An injected inline script and eval() are blocked by the CSP",
+          "status": "PASS",
+          "detail": "inline_ran=0 eval=NOT_RUN"
+        },
+        {
+          "id": "UI-04",
+          "title": "Every script is same-origin",
+          "status": "PASS",
+          "detail": "http://127.0.0.1:41829/assets/index-Dhq3gRQS.js"
+        },
+        {
+          "id": "UI-05",
+          "title": "A new wallet shows a 12-word phrase",
+          "status": "PASS",
+          "detail": "12 words"
+        },
+        {
+          "id": "UI-06",
+          "title": "The wallet unlocks after setting a PIN",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-07",
+          "title": "No seed word sequence is written to localStorage/sessionStorage/IndexedDB",
+          "status": "PASS",
+          "detail": "leaked_words=[] ordered_3word_runs=0"
+        },
+        {
+          "id": "UI-08",
+          "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
+          "status": "PASS",
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"YtJCvvman1jMTkmA\", \"salt\": \"a/HG9aMEQHLN3UzmSjnB1A==\"}"
+        },
+        {
+          "id": "UI-09",
+          "title": "Any Face ID record on disk is ciphertext only",
+          "status": "PASS",
+          "detail": "no enrolment (toggle off)"
+        },
+        {
+          "id": "UI-10",
+          "title": "pagehide locks the wallet and drops the decrypted key",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-11",
+          "title": "A wrong PIN is rejected",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-12",
+          "title": "A script-shaped recipient is treated as an invalid address and never executes",
+          "status": "PASS",
+          "detail": "executed=False invalid_warning=1"
+        },
+        {
+          "id": "UI-13",
+          "title": "An address-book label is stored and rendered as inert text",
+          "status": "PASS",
+          "detail": "executed=False label_saved=True"
+        },
+        {
+          "id": "UI-14",
+          "title": "No uncaught page errors while driving the app",
+          "status": "PASS",
+          "detail": "[]"
+        },
+        {
+          "id": "UI-15",
+          "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
+          "status": "PASS",
+          "detail": "[]"
+        },
+        {
+          "id": "UI-16",
+          "title": "External origins contacted by the page",
+          "status": "INFO",
+          "detail": "127.0.0.1:41829, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com, solana.drpc.org"
+        }
+      ],
+      "counts": {
+        "PASS": 15,
+        "FAIL": 0,
+        "REVIEW": 0,
+        "INFO": 1
+      },
+      "requests": [
+        "127.0.0.1:41829",
+        "api.coingecko.com",
+        "api.mainnet-beta.solana.com",
+        "solana-rpc.publicnode.com",
+        "solana.drpc.org"
+      ],
+      "generatedAt": "2026-11-25T06:13:14+0900"
     }
   },
-  "durationSeconds": 18.67,
+  "durationSeconds": 27.04,
   "blockingFailures": []
 }

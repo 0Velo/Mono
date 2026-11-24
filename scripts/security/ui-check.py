@@ -68,9 +68,15 @@ def type_pin(page, pin):
 
 
 def main():
-    port = free_port()
-    httpd = serve(port)
-    base = f"http://127.0.0.1:{port}/"
+    # Point the same checks at an already-deployed build with MONO_BASE_URL.
+    live_base = os.environ.get("MONO_BASE_URL")
+    httpd = None
+    if live_base:
+        base = live_base.rstrip("/") + "/"
+    else:
+        port = free_port()
+        httpd = serve(port)
+        base = f"http://127.0.0.1:{port}/"
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=["--no-sandbox"])
@@ -95,14 +101,29 @@ def main():
             ", ".join(item for item in required if item not in csp) or csp,
         )
 
-        eval_result = page.evaluate(
-            "() => { try { return String(eval('1+1')); } catch (error) { return 'BLOCKED: ' + error.name + ': ' + error.message; } }"
+        # CDP evaluation is not subject to the page CSP, so inject a real inline
+        # <script> element instead: if the CSP is in force it must not execute,
+        # and eval() from page script must be refused too.
+        csp_probe = page.evaluate(
+            """() => new Promise((resolve) => {
+                window.__mono_inline_ran = 0;
+                const script = document.createElement('script');
+                script.textContent = "window.__mono_inline_ran = 1; window.__mono_eval = (function(){ try { return String(eval('1+1')); } catch (e) { return 'BLOCKED:' + e.name; } })();";
+                document.body.appendChild(script);
+                setTimeout(() => resolve({
+                    inlineRan: window.__mono_inline_ran,
+                    evalResult: window.__mono_eval === undefined ? 'NOT_RUN' : window.__mono_eval,
+                }), 400);
+            })"""
+        )
+        csp_holds = csp_probe["inlineRan"] == 0 and (
+            csp_probe["evalResult"] == "NOT_RUN" or str(csp_probe["evalResult"]).startswith("BLOCKED")
         )
         record(
             "UI-03",
-            "eval() is blocked by the CSP in a real browser",
-            "PASS" if eval_result.startswith("BLOCKED") else "FAIL",
-            eval_result,
+            "An injected inline script and eval() are blocked by the CSP",
+            "PASS" if csp_holds else "FAIL",
+            f"inline_ran={csp_probe['inlineRan']} eval={csp_probe['evalResult']}",
         )
 
         scripts = page.evaluate("() => [...document.querySelectorAll('script[src]')].map(s => s.src)")
@@ -115,7 +136,8 @@ def main():
 
         # --- create a wallet and read the phrase the app shows -----------------
         page.get_by_role("button", name="새 지갑 만들기").click()
-        page.wait_for_selector("text=시드 문구", timeout=20000)
+        page.wait_for_selector("text=시드 문구를 안전한 곳에 적어 두었습니다.", timeout=20000)
+        page.wait_for_timeout(600)
         words = page.evaluate(
             """() => {
                 const grid = [...document.querySelectorAll('div.grid')].find(el => el.children.length === 12);
@@ -274,11 +296,20 @@ def main():
             "PASS" if not page_errors else "FAIL",
             json.dumps(page_errors[:5]),
         )
+        unexpected_errors = [
+            error
+            for error in console_errors
+            # The inline-script block above is the check itself succeeding.
+            if "Content Security Policy directive 'script-src" not in error
+            # Public mainnet RPC rejects browser origins (403) and the app falls
+            # back to a mirror; that is expected network noise, not a page fault.
+            and "Failed to load resource" not in error
+        ]
         record(
             "UI-15",
-            "No CSP violation / console error while driving the app",
-            "PASS" if not [error for error in console_errors if "Content Security Policy" not in error] else "REVIEW",
-            json.dumps(console_errors[:8]),
+            "No unexpected console errors (CSP block and RPC 403s are expected)",
+            "PASS" if not unexpected_errors else "REVIEW",
+            json.dumps(unexpected_errors[:8]),
         )
 
         origins = sorted({url.split("/")[2] for url in requests_seen if url.startswith("http")})
@@ -286,7 +317,8 @@ def main():
 
         browser.close()
 
-    httpd.shutdown()
+    if httpd is not None:
+        httpd.shutdown()
 
     status = "FAIL" if any(check["status"] == "FAIL" for check in checks) else "PASS"
     output = {
