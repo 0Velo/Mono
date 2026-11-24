@@ -75,7 +75,7 @@ function Toggle({
     >
       <span
         className={cx(
-          'absolute top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(13,14,18,0.18)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          'absolute left-0 top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(13,14,18,0.18)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
           value ? 'translate-x-[21px]' : 'translate-x-[3px]',
         )}
       />
@@ -495,7 +495,7 @@ export function Settings({
       <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-faint">
         <span>Mono 2.0.0</span>
         <span className="tnum">
-          Mono · v8 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
+          Mono · v9 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
         </span>
       </div>
     </div>
