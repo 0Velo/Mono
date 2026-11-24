@@ -67,28 +67,95 @@ export async function estimateFee(
   }
 }
 
+const STEP_TIMEOUT_MS = 20_000
+const CONFIRM_TIMEOUT_MS = 90_000
+const CONFIRM_POLL_MS = 1_500
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Rejects instead of hanging forever when an RPC call never answers. */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
+/**
+ * Confirms by polling getSignatureStatuses over plain HTTPS instead of
+ * connection.confirmTransaction(), which waits on a WebSocket subscription.
+ * The page CSP allows `https:` but not `wss:`, and iOS home-screen apps drop
+ * sockets easily, so that wait could hang with the spinner on screen.
+ */
 async function confirm(
   connection: Connection,
   signature: string,
-  blockhash: string,
   lastValidBlockHeight: number,
 ): Promise<void> {
-  const result = await connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    'confirmed',
-  )
-  if (result.value.err) {
-    throw new Error('트랜잭션이 컨펌되지 않았습니다. Solscan에서 상태를 확인하세요.')
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < CONFIRM_TIMEOUT_MS) {
+    // Height first, status second: if the blockhash has expired AND the status
+    // is still empty afterwards, the transaction can never land.
+    let expired = false
+    try {
+      const height = await withTimeout(connection.getBlockHeight('confirmed'), 10_000, 'timeout')
+      expired = height > lastValidBlockHeight
+    } catch {
+      /* transient RPC error: keep polling until the deadline */
+    }
+
+    let status: { err: unknown; confirmationStatus?: string } | null = null
+    try {
+      const res = await withTimeout(connection.getSignatureStatuses([signature]), 10_000, 'timeout')
+      status = res.value[0] ?? null
+    } catch {
+      /* transient RPC error: keep polling until the deadline */
+    }
+
+    if (status) {
+      if (status.err) {
+        throw new Error('트랜잭션이 실패했습니다. Solscan에서 상태를 확인하세요.')
+      }
+      if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+        return
+      }
+    } else if (expired) {
+      throw new Error('트랜잭션이 만료되어 처리되지 않았습니다. 잠시 후 다시 시도하세요.')
+    }
+
+    await sleep(CONFIRM_POLL_MS)
   }
+  throw new Error(
+    `전송은 되었을 수 있지만 확인이 지연되고 있습니다. 같은 송금을 다시 누르지 말고 활동 탭이나 Solscan에서 먼저 확인하세요. (${signature.slice(0, 8)}…)`,
+  )
 }
 
 async function submit(connection: Connection, tx: Transaction, signer: Keypair): Promise<string> {
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
+  const { blockhash, lastValidBlockHeight } = await withTimeout(
+    connection.getLatestBlockhash('confirmed'),
+    STEP_TIMEOUT_MS,
+    'RPC에서 응답이 없습니다. 네트워크나 RPC 설정을 확인하세요.',
+  )
   tx.recentBlockhash = blockhash
   tx.feePayer = signer.publicKey
   tx.sign(signer)
-  const signature = await connection.sendRawTransaction(tx.serialize(), maxRetriesOptions())
-  await confirm(connection, signature, blockhash, lastValidBlockHeight)
+  const signature = await withTimeout(
+    connection.sendRawTransaction(tx.serialize(), maxRetriesOptions()),
+    STEP_TIMEOUT_MS,
+    'RPC가 전송에 응답하지 않습니다. 활동 탭이나 Solscan에서 송금 여부를 확인한 뒤 다시 시도하세요.',
+  )
+  await confirm(connection, signature, lastValidBlockHeight)
   return signature
 }
 
