@@ -175,28 +175,49 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setKeypairState(next)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
+  
+useEffect(() => {
+  let cancelled = false
+
+  const initialize = async () => {
+    try {
       const stored = await loadVault()
+      if (cancelled) return
+
       const storedMeta = readMeta()
       const record = readRecord()
+
       if (cancelled) return
+
       setVault(stored)
       setMeta(storedMeta)
       setBiometricEnabled(Boolean(record))
       setBiometricMode(record?.mode ?? null)
       setBiometricCreatedAt(record?.createdAt ?? null)
-      setReady(true)
-    })()
+    } catch (error) {
+      console.error('[MONO] Wallet initialization failed:', error)
+    } finally {
+      if (!cancelled) {
+        setReady(true)
+      }
+    }
+  }
 
-    void isPlatformAuthenticatorAvailable().then((available) => {
+  void initialize()
+
+  void isPlatformAuthenticatorAvailable()
+    .then((available) => {
       if (!cancelled) setBiometricAvailable(available)
     })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    .catch((error) => {
+      console.error('[MONO] Biometric availability check failed:', error)
+    })
+
+  return () => {
+    cancelled = true
+  }
+}, [])
+
 
   const persistMeta = useCallback((next: WalletMeta) => {
     setMeta(next)
