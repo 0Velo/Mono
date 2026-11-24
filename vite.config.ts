@@ -3,7 +3,10 @@ import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 export default defineConfig({
-  base: '/mono/',
+  // Relative base: GitHub Pages serves a project site at the repository name's
+  // exact case (/Mono/ today). Relative asset URLs keep the same build working
+  // at any path without a rebuild.
+  base: './',
   plugins: [
     react(),
     nodePolyfills({
