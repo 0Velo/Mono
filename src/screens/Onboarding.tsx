@@ -16,7 +16,7 @@ type Step = 'start' | 'backup' | 'import' | 'pin' | 'restore'
 type ImportMode = 'mnemonic' | 'secretKey' | 'backup'
 
 export function Onboarding() {
-  const { createWallet, restoreBackup, biometricAvailable, enrolBiometric } = useWallet()
+  const { createWallet, restoreBackup, biometricSupported, enrolBiometric } = useWallet()
   const [step, setStep] = useState<Step>('start')
   const [mnemonic, setMnemonic] = useState('')
   const [importMode, setImportMode] = useState<ImportMode>('mnemonic')
@@ -66,9 +66,12 @@ export function Onboarding() {
     setImportValid(looksLikeSecretKey(importText))
   }, [importText, importMode])
 
+  // Offer Face ID whenever the browser has WebAuthn. The platform-authenticator
+  // hint is false on iOS Safari/PWA even though registration works, so it must
+  // not decide this — enrol() lets the authenticator answer for itself.
   useEffect(() => {
-    if (biometricAvailable) setFaceIdWanted(true)
-  }, [biometricAvailable])
+    if (biometricSupported) setFaceIdWanted(true)
+  }, [biometricSupported])
 
   const startCreate = async () => {
     if (busy) return
@@ -134,7 +137,7 @@ export function Onboarding() {
     if (!payload) return
     setBusy(true)
     try {
-      if (faceIdWanted && biometricAvailable) {
+      if (faceIdWanted && biometricSupported) {
         try {
           await enrolBiometric(payload)
           showToast('Face ID를 등록했습니다')
@@ -431,7 +434,7 @@ export function Onboarding() {
               compact
             />
 
-            {biometricAvailable && (
+            {biometricSupported && (
               <button
                 onClick={() => setFaceIdWanted((value) => !value)}
                 className="mt-4 flex w-full items-center gap-2.5 rounded-[16px] bg-surface px-4 py-3 text-left"

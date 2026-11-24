@@ -112,6 +112,7 @@ export function Settings({
     accounts,
     activeIndex,
     activeAccount,
+    biometricSupported,
     biometricAvailable,
     biometricEnabled,
     biometricMode,
@@ -398,7 +399,7 @@ export function Settings({
           <div className="min-w-0 flex-1">
             <div className="text-[14.5px] tracking-[-0.02em] text-ink">Face ID 잠금 해제</div>
             <div className="mt-0.5 text-[11px] leading-snug text-muted">
-              {!biometricAvailable
+              {!biometricSupported
                 ? '이 기기에서는 지원되지 않습니다'
                 : biometricEnabled
                   ? `등록됨${
@@ -406,13 +407,15 @@ export function Settings({
                         ? ` · ${new Date(biometricCreatedAt).toLocaleDateString('ko-KR')}`
                         : ''
                     }${biometricMode === 'device' ? ' · 기기 키' : ''}`
-                  : 'PIN 대신 얼굴로 열 수 있습니다'}
+                  : biometricAvailable
+                    ? 'PIN 대신 얼굴로 열 수 있습니다'
+                    : 'Face ID로 열기 (탭해서 등록)'}
             </div>
             {biometricError && (
               <div className="mt-1 text-[10.5px] leading-snug text-danger">{biometricError}</div>
             )}
           </div>
-          {biometricAvailable ? (
+          {biometricSupported ? (
             bioBusy ? (
               <Spinner size={18} />
             ) : (
@@ -491,7 +494,9 @@ export function Settings({
 
       <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-faint">
         <span>Mono 2.0.0</span>
-        <span className="tnum">{meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}</span>
+        <span className="tnum">
+          Mono · v8 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
+        </span>
       </div>
     </div>
   )

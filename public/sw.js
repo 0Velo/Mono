@@ -2,12 +2,13 @@
  * Scope-aware, so it also works when the app is served from a sub path
  * (GitHub Pages: https://cbalhub.github.io/mono/).
  *
- * v7 (Mono): hashed asset names change with every deploy, so a new SW drops
- * the old caches on activate and the iPhone picks the new build on the next
- * launch. Also stops caching the boot shell under the old brand key. */
-const ROOT = new URL(self.registration.scope).pathname // e.g. '/mono/'
+ * v8 (Mono): same rule as before — hashed asset names change with every
+ * deploy, so a new SW drops the old caches on activate and the iPhone picks
+ * the new build on the next launch. v8 removes any shell cached before the
+ * Face ID availability fix, which also shows a "Mono · v8" label in 설정. */
+const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v7`
+const CACHE = `${CACHE_PREFIX}v8`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

@@ -167,35 +167,60 @@ export function clearEnrolment(): void {
 
 /* --------------------------------------------------------------- webauthn */
 
-function mapError(error: unknown): BiometricError {
-  const name = (error as { name?: string } | null)?.name ?? ''
+/**
+ * Turns a WebAuthn DOMException into a message that names the browser's own
+ * error, so a phone we cannot inspect still tells us exactly where it stopped.
+ * `phase` matters: the same error name means different things on create and get
+ * (iOS reports "cancelled", "no passcode", and "not allowed here" alike).
+ */
+function mapError(error: unknown, phase: 'create' | 'get' = 'get'): BiometricError {
+  const name = String((error as { name?: string } | null)?.name ?? '')
   const message = String((error as { message?: string } | null)?.message ?? '')
+  const tag = name ? ` (${name})` : ''
   if (name === 'NotAllowedError' || name === 'AbortError') {
     // iOS reports "cancelled", a timeout, and "blocked" all the same way.
     if (/timeout|timed out/i.test(message)) {
       return new BiometricError(
         'cancelled',
-        'Face ID 응답이 없어 취소되었습니다. 다시 시도하거나 PIN을 사용하세요.',
+        `Face ID 응답이 없어 취소되었습니다${tag}. 다시 시도하거나 PIN을 사용하세요.`,
       )
     }
     return new BiometricError(
       'cancelled',
-      'Face ID 인증이 취소되었습니다. 다시 시도하거나 PIN을 사용하세요.',
+      phase === 'create'
+        ? `Face ID 등록이 완료되지 않았습니다${tag}. 취소했거나, 기기 암호와 iCloud 키체인·암호가 꺼져 있을 수 있으니 설정을 확인한 뒤 다시 시도해 주세요.`
+        : `Face ID 인증이 취소되었습니다${tag}. 다시 시도하거나 PIN을 사용하세요.`,
     )
   }
   if (name === 'SecurityError') {
     return new BiometricError(
       'blocked',
-      '이 사이트에서 생체 인증이 차단되어 있습니다. Safari 설정에서 허용한 뒤 다시 시도하세요.',
+      `이 사이트에서 생체 인증이 차단되어 있습니다${tag}. Safari 설정에서 Face ID 허용을 켠 뒤 다시 시도하세요.`,
     )
   }
-  if (name === 'NotSupportedError' || name === 'InvalidStateError') {
+  if (name === 'NotSupportedError') {
+    return phase === 'create'
+      ? new BiometricError(
+          'unsupported',
+          `이 브라우저 또는 홈 화면 앱에서는 Face ID 등록을 지원하지 않습니다${tag}. Safari 탭에서 열어 다시 시도해 보세요.`,
+        )
+      : new BiometricError(
+          'error',
+          `이 브라우저에서는 Face ID 인증을 실행할 수 없습니다${tag}. PIN을 사용해 주세요.`,
+        )
+  }
+  if (name === 'InvalidStateError') {
     return new BiometricError(
-      'cancelled',
-      'Face ID를 다시 등록해 주세요. 기기에 저장된 인증 정보가 만료되었습니다.',
+      'error',
+      phase === 'create'
+        ? `이 기기에 이미 등록된 Face ID가 있습니다${tag}. 설정에서 한 번 끈 뒤 다시 등록해 주세요.`
+        : `Face ID 정보가 만료되었습니다${tag}. PIN으로 잠금 해제한 뒤 다시 등록해 주세요.`,
     )
   }
-  return new BiometricError('error', 'Face ID 인증에 실패했습니다. PIN을 사용해 주세요.')
+  return new BiometricError(
+    'error',
+    `Face ID 인증에 실패했습니다${tag || ' (UnknownError)'}. PIN을 사용해 주세요.`,
+  )
 }
 
 function prfInput(salt: Uint8Array) {
@@ -316,21 +341,26 @@ function writeRecord(record: BiometricRecord): void {
  */
 export async function enrol(payload: SecretPayload): Promise<BiometricRecord> {
   if (!biometricSupportedByBrowser()) {
-    throw new BiometricError('unsupported', '이 브라우저는 생체 인증을 지원하지 않습니다.')
+    throw new BiometricError('unsupported', '이 브라우저는 생체 인증을 지원하지 않습니다 (PublicKeyCredential 없음).')
   }
-  if (!(await isPlatformAuthenticatorAvailable())) {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
     throw new BiometricError(
       'unsupported',
-      '이 기기에서는 Face ID를 쓸 수 없습니다. PIN을 계속 사용할 수 있습니다.',
+      'HTTPS 주소에서만 Face ID를 등록할 수 있습니다. https:// 주소로 다시 열어 주세요.',
     )
   }
+  // `isUserVerifyingPlatformAuthenticatorAvailable()` is only a hint. iOS Safari
+  // and the standalone home-screen app regularly answer false while
+  // `credentials.create()` still presents Face ID, so it must never be the gate.
+  // Let the authenticator itself answer: if it cannot, the DOMException below
+  // says exactly why and that message reaches the screen.
 
   const prfSalt = randomBytes(32)
   let credential: PublicKeyCredential
   try {
     credential = await createCredential(prfSalt)
   } catch (error) {
-    throw mapError(error)
+    throw mapError(error, 'create')
   }
 
   const credentialId = toBase64Url(new Uint8Array(credential.rawId))

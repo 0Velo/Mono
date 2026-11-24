@@ -19,6 +19,7 @@ import {
 import { loadKeys } from '../lib/keys'
 import {
   BiometricError,
+  biometricSupportedByBrowser,
   clearEnrolment,
   enrol,
   hasEnrolment,
@@ -91,6 +92,9 @@ interface WalletContextValue {
   renameAccount: (index: number, name: string) => void
 
   /** Face ID state, driven by `lib/biometric.ts`. */
+  /** The browser exposes WebAuthn at all — this is what shows the toggle. */
+  biometricSupported: boolean
+  /** The platform-authenticator hint; may be false on iOS yet still work. */
   biometricAvailable: boolean
   biometricEnabled: boolean
   biometricMode: BiometricMode | null
@@ -155,6 +159,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const payloadRef = useRef<SecretPayload | null>(null)
   const keypairRef = useRef<Keypair | null>(null)
 
+  const [biometricSupported] = useState<boolean>(() => biometricSupportedByBrowser())
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricMode, setBiometricMode] = useState<BiometricMode | null>(null)
@@ -541,6 +546,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       switchAccount,
       renameAccount,
       biometricAvailable,
+      biometricSupported,
       biometricEnabled,
       biometricMode,
       biometricCreatedAt,
@@ -567,6 +573,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       switchAccount,
       renameAccount,
       biometricAvailable,
+      biometricSupported,
       biometricEnabled,
       biometricMode,
       biometricCreatedAt,
