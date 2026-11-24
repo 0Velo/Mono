@@ -45,6 +45,7 @@ export interface WalletMeta {
   activeIndex: number
   /** Custom nicknames by account index. */
   accountNames: Record<string, string>
+  accountIndices?: number[]
 }
 
 export interface WalletAccount {
@@ -119,6 +120,9 @@ function readMeta(): WalletMeta | null {
       address: parsed.address,
       rpc: { ...DEFAULT_META.rpc, ...(parsed.rpc ?? {}) },
       accountNames: { ...(parsed.accountNames ?? {}) },
+      accountIndices: Array.isArray(parsed.accountIndices)
+        ? parsed.accountIndices.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 100)
+        : [],
       activeIndex: Math.max(0, Number(parsed.activeIndex) || 0),
     }
   } catch {
@@ -137,8 +141,8 @@ function wipeKeypair(keypair: Keypair | null): void {
 }
 
 /** The seed indices worth deriving: the base three, plus anything renamed. */
-function accountIndices(activeIndex: number, names?: Record<string, string>): number[] {
-  const set = new Set<number>([0, 1, 2, Math.max(0, activeIndex)])
+function accountIndices(activeIndex: number, names?: Record<string, string>, saved?: number[]): number[] {
+  const set = new Set<number>([0, Math.max(0, activeIndex), ...(saved ?? [])])
   Object.keys(names ?? {}).forEach((key) => {
     const index = Number(key)
     if (Number.isInteger(index) && index >= 0 && index < 100) set.add(index)
@@ -217,7 +221,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (payload.kind === 'mnemonic') {
         const { deriveAccounts } = await loadKeys()
         const index = Math.max(0, stored?.activeIndex ?? 0)
-        const indices = accountIndices(index, stored?.accountNames)
+        const indices = accountIndices(index, stored?.accountNames, stored?.accountIndices)
         const keypairs = deriveAccounts(payload.mnemonic, indices)
         const list: WalletAccount[] = indices.map((accountIndex, position) => ({
           index: accountIndex,
@@ -374,7 +378,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setActiveIndex(index)
       const address = next.publicKey.toBase58()
       const base = meta ?? readMeta()
-      if (base) persistMeta({ ...base, address, activeIndex: index })
+      if (base) {
+        const ids = Array.from(
+          new Set([...(base.accountIndices ?? []), ...(index > 0 ? [index] : [])]),
+        )
+        persistMeta({ ...base, address, activeIndex: index, accountIndices: ids })
+      }
       setAccounts((current) => {
         if (current.some((account) => account.index === index)) return current
         return [...current, { index, address, name: accountLabel(base, index) }].sort(
