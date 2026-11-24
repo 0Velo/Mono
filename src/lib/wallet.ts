@@ -9,6 +9,7 @@ import type { SecretPayload } from './vault'
 export const DEFAULT_DERIVATION_PATH = "m/44'/501'/0'/0'"
 
 export { mnemonicWords, normalizeMnemonic }
+export type { Keypair }
 
 export function generateMnemonic(words: 12 | 24 = 12): string {
   return bip39.generateMnemonic(words === 24 ? 256 : 128)
@@ -27,8 +28,46 @@ export function validateMnemonic(input: string): boolean {
 
 export function keypairFromMnemonic(mnemonic: string, path = DEFAULT_DERIVATION_PATH): Keypair {
   const seed = bip39.mnemonicToSeedSync(normalizeMnemonic(mnemonic))
-  const privateSeed = deriveEd25519Seed(new Uint8Array(seed), path)
-  return Keypair.fromSeed(privateSeed)
+  // Both buffers are wiped as soon as the keypair has copied what it needs; a
+  // garbage collected string is not a wiped secret, an overwritten array is.
+  const seedBytes = new Uint8Array(seed)
+  const privateSeed = deriveEd25519Seed(seedBytes, path)
+  try {
+    return Keypair.fromSeed(privateSeed)
+  } finally {
+    privateSeed.fill(0)
+    seedBytes.fill(0)
+  }
+}
+
+/** Phantom-style additional accounts: m/44'/501'/index'/0'. */
+export function accountPath(index: number): string {
+  return `m/44'/501'/${Math.max(0, Math.trunc(index))}'/0'`
+}
+
+export function keypairForAccount(mnemonic: string, index: number): Keypair {
+  return keypairFromMnemonic(mnemonic, accountPath(index))
+}
+
+/**
+ * Derives several accounts from one seed in a single pass — mnemonicToSeed is
+ * the expensive part, so it runs once per unlock rather than once per account.
+ */
+export function deriveAccounts(mnemonic: string, indices: number[]): Keypair[] {
+  const seed = bip39.mnemonicToSeedSync(normalizeMnemonic(mnemonic))
+  const seedBytes = new Uint8Array(seed)
+  try {
+    return indices.map((index) => {
+      const privateSeed = deriveEd25519Seed(seedBytes, accountPath(index))
+      try {
+        return Keypair.fromSeed(privateSeed)
+      } finally {
+        privateSeed.fill(0)
+      }
+    })
+  } finally {
+    seedBytes.fill(0)
+  }
 }
 
 export function keypairFromSecretKeyBase58(secret: string): Keypair {

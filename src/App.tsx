@@ -18,7 +18,7 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
     typeof window !== 'undefined' && window.isSecureContext && Boolean(window.crypto?.subtle)
   if (secure) return <>{children}</>
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col justify-center bg-white px-8 text-center">
+    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col justify-center bg-base px-8 text-center">
       <div className="text-[18px] font-bold tracking-tight">HTTPS에서 열어 주세요</div>
       <p className="mt-3 text-[13px] leading-relaxed text-muted">
         이 지갑은 브라우저의 암호화 API(WebCrypto)로 시드 문구를 암호화합니다. 암호화 API는
@@ -53,7 +53,7 @@ export default function App() {
   }, [vaultExists])
 
   if (!ready) {
-    return <div className="min-h-full bg-white" />
+    return <div className="min-h-full bg-base" />
   }
 
   return (

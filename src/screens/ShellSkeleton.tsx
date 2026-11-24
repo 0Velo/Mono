@@ -1,4 +1,4 @@
-import { History, Settings2, Wallet } from 'lucide-react'
+import { ArrowLeftRight, History, Settings2, Wallet } from 'lucide-react'
 
 /**
  * What the person sees for the frame or two between entering the PIN and the
@@ -42,10 +42,11 @@ export function ShellSkeleton() {
         </div>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[430px] border-t border-line bg-white">
+      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[430px] border-t border-line bg-card/95 backdrop-blur-xl">
         <div className="safe-bottom flex items-stretch px-3">
           {[
             { label: '지갑', icon: Wallet, active: true },
+            { label: '스왑', icon: ArrowLeftRight, active: false },
             { label: '활동', icon: History, active: false },
             { label: '설정', icon: Settings2, active: false },
           ].map((item) => (
@@ -53,13 +54,13 @@ export function ShellSkeleton() {
               <item.icon
                 size={21}
                 strokeWidth={item.active ? 2.1 : 1.7}
-                className={item.active ? 'text-ink' : 'text-[#B3BAC4]'}
+                className={item.active ? 'text-ink' : 'text-faint2'}
               />
               <span
                 className={
                   item.active
                     ? 'text-[10.5px] font-semibold text-ink'
-                    : 'text-[10.5px] font-medium text-[#B3BAC4]'
+                    : 'text-[10.5px] font-medium text-faint2'
                 }
               >
                 {item.label}

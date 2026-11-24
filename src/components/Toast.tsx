@@ -26,7 +26,7 @@ export function ToastHost() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+96px)] z-[60] flex justify-center px-6">
-      <div className="animate-pop rounded-full bg-ink px-4 py-2.5 text-[13px] font-medium text-white">
+      <div className="animate-pop rounded-full bg-ink px-4 py-2.5 text-[13px] font-medium text-onInk">
         {message}
       </div>
     </div>

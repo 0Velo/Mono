@@ -115,7 +115,7 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
                 key={`${word}-${index}`}
                 className="flex items-baseline gap-1.5 rounded-[14px] bg-surface px-3 py-2.5"
               >
-                <span className="tnum text-[10px] text-[#A9AFB9]">{index + 1}</span>
+                <span className="tnum text-[10px] text-faint">{index + 1}</span>
                 <span className="text-[13.5px] font-semibold tracking-[-0.02em] text-ink">{word}</span>
               </div>
             ))}
@@ -125,7 +125,7 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
               <Copy size={15} /> 복사
             </Button>
           </div>
-          <p className="mt-4 text-[11.5px] leading-[1.7] text-[#A9AFB9]">
+          <p className="mt-4 text-[11.5px] leading-[1.7] text-faint">
             이 순서 그대로 다른 지갑 앱에 입력하면 같은 주소가 복원됩니다. (경로{' '}
             <span className="font-mono">{secret.path}</span>)
           </p>
@@ -146,7 +146,7 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
             </div>
             <button
               onClick={() => setRevealed((value) => !value)}
-              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-ink active:bg-[#F0F2F5]"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-card text-ink active:bg-press"
               aria-label={revealed ? '숨기기' : '보기'}
             >
               {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -157,13 +157,13 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
               <Copy size={15} /> 개인키 복사
             </Button>
           </div>
-          <p className="mt-4 text-[11.5px] leading-[1.7] text-[#A9AFB9]">
+          <p className="mt-4 text-[11.5px] leading-[1.7] text-faint">
             이 지갑은 개인키로 가져왔기 때문에 시드 문구가 없습니다. 개인키를 안전하게 보관하세요.
           </p>
         </div>
       )}
 
-      <div className="mt-6 border-t border-[#EFF1F4] pt-4">
+      <div className="mt-6 border-t border-line pt-4">
         <button
           onClick={() => void exportEncrypted()}
           className="press flex w-full items-center justify-between rounded-[16px] bg-surface px-4 py-3.5 text-left"

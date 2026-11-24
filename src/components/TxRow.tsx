@@ -51,7 +51,7 @@ export function TxRow({
     <button
       onClick={() => window.open(explorerTx(item.signature, network), '_blank', 'noopener')}
       className={cx(
-        'press flex w-full items-center gap-3.5 px-5 py-[13px] text-left active:bg-[#FAFBFC]',
+        'press flex w-full items-center gap-3.5 px-5 py-[13px] text-left active:bg-press2',
         showBorder && 'border-t border-line',
       )}
     >
@@ -76,7 +76,7 @@ export function TxRow({
         </div>
         <div className="mt-0.5 flex items-center gap-1 text-[11.5px] text-muted">
           <span>{relativeTime(item.blockTime)}</span>
-          <span className="text-[#D6DAE0]">·</span>
+          <span className="text-faint">·</span>
           <span className="tnum">{shortAddress(item.signature, 4)}</span>
         </div>
       </div>
@@ -84,7 +84,7 @@ export function TxRow({
         <div
           className={cx(
             'tnum text-[14px] font-semibold tracking-[-0.02em]',
-            item.failed ? 'text-[#BFC5CD] line-through' : incoming ? 'text-mint' : 'text-ink',
+            item.failed ? 'text-faint line-through' : incoming ? 'text-mint' : 'text-ink',
           )}
         >
           {unknown ? '—' : `${incoming ? '+' : '−'}${formatTxAmount(abs, decimals)} ${ticker}`}

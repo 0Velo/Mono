@@ -1,165 +1,142 @@
-# Sol Wallet
+# Mono
 
-Phantom 스타일의 개인 솔라나 지갑 PWA. React 18 + Vite + TypeScript + Tailwind, 실제
-Mainnet/Devnet 연결, 기기 내 PIN 암호화(AES-GCM), Face ID(WebAuthn) 잠금 해제, 암호화 백업
-파일(.json) 내보내기/복원, iOS 홈 화면 설치를 지원합니다.
+**Mono** is a private Solana wallet that runs entirely in the browser. No account, no backend, no
+telemetry — the seed phrase is encrypted on the device with a PIN and never leaves it.
 
-## 1.1.0 변경점
+**Live:** https://cbalhub.github.io/sol-wallet/ · Installable as a PWA on iPhone (Safari → 홈 화면에 추가)
 
-- **실제 SOL 로고**: 3D 매트 클레이 코인(`public/assets/3d/sol-coin.png`)에 공식 솔라나 3단
-  바 엠블럼. 흰 배경은 `mix-blend-multiply`로 사라지므로 아이콘에 사각 박스가 없습니다.
-  USDC · USDT · JUP · BONK · RAY · JTO · mSOL은 실제 토큰 아트(`public/assets/tokens/`)를
-  로컬에서 서빙합니다(외부 요청 0).
-- **초기 렌더 속도**: 엔트리 JS 708KB → **45KB**(gzip 15KB). `@solana/web3.js` ·
-  `@solana/spl-token` · `bip39`은 모두 `import()` 지연 청크로 빠졌고, 잠금 화면이 뜬 뒤
-  idle 시간에 미리 받아 둡니다. Pretendard는 2.0MB 통짜 대신 **68KB 서브셋**
-  (`tmp/make-font-subset.py`로 재생성) + `font-display: swap`.
-- **Face ID 잠금 해제**: `navigator.credentials.create/get` + `prf` 확장. PRF가 없으면
-  평문 키를 남기지 않고 PIN을 안내합니다(잠금 사고 방지). 설정에서 켜고 끌 수 있습니다.
-- **모션**: iOS 시트 커브(`cubic-bezier(0.32,0.72,0,1)`) 슬라이드 업/다운, 백드롭 페이드,
-  버튼 프레스 스케일, 탭 크로스페이드, 스켈레톤 셰이머, 스파크라인 드로잉.
-- **Helius RPC 가이드**: 설정에 `https://mainnet.helius-rpc.com/?api-key=…` 예시·복사 버튼·
-  키 발급 링크.
-- **암호화 백업 파일**: PIN으로 암호화된 금고 JSON을 그대로 `.json`으로 저장(iOS 공유 시트 →
-  파일 앱/iCloud). 시드 문구 평문은 파일에 없습니다. 온보딩 '기존 지갑 가져오기 → 백업 파일'에서
-  파일 선택 + PIN 입력으로 즉시 복원됩니다.
+---
+
+## 한국어
+
+Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다. 서버가 없고, 계정도 없고, 키는
+기기 밖으로 나가지 않습니다.
+
+### 주요 기능
+
+- **지갑** — SOL · SPL 잔액과 평가금액, 24시간 변동, 실시간 시세(CoinGecko → Binance → DexScreener 폴백)
+- **보내기 / 받기** — 주소·수량 확인 단계, 토큰 계정 생성 수수료 미리 표시, Solscan 링크, QR 받기
+- **주소록** — "투빗 입금", "내 팬텀" 같은 이름으로 저장하고 보내기 화면에서 한 번에 선택
+- **계정 전환** — 같은 시드 문구에서 `m/44'/501'/n/0'` 파생. 이름을 붙여 여러 계정을 오가며 사용
+- **스왑** — Jupiter 애그리게이터 견적·실행, 슬리피지(0.5 / 1 / 3%), 가격 영향·최소 수령·경로 표시
+- **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장)
+- **숨긴 토큰** — 에어드랍 스팸을 목록에서 숨기고 필요할 때만 다시 보기
+- **다크 모드** — 라이트 / 다크 / 시스템, 설정에 저장되고 첫 페인트 전에 적용
+
+### 보안 구조
+
+| 항목 | 방식 |
+| --- | --- |
+| 키 보관 | PBKDF2-SHA256(210,000회) → AES-256-GCM. 암호화된 금고만 기기에 저장 |
+| 저장 위치 | **IndexedDB** (`mono-vault`). 구버전 `localStorage` 금고는 최초 실행 시 자동 이전 후 삭제 |
+| 잠금 해제 | 6자리 PIN 또는 Face ID(WebAuthn platform authenticator, `userVerification: required`) |
+| Face ID 봉인 | PRF 지원 시 HKDF로 키 유도, 미지원(iOS Safari/PWA) 시 **추출 불가능한** AES 키를 IndexedDB에 보관하고 인증 성공 후에만 사용 |
+| 잠금 시 | 복호화된 키페어의 `secretKey` 바이트를 `fill(0)`으로 덮어쓰고 메모리 참조 해제 |
+| 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음) |
+| 백업 | PIN으로 암호화된 `.json` 한 개. 파일 안에 시드 문구 평문은 없음 |
+
+Mono는 비수탁(non-custodial) 지갑입니다. 시드 문구와 PIN을 잃으면 복구할 수 없고, 누구도
+대신 복구해 줄 수 없습니다.
+
+### iPhone에 설치
+
+1. Safari에서 https://cbalhub.github.io/sol-wallet/ 열기
+2. 공유 → **홈 화면에 추가**
+3. 홈 화면 아이콘으로 실행 (주소창 없는 전체 화면, 생체 인증 사용 가능)
+
+### RPC 설정 (선택)
+
+기본값은 솔라나 공용 RPC입니다. 요청 제한(429/403)이 잦다면 설정 → 네트워크에서 개인 RPC를
+넣으세요.
 
 ```
-/workspace/work/sol-wallet
-├─ src/
-│  ├─ lib/
-│  │  ├─ derive.ts   SLIP-0010 ed25519 파생 (Phantom과 동일한 m/44'/501'/0'/0')
-│  │  ├─ wallet.ts   니모닉/개인키 → Keypair, 주소 검증
-│  │  ├─ vault.ts    PBKDF2-SHA256(210k) + AES-256-GCM 로컬 금고
-│  │  ├─ rpc.ts      네트워크 상수·Solscan 링크 (web3 없음, 엔트리 청크용)
-│  │  ├─ connection.ts  web3 Connection + CORS 폴백 (지연 청크)
-│  │  ├─ keys.ts     wallet.ts 지연 로더
-│  │  ├─ biometric.ts   Face ID(WebAuthn PRF) 등록·해제
-│  │  ├─ backup.ts   암호화 백업 파일 내보내기/파싱
-│  │  ├─ tokens.ts    잔액·SPL 토큰 계정·온체인 메타데이터
-│  │  ├─ prices.ts    CoinGecko → Binance/er-api → DexScreener 폴백 시세
-│  │  └─ tx.ts        SOL/SPL 전송, 수수료·계정 생성비 추정, 거래내역 파싱
-│  ├─ state/WalletProvider.tsx   잠금/해제, 자동 잠금, 메타 저장
-│  ├─ screens/  Onboarding · LockScreen · Home · Activity · Settings
-│  └─ sheets/   SendSheet · ReceiveSheet · BackupSheet · ResetSheet
-├─ public/  manifest.json, sw.js(v3), icons/, fonts/pretendard-subset.woff2, assets/3d/, assets/tokens/
-├─ design/  masters/(원본 1000px) · originals/(교체 전 아이콘 백업)
-└─ screenshots/  390×844 iPhone 뷰포트 캡처
+https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 ```
 
-## 실행
+무료 키: https://dashboard.helius.dev/api-keys (QuickNode도 동일한 형식)
+
+### 개발
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # 타입체크 + 프로덕션 빌드 (dist/)
-npm run preview    # 빌드 결과 미리보기 (http://localhost:4173)
+npm run typecheck
+npm run build      # tsc --noEmit && vite build
+npm run preview
 ```
 
-Node 18+ 필요. 이 환경에서는 Node가 `/workspace/.tools/node/bin`에 있으므로
-`export PATH=/workspace/.tools/node/bin:$PATH` 후 실행합니다.
+배포는 `tmp/deploy.sh` — `main`에 소스를, `dist/`를 `gh-pages`에 올리고 GitHub Pages를 갱신합니다.
 
-## 디자인
+---
 
-화이트(`#FFFFFF`) + 잉크 블랙(`#0D0E12`) 극미니멀. 회색 표면(`#F5F6F8`)만 쓰고 테두리·카드
-그림자·보라색 그라데이션은 쓰지 않습니다. 포인트 컬러는 상승/확인 `#16A34A`, 오류/삭제
-`#EF4444` 두 가지뿐입니다. 큰 숫자는 Pretendard 700 + `-0.03em` 트래킹 + `tabular-nums`,
-토큰 아이콘은 단색 SVG 마크(스테이블·JUP·RAY) 또는 2글자 모노그램입니다.
+## English
 
-### 3D 클레이 에셋
+**Mono** is a non-custodial Solana wallet PWA. Everything — key derivation, signing, price lookups —
+happens client-side. There is no server component and no analytics.
 
-온보딩 히어로와 SOL 토큰 아이콘은 순백 배경으로 렌더한 무광 3D 클레이 에셋을 씁니다.
+### Features
 
-- `public/assets/3d/wallet-hero.png` (600px) — 온보딩 히어로 164px 박스(오브제 ≈123px)
-- `public/assets/3d/sol-coin.png` (240px) — SOL 토큰 아이콘 40px(토큰 목록·거래내역)·52px(전송 카드)
-- 배경은 #FFFFFF이고 `<img>`에 `mix-blend-multiply`를 걸어 흰 배경이 페이지·`#F5F6F8`
-  원형 위에서 완전히 사라집니다(사각 박스 아티팩트 0). 그래서 배경 제거 PNG가 필요 없습니다.
-- 로드 실패 시에는 기존 단색 SOL 글리프로 자동 폴백합니다(`SolCoin3D`).
-- 마스터 원본은 `design/masters/`, 교체 전 아이콘은 `design/originals/`에 보관합니다.
-- 앱 아이콘(`icon-512`·`icon-192`·`apple-touch-icon`·`icon-maskable-512`)도 같은 3D 월렛으로
-  생성했습니다(마스커블은 안전 영역 72% 스케일). `favicon-32.png`는 32px에서 뭉개져서
-  기존 3선 마크를 유지합니다.
+- **Portfolio** — SOL + SPL balances, USD/KRW value, 24h change, keyless price fallbacks
+- **Send / Receive** — confirmation step, ATA rent disclosure, QR receive sheet, Solscan links
+- **Address book** — label recurring recipients and pick them with one tap in the send sheet
+- **Accounts** — multiple accounts from one seed (`m/44'/501'/n/0'`) with custom nicknames
+- **Swap** — Jupiter quote/execute, slippage presets, price impact, minimum received, route
+- **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions)
+- **Spam control** — hide any SPL token from the wallet list
+- **Theme** — light / dark / system, persisted and applied before first paint
 
-## 보안 모델
+### Security model
 
-- 시드 문구/개인키는 **기기 localStorage에만** 존재하며, 평문으로 저장되지 않습니다.
-- 저장 형식: `solwallet.vault.v1` = `{ v, alg:"AES-GCM", kdf:"PBKDF2-SHA256", iter:210000, salt, iv, ct }`
-- 키 파생: 6자리 PIN + 랜덤 16바이트 salt → PBKDF2-SHA256 210,000회 → AES-256-GCM.
-- 잠금 해제 시에만 메모리에 Keypair를 만들고, 잠그면 즉시 버립니다. 자동 잠금 기본 5분.
-- 서버·백엔드가 없습니다. 모든 RPC/시세 호출은 브라우저에서 공개 API로 나갑니다.
-- WebCrypto는 **보안 컨텍스트**에서만 동작하므로 HTTPS(또는 localhost)에서 열어야 합니다.
-  HTTP LAN 주소로 열면 앱이 안내 화면을 보여 줍니다.
+- Vault: `PBKDF2-SHA256 (210k) → AES-256-GCM`, stored in **IndexedDB** (`mono-vault`). Legacy
+  `localStorage` vaults are migrated once and deleted.
+- Unlock: 6-digit PIN, or Face ID via WebAuthn platform authenticator (`userVerification: required`).
+  - PRF-capable authenticators derive the AES key with HKDF (nothing persisted).
+  - Without PRF (common on iOS Safari/PWA) a **non-extractable** AES key is kept in IndexedDB and
+    only used after a successful assertion.
+- On lock: the decrypted `secretKey` bytes are zeroed with `fill(0)` and the payload reference dropped.
+- Transport: HTTPS plus a strict `Content-Security-Policy` (`script-src 'self'`, no inline scripts).
+- Backup: a single PIN-encrypted `.json`; the mnemonic is never written in plaintext.
 
-## 네트워크
+### Architecture
 
-- Mainnet: `https://api.mainnet-beta.solana.com` → 실패 시 `solana-rpc.publicnode.com`
-  등으로 자동 재시도. 설정에서 Helius/QuickNode 같은 개인 RPC를 넣는 것이 가장 안정적입니다.
-- Devnet: `https://api.devnet.solana.com`
-- 설정 → 네트워크에서 전환, RPC 입력 후 저장. Devnet 주소/링크는 Solscan `?cluster=devnet`으로 연결됩니다.
+```
+src/
+├─ lib/
+│  ├─ derive.ts       SLIP-0010 ed25519 derivation (m/44'/501'/n'/0')
+│  ├─ wallet.ts       mnemonic/secret key → Keypair (intermediate buffers zeroed)
+│  ├─ vault.ts        PBKDF2 + AES-256-GCM sealed payload
+│  ├─ vaultStore.ts   IndexedDB vault + one-time localStorage migration
+│  ├─ idb.ts          minimal IndexedDB helper (vault + Face ID key stores)
+│  ├─ biometric.ts    WebAuthn enrolment, PRF or device-key sealing
+│  ├─ swap.ts         Jupiter quote/swap client with endpoint fallbacks
+│  ├─ chart.ts        price history (CoinGecko → Binance)
+│  ├─ security.ts     mint/freeze authority + Token-2022 extension probe
+│  ├─ prefs.ts        hidden tokens, watchlist
+│  ├─ addressBook.ts  saved recipients
+│  ├─ theme.ts        light/dark/system, CSS-variable switching
+│  ├─ tokens.ts       balances, SPL accounts, on-chain metadata
+│  └─ prices.ts       keyless price sources
+├─ screens/           Onboarding, Lock, Home, Swap (lazy), Activity, Settings
+├─ sheets/            Send, Receive, TokenDetail (lazy), Accounts, AddressBook, Backup, Reset
+└─ state/             WalletProvider (vault, accounts, auto-lock, Face ID)
+```
 
-> 참고: 솔라나 재단 공개 RPC는 브라우저(Origin 헤더가 붙는 요청)를 403으로 막는 경우가 있고,
-> 일부 공개 미러는 `getTokenAccountsByOwner`를 제한합니다. 그래서 RPC 폴백과 "토큰 목록을
-> 조회할 수 없습니다" 안내를 넣었습니다. 개인 RPC를 넣으면 두 문제가 모두 사라집니다.
+The entry chunk stays small: `@solana/web3.js`, `bip39`, Jupiter and the chart code are separate
+lazy chunks, warmed during idle time after the lock screen appears.
 
-## 바로 열기 (GitHub Pages)
-
-- 라이브: **https://cbalhub.github.io/sol-wallet/**
-- 저장소: https://github.com/Cbalhub/sol-wallet
-- iPhone Safari에서 위 주소를 열고 공유 → **홈 화면에 추가**.
-
-GitHub Pages는 `/sol-wallet/` 하위 경로로 서빙되므로 `vite.config.ts`의 `base`가
-`/sol-wallet/`로 고정되어 있습니다. 사이트는 `main` 브랜치 빌드 결과를 `gh-pages`
-브랜치 루트에 올리는 방식으로 배포합니다.
+### Development
 
 ```bash
-npm run build
-cd dist && git init -q && git add -A && git commit -qm "deploy $(date +%F)"
-git push -f https://github.com/Cbalhub/sol-wallet.git HEAD:gh-pages
+npm install && npm run dev
+npm run build   # production bundle into dist/
 ```
 
-## iPhone에 설치
+Font subset regeneration (after adding Korean UI copy):
 
-PWA 설치와 WebCrypto 모두 HTTPS가 필요합니다.
+```bash
+python3 tmp/make-font-subset.py   # needs fonttools + brotli
+```
 
-1. `npm run build` 후 `dist/`를 정적 호스팅에 올립니다.
-   - GitHub Pages: 위 라이브 주소 (이미 배포됨)
-   - Vercel: `npx vercel deploy --prod` (프로젝트 루트에서)
-   - Netlify: `dist` 폴더를 drag & drop
-2. iPhone Safari에서 그 https 주소를 엽니다.
-3. 공유 → **홈 화면에 추가**. 이후 아이콘으로 실행하면 상태바·노치·홈 인디케이터 safe-area가
-   적용된 전체화면 앱으로 뜹니다.
+---
 
-로컬 개발 중 아이폰에서 보려면 HTTPS 터널이 필요합니다(`npx localtunnel --port 5173` 등).
-HTTP LAN 주소는 암호화 API가 없어 동작하지 않습니다.
-
-## 스크린샷
-
-| 파일 | 내용 |
-| --- | --- |
-| `01-onboarding.png` | 온보딩 |
-| `02-home.png` | 홈(새 지갑, Devnet) |
-| `02b-home-funded.png` | 홈(실제 잔액·토큰 — 공개 Devnet 테스트 지갑) |
-| `03-send.png` / `03b-send-filled.png` | 보내기 시트 |
-| `07-send-confirm.png` | 전송 확인 단계 |
-| `04-receive.png` | 받기 QR |
-| `05-seed.png` / `05b-import.png` / `06-pin.png` | 시드 백업·가져오기·PIN 설정 |
-| `09-activity.png` / `09b-activity-empty.png` | 활동 |
-| `10-settings.png` | 설정 |
-| `11-lock.png` / `11b-lock-error.png` | 잠금 / 잘못된 PIN |
-| `12-backup.png` | PIN 확인 후 시드 문구 보기 |
-| `13-mainnet-rpc-blocked.png` | 공개 RPC 차단 시 메인넷 상태 |
-
-## 검증 기록
-
-- `npm run build` — TypeScript 0 errors, Vite 빌드 성공 (gzip ~242 kB)
-- 파생 경로: `abandon … about` → `HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk`,
-  `test … junk` → `oeYf6KAJkLYhBuR8CiGc6L4D4Xtfepr85fuDgA9kq96` (ed25519-hd-key + tweetnacl
-  교차검증 일치)
-- 금고: 암호문에 시드 미포함, 정상 PIN 복호화 성공, 오류 PIN은 `InvalidPinError`
-- 전송 코드: SOL(SystemProgram) / SPL(ATA 생성 포함) 트랜잭션 생성·서명 검증 통과
-- UI: 390×844 모바일 뷰포트에서 생성·PIN·잠금/해제·Devnet 전환·송금/받기 시트·거래내역 확인
-- 3D 클레이: `mix-blend-multiply` 적용 후 온보딩 히어로 주변·SOL 아이콘 원형 배경 픽셀이
-  모두 `#FFFFFF` / `#F5F6F8`과 정확히 일치(사각 박스·회색 사각 테두리 0). 375×667·390×844·
-  430×932 세 뷰포트에서 스크롤 오버플로우 없음(`scrollHeight == innerHeight`).
-- 에셋 렌더 크기: 히어로 164px 박스(오브제 ≈123px, 원본 600px), SOL 코인 40px·52px(원본 240px).
-  PNG 용량은 히어로 180KB · 코인 39KB.
+MIT · Built for personal use by [@Cbalhub](https://github.com/Cbalhub)

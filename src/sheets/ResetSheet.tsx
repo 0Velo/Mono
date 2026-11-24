@@ -20,7 +20,7 @@ export function ResetSheet({ open, onClose }: ResetSheetProps) {
 
   return (
     <Sheet open={open} onClose={onClose} title="지갑 초기화">
-      <div className="rounded-[16px] bg-dangerSoft p-4 text-[13px] leading-[1.7] text-[#B4302F]">
+      <div className="rounded-[16px] bg-dangerSoft p-4 text-[13px] leading-[1.7] text-danger">
         이 기기에 저장된 시드 문구와 PIN이 완전히 삭제됩니다. 시드 문구를 백업하지 않았다면 이
         지갑의 자산을 영구히 잃게 됩니다. 이 작업은 되돌릴 수 없습니다.
       </div>
@@ -31,8 +31,8 @@ export function ResetSheet({ open, onClose }: ResetSheetProps) {
       >
         <span
           className={cx(
-            'mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-[7px] border text-white',
-            ack ? 'border-ink bg-ink' : 'border-[#DCE0E6] bg-white',
+            'mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-[7px] border text-onInk',
+            ack ? 'border-ink bg-ink' : 'border-line bg-card',
           )}
         >
           {ack && <Check size={12} strokeWidth={3} />}

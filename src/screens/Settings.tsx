@@ -5,13 +5,17 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Fingerprint,
   Lock,
+  Moon,
   ScanFace,
   ShieldCheck,
   Sparkles,
   Trash2,
+  UserRound,
+  BookUser,
 } from 'lucide-react'
-import { BrandMark, Segmented } from '../components/ui'
+import { MonoMark, Segmented } from '../components/ui'
 import { Spinner } from '../components/Spinner'
 import { showToast } from '../components/Toast'
 import {
@@ -24,6 +28,8 @@ import {
 } from '../lib/rpc'
 import { saveBackupFile } from '../lib/backup'
 import { useWallet, type WalletMeta } from '../state/WalletProvider'
+import { useTheme, type ThemePref } from '../lib/theme'
+import { useAddressBook } from '../lib/addressBook'
 import { cx, shortAddress } from '../lib/format'
 
 interface SettingsProps {
@@ -34,6 +40,8 @@ interface SettingsProps {
   onBackup: () => void
   onReset: () => void
   onLock: () => void
+  onAddressBook: () => void
+  onAccounts: () => void
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -62,7 +70,7 @@ function Toggle({
       onClick={onChange}
       className={cx(
         'relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200',
-        value ? 'bg-mint' : 'bg-[#DFE3E9]',
+        value ? 'bg-mint' : 'bg-switch',
       )}
     >
       <span
@@ -82,6 +90,12 @@ const AUTO_LOCK_OPTIONS = [
   { value: '0', label: '끔' },
 ]
 
+const THEME_OPTIONS: Array<{ value: ThemePref; label: string }> = [
+  { value: 'light', label: '라이트' },
+  { value: 'dark', label: '다크' },
+  { value: 'system', label: '시스템' },
+]
+
 export function Settings({
   meta,
   onChangeNetwork,
@@ -90,9 +104,24 @@ export function Settings({
   onBackup,
   onReset,
   onLock,
+  onAddressBook,
+  onAccounts,
 }: SettingsProps) {
-  const { vault, biometricAvailable, biometricEnabled, biometricCreatedAt, enrolBiometric, disableBiometric, biometricError } =
-    useWallet()
+  const {
+    vault,
+    accounts,
+    activeIndex,
+    activeAccount,
+    biometricAvailable,
+    biometricEnabled,
+    biometricMode,
+    biometricCreatedAt,
+    enrolBiometric,
+    disableBiometric,
+    biometricError,
+  } = useWallet()
+  const { pref: themePref, setTheme } = useTheme()
+  const book = useAddressBook()
   const [rpcInput, setRpcInput] = useState(meta.rpc[meta.network] ?? '')
   const [copied, setCopied] = useState(false)
   const [bioBusy, setBioBusy] = useState(false)
@@ -168,24 +197,47 @@ export function Settings({
         <h1 className="text-[22px] font-bold tracking-[-0.035em] text-ink">설정</h1>
       </div>
 
-      <div className="mx-5 mt-5 flex items-center gap-3.5 rounded-[20px] bg-surface px-4 py-4">
-        <BrandMark size={38} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold tracking-[-0.02em] text-ink">내 지갑</div>
-          <div className="mt-1 font-mono text-[11.5px] text-muted tnum">
-            {shortAddress(meta.address, 6)}
-          </div>
-        </div>
+      <div className="mx-5 mt-5 flex w-[calc(100%-40px)] items-center gap-3.5 rounded-[20px] bg-card px-3.5 py-3.5 ring-1 ring-line">
         <button
-          onClick={copy}
+          onClick={onAccounts}
+          className="press flex min-w-0 flex-1 items-center gap-3.5 text-left"
+          aria-label="계정 관리"
+        >
+          <MonoMark size={46} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[14.5px] font-semibold tracking-[-0.02em] text-ink">
+                {activeAccount?.name ?? meta.name}
+              </span>
+              {accounts.length > 1 && (
+                <span className="rounded-full bg-surface px-1.5 py-[1px] text-[9.5px] font-semibold text-muted">
+                  계정 {activeIndex + 1}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 font-mono text-[11.5px] text-muted tnum">
+              {shortAddress(meta.address, 6)}
+            </div>
+          </div>
+          <ChevronRight size={15} className="shrink-0 text-faint2" />
+        </button>
+        <button
+          onClick={() => void copy()}
           aria-label="주소 복사"
-          className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-ink"
+          className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
         >
           {copied ? <Check size={14} className="text-mint" /> : <Copy size={14} />}
         </button>
       </div>
 
-      <div className="mx-5 mt-2.5 flex justify-end">
+      <div className="mx-5 mt-2.5 flex items-center justify-between">
+        <button
+          onClick={onAddressBook}
+          className="flex items-center gap-1 text-[11.5px] font-medium text-muted active:opacity-60"
+        >
+          <BookUser size={12} /> 주소록 {book.length > 0 ? book.length : ''}
+          <ChevronRight size={11} />
+        </button>
         <a
           href={explorerAddress(meta.address, meta.network)}
           target="_blank"
@@ -195,6 +247,42 @@ export function Settings({
           Solscan에서 보기 <ExternalLink size={11} />
         </a>
       </div>
+
+      <Group title="디스플레이">
+        <div className="flex items-center justify-between px-4 py-3.5">
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <Moon size={16} strokeWidth={1.9} /> 테마
+          </span>
+          <div className="w-[186px]">
+            <Segmented value={themePref} onChange={setTheme} options={THEME_OPTIONS} compact />
+          </div>
+        </div>
+      </Group>
+
+      <Group title="지갑">
+        <button
+          onClick={onAccounts}
+          className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-press"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <UserRound size={16} strokeWidth={1.9} /> 계정
+          </span>
+          <span className="flex items-center gap-1 text-[13px] text-muted">
+            {accounts.length}개 <ChevronRight size={16} className="text-faint2" />
+          </span>
+        </button>
+        <button
+          onClick={onAddressBook}
+          className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <BookUser size={16} strokeWidth={1.9} /> 주소록
+          </span>
+          <span className="flex items-center gap-1 text-[13px] text-muted">
+            {book.length}개 <ChevronRight size={16} className="text-faint2" />
+          </span>
+        </button>
+      </Group>
 
       <Group title="네트워크">
         <div className="px-4 pb-1 pt-4">
@@ -210,7 +298,7 @@ export function Settings({
         <div className="px-4 pb-4 pt-4">
           <div className="flex items-center justify-between">
             <div className="text-[11.5px] font-medium text-muted">RPC 엔드포인트</div>
-            <div className="tnum text-[11px] text-[#A9AFB9]">
+            <div className="tnum text-[11px] text-faint">
               현재 {rpcHostLabel(meta.network, meta.rpc[meta.network])}
             </div>
           </div>
@@ -224,7 +312,7 @@ export function Settings({
               autoCorrect="off"
               inputMode="url"
               className={cx(
-                'min-w-0 flex-1 rounded-[12px] bg-white px-3 py-2.5 text-[12px] text-ink outline-none transition-shadow placeholder:text-[#AEB4BE]',
+                'min-w-0 flex-1 rounded-[12px] bg-card px-3 py-2.5 text-[12px] text-ink outline-none transition-shadow placeholder:text-faint',
                 valid ? 'focus:shadow-[0_0_0_2px_rgba(13,14,18,0.06)]' : 'shadow-[0_0_0_2px_rgba(239,68,68,0.35)]',
               )}
             />
@@ -236,7 +324,7 @@ export function Settings({
               disabled={!dirty || !valid}
               className={cx(
                 'press shrink-0 rounded-full px-4 text-[12.5px] font-semibold',
-                dirty && valid ? 'bg-ink text-white' : 'text-[#B7BDC6]',
+                dirty && valid ? 'bg-ink text-onInk' : 'text-faint2',
               )}
             >
               저장
@@ -246,7 +334,7 @@ export function Settings({
             <p className="mt-1.5 text-[11px] text-danger">https:// 로 시작하는 주소를 넣어 주세요.</p>
           )}
 
-          <div className="mt-3 rounded-[14px] bg-white p-3">
+          <div className="mt-3 rounded-[14px] bg-card p-3">
             <div className="flex items-center gap-1.5">
               <Sparkles size={13} className="text-mint" />
               <span className="text-[12px] font-semibold text-ink">Helius 무료 티어</span>
@@ -261,7 +349,7 @@ export function Settings({
               <button
                 onClick={copyExample}
                 aria-label="예시 RPC 주소 복사"
-                className="press flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-muted"
+                className="press flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-muted"
               >
                 <Copy size={11} />
               </button>
@@ -286,7 +374,7 @@ export function Settings({
             </div>
           </div>
 
-          <p className="mt-2.5 text-[11px] leading-relaxed text-[#A9AFB9]">
+          <p className="mt-2.5 text-[11px] leading-relaxed text-faint">
             비워 두면 공용 RPC({DEFAULT_RPC[meta.network].replace('https://', '')})를 씁니다. 개인
             RPC를 넣으면 요청 제한과 403 응답을 피할 수 있습니다.
           </p>
@@ -305,7 +393,7 @@ export function Settings({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-[#EBEDF1] px-4 py-3.5">
+        <div className="flex items-center gap-2.5 border-t border-line2 px-4 py-3.5">
           <ScanFace size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
           <div className="min-w-0 flex-1">
             <div className="text-[14.5px] tracking-[-0.02em] text-ink">Face ID 잠금 해제</div>
@@ -317,7 +405,7 @@ export function Settings({
                       biometricCreatedAt
                         ? ` · ${new Date(biometricCreatedAt).toLocaleDateString('ko-KR')}`
                         : ''
-                    }`
+                    }${biometricMode === 'device' ? ' · 기기 키' : ''}`
                   : 'PIN 대신 얼굴로 열 수 있습니다'}
             </div>
             {biometricError && (
@@ -333,32 +421,42 @@ export function Settings({
           ) : null}
         </div>
 
+        <div className="flex items-center gap-2.5 border-t border-line2 px-4 py-3.5">
+          <Fingerprint size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[14.5px] tracking-[-0.02em] text-ink">키 보관 방식</div>
+            <div className="mt-0.5 text-[11px] leading-snug text-muted">
+              암호화된 볼트는 IndexedDB에, 복호화된 키는 잠금 시 즉시 0으로 덮어씁니다
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={onBackup}
-          className="flex w-full items-center justify-between border-t border-[#EBEDF1] px-4 py-4 text-left transition-colors active:bg-[#EDEFF3]"
+          className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press"
         >
           <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
             <ShieldCheck size={16} strokeWidth={1.9} />
             시드 문구 보기
           </span>
-          <ChevronRight size={16} className="text-[#B7BDC6]" />
+          <ChevronRight size={16} className="text-faint2" />
         </button>
         <button
           onClick={onLock}
-          className="press flex w-full items-center justify-between border-t border-[#EBEDF1] px-4 py-4 text-left active:bg-[#EDEFF3]"
+          className="press flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left active:bg-press"
         >
           <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
             <Lock size={16} strokeWidth={1.9} />
             지금 잠금
           </span>
-          <ChevronRight size={16} className="text-[#B7BDC6]" />
+          <ChevronRight size={16} className="text-faint2" />
         </button>
       </Group>
 
       <Group title="백업">
         <button
           onClick={() => void exportBackup()}
-          className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-[#EDEFF3]"
+          className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-press"
         >
           <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
             <Download size={16} strokeWidth={1.9} />
@@ -367,32 +465,32 @@ export function Settings({
           {exporting ? (
             <Spinner size={15} />
           ) : (
-            <ChevronRight size={16} className="text-[#B7BDC6]" />
+            <ChevronRight size={16} className="text-faint2" />
           )}
         </button>
-        <p className="border-t border-[#EBEDF1] px-4 py-3 text-[11px] leading-[1.65] text-[#A9AFB9]">
+        <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
           PIN으로 암호화된 .json 파일 한 개입니다. 시드 문구가 그대로 들어 있지 않으니 파일 앱이나
           iCloud Drive에 두어도 안전하고, 새 기기에서는 PIN만 입력하면 복원됩니다.
         </p>
         <button
           onClick={onReset}
-          className="flex w-full items-center justify-between border-t border-[#EBEDF1] px-4 py-4 text-left transition-colors active:bg-[#EDEFF3]"
+          className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press"
         >
           <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-danger">
             <Trash2 size={16} strokeWidth={1.9} />
             지갑 초기화
           </span>
-          <ChevronRight size={16} className="text-[#E8C4C4]" />
+          <ChevronRight size={16} className="text-danger/40" />
         </button>
       </Group>
 
-      <p className="mx-5 mt-8 text-[11.5px] leading-[1.75] text-[#A9AFB9]">
+      <p className="mx-5 mt-8 text-[11.5px] leading-[1.75] text-faint">
         시드 문구와 개인키는 PIN으로 암호화되어 이 기기의 저장소에만 남습니다. 서버로 전송되지
         않으며, PIN을 잊으면 복구할 수 없습니다.
       </p>
 
-      <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-[#A9AFB9]">
-        <span>Sol Wallet 1.1.0</span>
+      <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-faint">
+        <span>Mono 2.0.0</span>
         <span className="tnum">{meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}</span>
       </div>
     </div>

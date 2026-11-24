@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Check, Copy, FileJson, ScanFace, Upload } from 'lucide-react'
-import { Segmented, SolCoin3D } from '../components/ui'
+import { MonoMark, Segmented } from '../components/ui'
 import { Button } from '../components/Button'
 import { Keypad, PinDots } from '../components/Keypad'
 import { Spinner } from '../components/Spinner'
@@ -208,27 +208,23 @@ export function Onboarding() {
   )
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-white">
+    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-base">
       <div className="safe-top" />
 
       {step === 'start' && (
         <div className="animate-fade flex flex-1 flex-col px-6 pb-10 pt-8">
           <div className="flex flex-1 flex-col justify-center pb-4">
-            <div className="flex items-center gap-2">
-              <div className="animate-rise">
-                <SolCoin3D size={58} />
-              </div>
-              <img
-                src={`${import.meta.env.BASE_URL}assets/3d/wallet-hero.png`}
-                alt=""
-                width={150}
-                height={150}
-                draggable={false}
-                decoding="async"
-                className="animate-rise -ml-3 h-[156px] w-[156px] select-none object-contain mix-blend-multiply [animation-delay:60ms]"
-              />
+            <div className="animate-rise -ml-2 flex items-center">
+              <MonoMark size={184} />
             </div>
-            <h1 className="mt-2 text-[32px] font-bold leading-[1.26] tracking-[-0.035em] text-ink">
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-[13px] font-semibold uppercase tracking-[0.28em] text-ink">
+                Mono
+              </span>
+              <span className="h-px w-6 bg-line2" />
+              <span className="text-[11px] font-medium text-faint">Solana Wallet</span>
+            </div>
+            <h1 className="mt-3 text-[32px] font-bold leading-[1.26] tracking-[-0.035em] text-ink">
               솔라나를 위한
               <br />
               가장 단순한 지갑
@@ -267,7 +263,7 @@ export function Onboarding() {
                 className="animate-rise flex items-baseline gap-1.5 rounded-[14px] bg-surface px-3 py-2.5"
                 style={{ animationDelay: `${Math.min(index * 18, 220)}ms` }}
               >
-                <span className="tnum text-[10px] font-medium text-[#A9AFB9]">{index + 1}</span>
+                <span className="tnum text-[10px] font-medium text-faint">{index + 1}</span>
                 <span className="text-[13.5px] font-semibold tracking-[-0.02em] text-ink">
                   {word}
                 </span>
@@ -290,7 +286,7 @@ export function Onboarding() {
               <span
                 className={cx(
                   'mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-[7px] border transition-all duration-200',
-                  confirmedBackup ? 'border-ink bg-ink text-white' : 'border-[#DCE0E6] bg-white',
+                  confirmedBackup ? 'border-ink bg-ink text-onInk' : 'border-line bg-card',
                 )}
               >
                 {confirmedBackup && <Check size={12} strokeWidth={3} />}
@@ -346,7 +342,7 @@ export function Onboarding() {
                 spellCheck={false}
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="h-[136px] w-full resize-none rounded-[18px] bg-surface p-4 text-[14px] leading-relaxed tracking-[-0.01em] text-ink outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(13,14,18,0.06)] placeholder:text-[#A9AFB9]"
+                className="h-[136px] w-full resize-none rounded-[18px] bg-surface p-4 text-[14px] leading-relaxed tracking-[-0.01em] text-ink outline-none transition-shadow focus:shadow-[0_0_0_2px_rgba(13,14,18,0.06)] placeholder:text-faint"
               />
               <div className="mt-2 flex items-center justify-between px-1 text-[11.5px]">
                 <span className={cx(importValid ? 'text-mint' : 'text-muted')}>
@@ -363,7 +359,7 @@ export function Onboarding() {
 
           {importMode === 'backup' && (
             <div className="mt-4">
-              <label className="press flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#DDE1E7] bg-surface px-4 py-8 text-center">
+              <label className="press flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-line bg-surface px-4 py-8 text-center">
                 <FileJson size={22} strokeWidth={1.7} className="text-muted" />
                 <span className="text-[13.5px] font-semibold text-ink">
                   백업 파일 선택 (.json)
@@ -380,7 +376,7 @@ export function Onboarding() {
                   onChange={(event) => void pickBackupFile(event.target.files?.[0] ?? null)}
                 />
               </label>
-              <p className="mt-2.5 flex items-start gap-1.5 px-1 text-[11.5px] leading-relaxed text-[#A9AFB9]">
+              <p className="mt-2.5 flex items-start gap-1.5 px-1 text-[11.5px] leading-relaxed text-faint">
                 <Upload size={12} className="mt-0.5 shrink-0" />
                 아이폰 파일 앱 → iCloud Drive에 저장해 둔 백업을 그대로 고르면 됩니다.
               </p>
@@ -452,7 +448,7 @@ export function Onboarding() {
                 <span
                   className={cx(
                     'relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200',
-                    faceIdWanted ? 'bg-mint' : 'bg-[#DFE3E9]',
+                    faceIdWanted ? 'bg-mint' : 'bg-switch',
                   )}
                 >
                   <span
@@ -465,7 +461,7 @@ export function Onboarding() {
               </button>
             )}
 
-            <p className="mt-4 text-center text-[11.5px] leading-relaxed text-[#A9AFB9]">
+            <p className="mt-4 text-center text-[11.5px] leading-relaxed text-faint">
               PIN은 이 기기를 벗어나지 않습니다. 잊어버리면 복구할 수 없으니 시드 문구를 꼭
               보관하세요.
             </p>

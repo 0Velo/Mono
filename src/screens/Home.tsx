@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Check, ChevronRight, Copy, RefreshCw, Settings2 } from 'lucide-react'
+import { Check, ChevronRight, Copy, EyeOff, RefreshCw, Settings2, Star } from 'lucide-react'
 import { Sparkline, SolMark, TokenIcon } from '../components/ui'
 import { TxRow, type TokenSymbolMap } from '../components/TxRow'
 import { showToast } from '../components/Toast'
+import { usePrefs } from '../lib/prefs'
+import { buildAssets } from '../lib/assets'
 import {
   formatAmount,
   formatKrw,
@@ -17,6 +19,7 @@ import type { NetworkId } from '../lib/rpc'
 
 interface HomeProps {
   address: string
+  accountName: string
   network: NetworkId
   portfolio: Portfolio | null
   loading: boolean
@@ -28,11 +31,15 @@ interface HomeProps {
   onReceive: () => void
   onActivity: () => void
   onSettings: () => void
+  onAccounts: () => void
+  onToken: (key: string) => void
+  onSwap: () => void
   onNetworkChange: (network: NetworkId) => void
 }
 
 export function Home({
   address,
+  accountName,
   network,
   portfolio,
   loading,
@@ -44,20 +51,36 @@ export function Home({
   onReceive,
   onActivity,
   onSettings,
+  onAccounts,
+  onToken,
+  onSwap,
   onNetworkChange,
 }: HomeProps) {
-  const [showAllTokens, setShowAllTokens] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const [currency, setCurrency] = useState<'usd' | 'krw'>('usd')
   const [copied, setCopied] = useState(false)
+  const prefs = usePrefs()
 
-  const tokens = portfolio?.tokens ?? []
+  const assets = buildAssets(portfolio)
+  const tokens = assets.filter((asset) => !asset.isSol)
+
+  // Hidden tokens leave the list but stay one tap away.
+  const hiddenSet = new Set(prefs.hidden)
+  const hiddenCount = tokens.filter((token) => hiddenSet.has(token.mint)).length
+  const visible = tokens.filter((token) => showHidden || !hiddenSet.has(token.mint))
+
   // Unnamed spam tokens stay behind "더 보기" so the list stays readable.
-  const named = tokens.filter((token) => !token.name.toLowerCase().startsWith('unknown'))
-  const unnamed = tokens.filter((token) => token.name.toLowerCase().startsWith('unknown'))
-  const ordered = [...named, ...unnamed]
-  const visibleTokens = showAllTokens ? ordered : named.slice(0, 5)
-  const hiddenTokens = ordered.length - visibleTokens.length
+  const named = visible.filter((token) => !token.name.toLowerCase().startsWith('unknown'))
+  const unnamed = visible.filter((token) => token.name.toLowerCase().startsWith('unknown'))
+  const [expanded, setExpanded] = useState(false)
+  const ordered = [...named, ...(expanded ? unnamed : [])]
+  const collapsedCount = unnamed.length
 
+  const watched = prefs.watch
+    .map((mint) => tokens.find((token) => token.mint === mint))
+    .filter((token): token is (typeof tokens)[number] => Boolean(token))
+
+  const sol = assets[0]
   const totalUsd = portfolio?.totalUsd ?? null
   const krw = totalUsd !== null && portfolio ? totalUsd * portfolio.usdKrw : null
   const solUi = portfolio ? Number(portfolio.solLamports) / 1e9 : null
@@ -79,8 +102,7 @@ export function Home({
     }
   }
 
-  const heroValue =
-    currency === 'usd' ? formatUsd(totalUsd) : formatKrw(krw)
+  const heroValue = currency === 'usd' ? formatUsd(totalUsd) : formatKrw(krw)
 
   return (
     <div className="animate-fade flex flex-1 flex-col">
@@ -88,19 +110,19 @@ export function Home({
         className="flex items-center justify-between px-5"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 14px)' }}
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-[15px] font-semibold tracking-[-0.025em] text-ink">
-            내 지갑
+        <button
+          onClick={onAccounts}
+          className="press flex min-w-0 items-center gap-1.5 rounded-full bg-surface py-1.5 pl-3 pr-2.5 text-left"
+          aria-label="계정 전환"
+        >
+          <span className="max-w-[86px] truncate text-[14px] font-semibold tracking-[-0.025em] text-ink">
+            {accountName}
           </span>
-          <button
-            onClick={copyAddress}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-2 py-[5px] text-[11.5px] font-medium text-muted active:bg-[#EAEDF1]"
-            aria-label="주소 복사"
-          >
-            {copied ? <Check size={11} strokeWidth={2.6} className="text-mint" /> : null}
-            <span className="tnum">{shortAddress(address, 4)}</span>
-          </button>
-        </div>
+          <span className="tnum shrink-0 text-[11px] font-medium text-muted">
+            {shortAddress(address, 3)}
+          </span>
+          <ChevronRight size={13} className="shrink-0 text-faint" />
+        </button>
 
         <div className="flex shrink-0 items-center">
           <button
@@ -111,7 +133,7 @@ export function Home({
             <span
               className={cx(
                 'h-[5px] w-[5px] rounded-full',
-                network === 'mainnet' ? 'bg-mint' : 'bg-[#F5A524]',
+                network === 'mainnet' ? 'bg-mint' : 'bg-warn',
               )}
             />
             {network === 'mainnet' ? 'Mainnet' : 'Devnet'}
@@ -126,8 +148,18 @@ export function Home({
         </div>
       </div>
 
-      <div className="px-5 pt-11">
-        <div className="text-[12.5px] font-medium text-muted">총 자산</div>
+      <div className="px-5 pt-10">
+        <div className="flex items-center gap-2">
+          <span className="text-[12.5px] font-medium text-muted">총 자산</span>
+          <button
+            onClick={copyAddress}
+            className="flex items-center gap-1 rounded-full bg-surface px-2 py-[3px] text-[10.5px] font-medium text-muted active:bg-press"
+            aria-label="주소 복사"
+          >
+            {copied ? <Check size={10} strokeWidth={2.6} className="text-mint" /> : <Copy size={10} />}
+            주소
+          </button>
+        </div>
         {portfolio || !loading ? (
           <button
             onClick={() => setCurrency((value) => (value === 'usd' ? 'krw' : 'usd'))}
@@ -137,7 +169,7 @@ export function Home({
             <span
               className={cx(
                 'tnum block text-[42px] font-bold leading-[1.06] tracking-[-0.04em]',
-                totalUsd === null ? 'text-[#D3D8DF]' : 'text-ink',
+                totalUsd === null ? 'text-faint2' : 'text-ink',
               )}
             >
               {heroValue}
@@ -157,11 +189,11 @@ export function Home({
                 {positive ? '+' : ''}
                 {change.toFixed(2)}%
               </span>
-              <span className="text-[11px] text-[#A9AFB9]">24시간</span>
+              <span className="text-[11px] text-faint">24시간</span>
             </>
           )}
           {portfolio?.solPriceUsd !== null && portfolio && (
-            <span className="tnum text-[11.5px] text-[#A9AFB9]">
+            <span className="tnum text-[11.5px] text-faint">
               SOL {formatPrice(portfolio.solPriceUsd)}
             </span>
           )}
@@ -172,7 +204,7 @@ export function Home({
             <Sparkline
               data={portfolio.solSparkline}
               height={46}
-              color={positive ? '#16A34A' : '#0D0E12'}
+              color={positive ? '#16A34A' : 'currentColor'}
             />
           ) : null}
         </div>
@@ -181,13 +213,13 @@ export function Home({
       <div className="mt-6 grid grid-cols-2 gap-2.5 px-5">
         <button
           onClick={() => onSend(null)}
-          className="press h-[54px] rounded-full bg-ink text-[15.5px] font-semibold tracking-[-0.02em] text-white active:bg-[#1D1F27]"
+          className="press h-[54px] rounded-full bg-ink text-[15.5px] font-semibold tracking-[-0.02em] text-onInk active:opacity-90"
         >
           보내기
         </button>
         <button
           onClick={onReceive}
-          className="press h-[54px] rounded-full bg-surface2 text-[15.5px] font-semibold tracking-[-0.02em] text-ink active:bg-[#E9ECF0]"
+          className="press h-[54px] rounded-full bg-surface2 text-[15.5px] font-semibold tracking-[-0.02em] text-ink active:bg-press"
         >
           받기
         </button>
@@ -217,6 +249,41 @@ export function Home({
         </div>
       )}
 
+      {watched.length > 0 && (
+        <>
+          <div className="mt-9 flex items-center gap-1.5 px-5">
+            <Star size={12} className="text-faint" />
+            <h2 className="text-[12.5px] font-medium text-muted">관심 목록</h2>
+          </div>
+          <div className="mt-1.5 px-5">
+            {watched.map((token, index) => (
+              <button
+                key={`watch-${token.mint}`}
+                onClick={() => onToken(token.key)}
+                className="press animate-rise flex w-full items-center gap-3.5 py-3 text-left"
+                style={{ animationDelay: `${Math.min(index * 26, 160)}ms` }}
+              >
+                <TokenIcon symbol={token.symbol} icon={token.icon} size={36} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-semibold tracking-[-0.02em] text-ink">
+                    {token.symbol}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-muted tnum">
+                    {formatPrice(token.priceUsd)}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="tnum text-[13.5px] font-semibold text-ink">
+                    {formatAmount(token.amount, token.decimals, 4)}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-muted tnum">{formatUsd(token.valueUsd)}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="mt-9 flex items-end justify-between px-5">
         <h2 className="text-[12.5px] font-medium text-muted">자산</h2>
         <button
@@ -231,7 +298,7 @@ export function Home({
 
       <div className="mt-1.5 px-5">
         <button
-          onClick={() => onSend('SOL')}
+          onClick={() => onToken('SOL')}
           className="press flex w-full items-center gap-3.5 py-3.5 text-left"
         >
           <SolMark size={40} />
@@ -249,10 +316,10 @@ export function Home({
           </div>
         </button>
 
-        {visibleTokens.map((token, index) => (
+        {ordered.map((token, index) => (
           <button
             key={token.mint}
-            onClick={() => onSend(token.mint)}
+            onClick={() => onToken(token.key)}
             className="press animate-rise flex w-full items-center gap-3.5 py-3.5 text-left"
             style={{ animationDelay: `${Math.min(index * 26, 180)}ms` }}
           >
@@ -278,12 +345,22 @@ export function Home({
           </button>
         ))}
 
-        {hiddenTokens > 0 && (
+        {collapsedCount > 0 && (
           <button
-            onClick={() => setShowAllTokens(true)}
+            onClick={() => setExpanded(true)}
             className="py-2 text-[12.5px] font-medium text-muted active:opacity-60"
           >
-            토큰 {hiddenTokens}개 더 보기
+            이름 없는 토큰 {collapsedCount}개 더 보기
+          </button>
+        )}
+
+        {(hiddenCount > 0 || showHidden) && (
+          <button
+            onClick={() => setShowHidden((value) => !value)}
+            className="flex items-center gap-1.5 py-2 text-[12.5px] font-medium text-muted active:opacity-60"
+          >
+            <EyeOff size={12} />
+            {showHidden ? '숨긴 토큰 감추기' : `숨긴 토큰 ${hiddenCount}개 보기`}
           </button>
         )}
 
@@ -339,7 +416,7 @@ export function Home({
         )}
       </div>
 
-      <div className="mt-8 px-5 pb-2 text-[11px] leading-[1.7] text-[#A9AFB9]">
+      <div className="mt-8 px-5 pb-2 text-[11px] leading-[1.7] text-faint">
         {network === 'devnet'
           ? 'Devnet은 테스트용 네트워크입니다. 실제 자산이 아닙니다.'
           : '잔액과 가격은 공개 RPC · 시세 API에서 실시간으로 가져옵니다.'}

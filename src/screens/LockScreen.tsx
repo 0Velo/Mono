@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScanFace } from 'lucide-react'
-import { BrandMark } from '../components/ui'
+import { MonoMark } from '../components/ui'
 import { Keypad, PinDots } from '../components/Keypad'
 import { Button } from '../components/Button'
 import { Sheet } from '../components/Sheet'
@@ -56,17 +56,17 @@ export function LockScreen() {
   }, [biometricEnabled, faceId])
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-white">
+    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-base">
       <div className="safe-top" />
       <div className="flex flex-1 flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+18px)]">
         <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="relative flex h-[46px] w-[46px] items-center justify-center">
+          <div className="relative flex h-[92px] w-[92px] items-center justify-center">
             {biometricEnabled && bioBusy && (
-              <span className="animate-halo absolute inset-0 rounded-full bg-[#EAF6EE]" />
+              <span className="animate-halo absolute inset-0 rounded-full bg-mintSoft" />
             )}
-            <BrandMark size={46} />
+            <MonoMark size={92} />
           </div>
-          <h1 className="mt-6 text-[19px] font-bold tracking-[-0.03em] text-ink">지갑 잠김</h1>
+          <h1 className="mt-4 text-[19px] font-bold tracking-[-0.03em] text-ink">지갑 잠김</h1>
           <p className="mt-1.5 text-[12.5px] text-muted tnum">
             {meta ? shortAddress(meta.address, 5) : ''}
           </p>
@@ -110,7 +110,7 @@ export function LockScreen() {
       </div>
 
       <Sheet open={showReset} onClose={() => setShowReset(false)} title="지갑 초기화">
-        <div className="rounded-[16px] bg-dangerSoft p-4 text-[13px] leading-relaxed text-[#B4302F]">
+        <div className="rounded-[16px] bg-dangerSoft p-4 text-[13px] leading-relaxed text-danger">
           이 기기에 저장된 지갑을 완전히 삭제합니다. 시드 문구나 암호화 백업 파일이 없다면 자산을
           영구히 잃게 됩니다. 되돌릴 수 없습니다.
         </div>

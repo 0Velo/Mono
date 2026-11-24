@@ -3,28 +3,63 @@ import type { ReactNode } from 'react'
 import { cx } from '../lib/format'
 
 const ASSET_BASE = import.meta.env.BASE_URL
+const MARK_LIGHT = `${ASSET_BASE}assets/3d/wallet-hero.png`
+const MARK_DARK = `${ASSET_BASE}assets/3d/wallet-hero-dark.png`
 
 /**
- * The wallet mark: three crisp slanted bars, monochrome, no container.
- * It reads as "Solana" without borrowing a purple app-icon box.
+ * The Mono mark: the same sculptural matte emblem the app icon is cut from.
+ *
+ * Two plates are shipped — the emblem photographed on white and on black — and
+ * CSS picks the one that matches the theme. `multiply` on light and `screen`
+ * on dark make the plate itself disappear, so the mark sits on any surface
+ * without a visible square around it.
  */
-export function BrandMark({
+export function MonoMark({
   size = 32,
-  color = '#0D0E12',
+  className,
+  alt = '',
 }: {
   size?: number
-  color?: string
+  className?: string
+  alt?: string
 }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-      style={{ display: 'block' }}
+    <span
+      className={cx('relative inline-block shrink-0 select-none', className)}
+      style={{ width: size, height: size }}
+      aria-hidden={alt ? undefined : true}
     >
-      <g fill={color}>
+      <img
+        src={MARK_LIGHT}
+        alt={alt}
+        width={size}
+        height={size}
+        draggable={false}
+        decoding="async"
+        className="mono-mark-light absolute inset-0 h-full w-full object-contain"
+      />
+      <img
+        src={MARK_DARK}
+        alt=""
+        width={size}
+        height={size}
+        draggable={false}
+        decoding="async"
+        className="mono-mark-dark absolute inset-0 hidden h-full w-full object-contain dark:block"
+      />
+    </span>
+  )
+}
+
+/**
+ * Image-only fallback for the native asset when the 3D coin is missing.
+ * (The bar glyph is never used as the app's brand mark.)
+ */
+function SolanaGlyph({ size }: { size: number }) {
+  const fill = 'currentColor'
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <g fill={fill}>
         <path d="M9.2 6.4h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H6.65a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
         <path d="M6.65 13.5h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H4.1a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
         <path d="M9.2 20.6h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H6.65a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
@@ -40,7 +75,16 @@ export function BrandMark({
  */
 export function SolCoin3D({ size = 40 }: { size?: number }) {
   const [failed, setFailed] = useState(false)
-  if (failed) return <BrandMark size={Math.round(size * 0.78)} />
+  if (failed) {
+    return (
+      <span
+        className="flex items-center justify-center rounded-full bg-surface2 text-ink"
+        style={{ width: size, height: size }}
+      >
+        <SolanaGlyph size={Math.round(size * 0.78)} />
+      </span>
+    )
+  }
   return (
     <img
       src={`${ASSET_BASE}assets/3d/sol-coin.png`}
@@ -106,7 +150,7 @@ export function TokenIcon({
 
   return (
     <div
-      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/[0.05]"
+      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-card ring-1 ring-black/[0.05] dark:ring-white/10"
       style={{ width: size, height: size }}
     >
       {src && !failed ? (
@@ -142,10 +186,12 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  compact,
 }: {
   value: T
   options: Array<{ value: T; label: string }>
   onChange: (value: T) => void
+  compact?: boolean
 }) {
   return (
     <div className="flex rounded-full bg-surface p-1">
@@ -155,9 +201,10 @@ export function Segmented<T extends string>({
           type="button"
           onClick={() => onChange(option.value)}
           className={cx(
-            'flex-1 rounded-full py-2 text-[12.5px] transition-all duration-200',
+            'flex-1 whitespace-nowrap rounded-full transition-all duration-200',
+            compact ? 'py-1.5 text-[11.5px]' : 'py-2 text-[12.5px]',
             value === option.value
-              ? 'bg-white font-semibold text-ink shadow-[0_1px_2px_rgba(13,14,18,0.06)]'
+              ? 'bg-card font-semibold text-ink shadow-[0_1px_2px_rgba(13,14,18,0.06)]'
               : 'font-medium text-muted',
           )}
         >
@@ -258,7 +305,7 @@ export function Row({
         type="button"
         onClick={onClick}
         className={cx(
-          'flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors active:bg-[#EDEFF3]',
+          'flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors active:bg-press',
           className,
         )}
       >

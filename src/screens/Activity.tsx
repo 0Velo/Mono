@@ -91,7 +91,7 @@ export function Activity({
       )}
 
       {items.length > 0 && (
-        <div className="mt-4 px-5 text-[11px] leading-relaxed text-[#A9AFB9]">
+        <div className="mt-4 px-5 text-[11px] leading-relaxed text-faint">
           항목을 누르면 Solscan에서 확인할 수 있습니다.
         </div>
       )}

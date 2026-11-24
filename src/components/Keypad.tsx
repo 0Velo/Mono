@@ -32,7 +32,7 @@ export function PinDots({
             key={index}
             className={cx(
               'h-[9px] w-[9px] rounded-full transition-all duration-200',
-              error ? 'bg-danger' : filled ? 'scale-100 bg-ink' : 'scale-[0.86] bg-[#DCDFE5]',
+              error ? 'bg-danger' : filled ? 'scale-100 bg-ink' : 'scale-[0.86] bg-faint2',
             )}
           />
         )
@@ -94,7 +94,7 @@ export function Keypad({
             onClick={() => press(key)}
             aria-label={key === 'del' ? '지우기' : key}
             className={cx(
-              'press flex items-center justify-center rounded-[20px] bg-surface text-[24px] font-medium tracking-[-0.01em] text-ink active:bg-[#E7EAEF]',
+              'press flex items-center justify-center rounded-[20px] bg-surface text-[24px] font-medium tracking-[-0.01em] text-ink active:bg-press',
               compact ? 'h-[52px]' : 'h-[58px]',
             )}
           >

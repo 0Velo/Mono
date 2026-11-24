@@ -2,11 +2,12 @@
  * Scope-aware, so it also works when the app is served from a sub path
  * (GitHub Pages: https://cbalhub.github.io/sol-wallet/).
  *
- * v3: hashed asset names change with every deploy, so a new SW drops the old
- * caches on activate and the iPhone picks the new build on the next launch. */
+ * v4 (Mono): hashed asset names change with every deploy, so a new SW drops
+ * the old caches on activate and the iPhone picks the new build on the next
+ * launch. Also stops caching the boot shell under the old brand key. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/sol-wallet/'
-const CACHE_PREFIX = 'sol-wallet-shell-'
-const CACHE = `${CACHE_PREFIX}v3`
+const CACHE_PREFIX = 'mono-shell-'
+const CACHE = `${CACHE_PREFIX}v4`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

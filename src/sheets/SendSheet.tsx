@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Connection, Keypair } from '@solana/web3.js'
-import { Check, ChevronDown, ClipboardPaste, ExternalLink } from 'lucide-react'
+import { Bookmark, Check, ChevronDown, ClipboardPaste, ExternalLink, X } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Spinner } from '../components/Spinner'
@@ -15,8 +15,10 @@ import {
   shortAddress,
   toBaseUnits,
 } from '../lib/format'
-import { type Portfolio, type TokenHolding } from '../lib/tokens'
+import { buildAssets, type Asset } from '../lib/assets'
+import type { Portfolio } from '../lib/tokens'
 import { isValidAddress } from '../lib/wallet'
+import { useAddressBook, removeEntry, saveEntry } from '../lib/addressBook'
 import {
   BASE_FEE_LAMPORTS,
   estimateFee,
@@ -40,11 +42,6 @@ interface SendSheetProps {
 
 type Step = 'form' | 'confirm' | 'sending' | 'done'
 
-interface Asset extends TokenHolding {
-  key: string
-  isSol?: boolean
-}
-
 export function SendSheet({
   open,
   onClose,
@@ -63,6 +60,10 @@ export function SendSheet({
   const [error, setError] = useState<string | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveLabel, setSaveLabel] = useState('')
+
+  const book = useAddressBook()
 
   useEffect(() => {
     if (!open) return
@@ -74,25 +75,11 @@ export function SendSheet({
     setError(null)
     setSignature(null)
     setPickerOpen(false)
+    setSaveOpen(false)
+    setSaveLabel('')
   }, [open, initialMint])
 
-  const assets: Asset[] = useMemo(() => {
-    const sol: Asset = {
-      key: 'SOL',
-      isSol: true,
-      mint: 'SOL',
-      symbol: 'SOL',
-      name: 'Solana',
-      decimals: 9,
-      amount: portfolio ? BigInt(portfolio.solLamports) : 0n,
-      priceUsd: portfolio?.solPriceUsd ?? null,
-      valueUsd:
-        portfolio && portfolio.solPriceUsd !== null
-          ? (Number(portfolio.solLamports) / 1e9) * portfolio.solPriceUsd
-          : null,
-    }
-    return [sol, ...(portfolio?.tokens ?? []).map((token) => ({ ...token, key: token.mint }))]
-  }, [portfolio])
+  const assets: Asset[] = useMemo(() => buildAssets(portfolio), [portfolio])
 
   const asset = assets.find((item) => item.key === mint) ?? assets[0]
   const baseUnits = asset ? toBaseUnits(amount, asset.decimals) : 0n
@@ -133,6 +120,17 @@ export function SendSheet({
     } catch {
       showToast('클립보드를 읽을 수 없습니다')
     }
+  }
+
+  const commitBookmark = () => {
+    const entry = saveEntry(saveLabel, recipient)
+    if (!entry) {
+      showToast('이름과 주소를 확인하세요')
+      return
+    }
+    setSaveOpen(false)
+    setSaveLabel('')
+    showToast(`주소록에 저장했습니다 · ${entry.label}`)
   }
 
   const goConfirm = async () => {
@@ -243,7 +241,7 @@ export function SendSheet({
 
           <button
             onClick={() => setPickerOpen((value) => !value)}
-            className="flex w-full items-center gap-3 rounded-[18px] bg-surface px-3.5 py-3 text-left active:bg-[#EDEFF3]"
+            className="flex w-full items-center gap-3 rounded-[18px] bg-surface px-3.5 py-3 text-left active:bg-press"
           >
             <TokenIcon symbol={asset.isSol ? 'SOL' : asset.symbol} icon={asset.icon} size={34} />
             <div className="flex-1">
@@ -256,7 +254,7 @@ export function SendSheet({
             </div>
             <ChevronDown
               size={16}
-              className={cx('text-[#A9AFB9] transition-transform', pickerOpen && 'rotate-180')}
+              className={cx('text-faint transition-transform', pickerOpen && 'rotate-180')}
             />
           </button>
 
@@ -271,7 +269,7 @@ export function SendSheet({
                     setPickerOpen(false)
                     setError(null)
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left active:bg-white"
+                  className="flex w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left active:bg-card"
                 >
                   <TokenIcon
                     symbol={item.isSol ? 'SOL' : item.symbol}
@@ -293,12 +291,27 @@ export function SendSheet({
           <div className="mt-6">
             <div className="flex items-center justify-between px-1">
               <span className="text-[12px] font-medium text-muted">받는 주소</span>
-              <button
-                onClick={paste}
-                className="flex items-center gap-1 text-[11.5px] font-medium text-ink active:opacity-60"
-              >
-                <ClipboardPaste size={12} /> 붙여넣기
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    if (!recipientValid) {
+                      showToast('주소를 먼저 입력하세요')
+                      return
+                    }
+                    setSaveOpen((value) => !value)
+                    setSaveLabel('')
+                  }}
+                  className="flex items-center gap-1 text-[11.5px] font-medium text-muted active:opacity-60"
+                >
+                  <Bookmark size={12} /> 주소록 저장
+                </button>
+                <button
+                  onClick={paste}
+                  className="flex items-center gap-1 text-[11.5px] font-medium text-ink active:opacity-60"
+                >
+                  <ClipboardPaste size={12} /> 붙여넣기
+                </button>
+              </div>
             </div>
             <input
               value={recipient}
@@ -312,12 +325,70 @@ export function SendSheet({
               autoCorrect="off"
               id="recipient-input"
               className={cx(
-                'mt-2 w-full rounded-[14px] bg-surface px-3.5 py-3.5 font-mono text-[11.5px] text-ink outline-none placeholder:font-sans placeholder:text-[#A9AFB9]',
+                'mt-2 w-full rounded-[14px] bg-surface px-3.5 py-3.5 font-mono text-[11.5px] text-ink outline-none placeholder:font-sans placeholder:text-faint',
                 recipient && !recipientValid && 'text-danger',
               )}
             />
             {recipient && !recipientValid && (
               <div className="mt-1.5 px-1 text-[11.5px] text-danger">주소 형식을 확인하세요.</div>
+            )}
+
+            {book.length > 0 && (
+              <div className="no-scrollbar -mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1">
+                {book.slice(0, 12).map((entry) => {
+                  const selected = entry.address === recipient
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => {
+                        setRecipient(entry.address)
+                        setError(null)
+                      }}
+                      className={cx(
+                        'shrink-0 rounded-full px-3 py-1.5 text-left transition-colors',
+                        selected ? 'bg-ink text-onInk' : 'bg-surface text-ink active:bg-press',
+                      )}
+                    >
+                      <span className="block max-w-[112px] truncate text-[11.5px] font-semibold">
+                        {entry.label}
+                      </span>
+                      <span
+                        className={cx(
+                          'tnum block max-w-[112px] truncate text-[10px]',
+                          selected ? 'text-onInk/70' : 'text-muted',
+                        )}
+                      >
+                        {shortAddress(entry.address, 4)}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {saveOpen && (
+              <div className="animate-pop mt-2.5 flex items-center gap-2 rounded-[14px] bg-surface p-1.5 pl-3">
+                <input
+                  value={saveLabel}
+                  onChange={(event) => setSaveLabel(event.target.value.slice(0, 24))}
+                  placeholder="이름 (예: 투빗 입금)"
+                  className="min-w-0 flex-1 bg-transparent py-1.5 text-[12.5px] text-ink outline-none placeholder:text-faint"
+                  autoFocus
+                />
+                <button
+                  onClick={commitBookmark}
+                  className="shrink-0 rounded-full bg-ink px-3 py-1.5 text-[11.5px] font-semibold text-onInk"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={() => setSaveOpen(false)}
+                  aria-label="취소"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted"
+                >
+                  <X size={13} />
+                </button>
+              </div>
             )}
           </div>
 
@@ -326,7 +397,7 @@ export function SendSheet({
               <span className="text-[12px] font-medium text-muted">보낼 수량</span>
               <button
                 onClick={setMax}
-                className="rounded-full bg-surface px-2.5 py-1 text-[10.5px] font-semibold text-ink active:bg-[#E9ECF0]"
+                className="rounded-full bg-surface px-2.5 py-1 text-[10.5px] font-semibold text-ink active:bg-press"
               >
                 MAX
               </button>
@@ -345,7 +416,7 @@ export function SendSheet({
                 inputMode="decimal"
                 placeholder="0"
                 id="amount-input"
-                className="tnum min-w-0 flex-1 bg-transparent text-[26px] font-bold tracking-[-0.03em] text-ink outline-none placeholder:text-[#C6CBD2]"
+                className="tnum min-w-0 flex-1 bg-transparent text-[26px] font-bold tracking-[-0.03em] text-ink outline-none placeholder:text-faint2"
               />
               <span className="text-[14px] font-semibold text-muted">{ticker}</span>
             </div>
@@ -360,7 +431,7 @@ export function SendSheet({
             </div>
           </div>
 
-          <div className="mt-5 text-[11.5px] leading-relaxed text-[#A9AFB9]">
+          <div className="mt-5 text-[11.5px] leading-relaxed text-faint">
             네트워크 수수료 {formatTxAmount(feeLamports, 9)} SOL
             {!asset.isSol && ' · 받는 지갑에 토큰 계정이 없으면 약 0.002 SOL이 추가됩니다.'}
           </div>
@@ -461,7 +532,7 @@ export function SendSheet({
           >
             Solscan에서 보기 <ExternalLink size={12} />
           </a>
-          <div className="mt-2 font-mono text-[10.5px] text-[#A9AFB9]">
+          <div className="mt-2 font-mono text-[10.5px] text-faint">
             {shortAddress(signature, 8)}
           </div>
         </div>

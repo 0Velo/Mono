@@ -53,7 +53,7 @@ export function ReceiveSheet({ open, onClose, address, network }: ReceiveSheetPr
     >
       <div className="flex flex-col items-center pt-2">
         <div className="rounded-[28px] bg-surface p-4">
-          <div className="rounded-[16px] bg-white p-3.5">
+          <div className="rounded-[16px] bg-card p-3.5">
             <QRCodeSVG
               value={address}
               size={176}
@@ -79,7 +79,7 @@ export function ReceiveSheet({ open, onClose, address, network }: ReceiveSheetPr
           </Button>
         </div>
 
-        <p className="mt-6 text-center text-[11.5px] leading-[1.7] text-[#A9AFB9]">
+        <p className="mt-6 text-center text-[11.5px] leading-[1.7] text-faint">
           SOL과 SPL 토큰을 모두 받을 수 있습니다.
           <br />
           {network === 'mainnet'

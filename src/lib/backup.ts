@@ -51,7 +51,7 @@ export async function saveBackupFile(vault: Vault, address?: string): Promise<Ba
   }
   if (typeof nav.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
     try {
-      await nav.share({ files: [file], title: 'Sol Wallet 백업' })
+      await nav.share({ files: [file], title: 'Mono 백업' })
       return 'shared'
     } catch (error) {
       if ((error as { name?: string })?.name === 'AbortError') throw error
@@ -77,7 +77,7 @@ export interface ParsedBackup {
   exportedAt?: number
 }
 
-/** Throws a plain Korean error when the file is not a Sol Wallet backup. */
+/** Throws a plain Korean error when the file is not a Mono backup. */
 export function parseBackupFile(text: string): ParsedBackup {
   let parsed: unknown
   try {
@@ -86,11 +86,11 @@ export function parseBackupFile(text: string): ParsedBackup {
     throw new Error('JSON 파일이 아닙니다. 백업 파일을 다시 선택해 주세요.')
   }
   if (!isVaultShape(parsed)) {
-    throw new Error('Sol Wallet 백업 파일이 아닙니다.')
+    throw new Error('Mono 백업 파일이 아닙니다.')
   }
   const record = parsed as BackupFile
   if (record.app && record.app !== 'sol-wallet') {
-    throw new Error('Sol Wallet 백업 파일이 아닙니다.')
+    throw new Error('Mono 백업 파일이 아닙니다.')
   }
   return {
     vault: {

@@ -13,12 +13,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const styles: Record<Variant, string> = {
   primary:
-    'bg-ink text-white active:bg-[#1D1F27] disabled:bg-[#E3E5E9] disabled:text-[#AEB4BD]',
+    'bg-ink text-onInk active:opacity-90 disabled:bg-surface2 disabled:text-faint',
   secondary:
-    'bg-surface text-ink active:bg-[#EAEDF1] disabled:bg-[#F7F8FA] disabled:text-[#C3C8D0]',
-  ghost: 'bg-transparent text-muted active:bg-surface disabled:text-[#C9CDD4]',
-  danger: 'bg-dangerSoft text-danger active:bg-[#FBE7E7] disabled:text-[#F3B4B4]',
-  mint: 'bg-mintSoft text-mint active:bg-[#E1F3E8]',
+    'bg-surface text-ink active:bg-press disabled:bg-surface disabled:text-faint2',
+  ghost: 'bg-transparent text-muted active:bg-surface disabled:text-faint2',
+  danger: 'bg-dangerSoft text-danger active:opacity-90 disabled:text-danger/40',
+  mint: 'bg-mintSoft text-mint active:opacity-90',
 }
 
 export function Button({

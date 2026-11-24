@@ -1,29 +1,39 @@
 /**
  * Face ID / Touch ID unlock through the platform authenticator (WebAuthn).
  *
- * The wallet key is never stored in the clear. Two paths exist:
+ * The wallet key is never stored in the clear. Two sealing modes exist, and the
+ * enrolment picks whichever the device can actually do:
  *
  *  1. **PRF** (preferred) — the authenticator returns a stable secret for an
- *     evaluation salt we choose. HKDF derives an AES-256-GCM key from it and
- *     the vault payload is sealed with that key, so Face ID alone can unwrap
- *     it. Nothing recoverable is persisted on the device.
- *  2. **No PRF** — the platform authenticator still verifies the person, but
- *     it hands back no secret we could key on. We refuse to downgrade to a
- *     plaintext key just to show a Face ID screen, and tell the user to unlock
- *     with the PIN instead (with the reason), so nobody is ever locked out.
+ *     evaluation salt we choose. HKDF derives an AES-256-GCM key from it, so
+ *     Face ID alone unwraps the payload and nothing recoverable is persisted.
+ *  2. **Device key** (fallback, and what iOS Safari / standalone actually
+ *     does) — the browser hands back no PRF output, so we generate a random
+ *     AES-256-GCM key that is **non-extractable** and keep it in IndexedDB.
+ *     It is only ever used after `navigator.credentials.get()` has succeeded
+ *     with a platform assertion (`userVerification: 'required'`), i.e. after
+ *     Face ID has actually been presented.
  *
- * Cancelling the Face ID sheet, or any failure, always falls back to the PIN.
+ * Availability is deliberately a single check — the platform authenticator —
+ * so a device is never told "not supported" just because PRF is missing.
+ * Cancelling or failing always falls back to the PIN.
  */
 
 import type { SecretPayload } from './vault'
+import { STORE_KEYS, idbDelete, idbGet, idbSet } from './idb'
 
-const RECORD_KEY = 'solwallet.faceid.v1'
-const RP_NAME = 'Sol Wallet'
-const HKDF_SALT = new TextEncoder().encode('sol-wallet/faceid/v1')
+const RECORD_KEY = 'mono.faceid.v2'
+const LEGACY_RECORD_KEY = 'solwallet.faceid.v1'
+const WRAP_KEY_ID = 'faceid-wrap.v2'
+const RP_NAME = 'Mono'
+const HKDF_SALT = new TextEncoder().encode('mono/faceid/v2')
 const HKDF_INFO = new TextEncoder().encode('aes-256-gcm/payload')
 
+export type BiometricMode = 'prf' | 'device'
+
 export interface BiometricRecord {
-  v: 1
+  v: 2
+  mode: BiometricMode
   /** base64url of the credential rawId */
   credentialId: string
   /** base64url of the 32-byte PRF evaluation salt */
@@ -35,7 +45,13 @@ export interface BiometricRecord {
   createdAt: number
 }
 
-export type BiometricFailureReason = 'unsupported' | 'cancelled' | 'prf' | 'corrupt' | 'error'
+export type BiometricFailureReason =
+  | 'unsupported'
+  | 'cancelled'
+  | 'prf'
+  | 'corrupt'
+  | 'blocked'
+  | 'error'
 
 export class BiometricError extends Error {
   reason: BiometricFailureReason
@@ -75,7 +91,11 @@ function buf(bytes: Uint8Array): ArrayBuffer {
 
 /* ----------------------------------------------------------------- device */
 
-/** True only when a platform authenticator (Face ID / Touch ID) is usable here. */
+/**
+ * True when this device has a platform authenticator (Face ID / Touch ID).
+ * Nothing about PRF, `getClientCapabilities`, or extension support is required
+ * here — those decide *how* we seal, not *whether* Face ID exists.
+ */
 export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   try {
     if (typeof window === 'undefined') return false
@@ -88,15 +108,27 @@ export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   }
 }
 
+export function biometricSupportedByBrowser(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.PublicKeyCredential)
+}
+
 /* ----------------------------------------------------------------- record */
 
 export function readRecord(): BiometricRecord | null {
   try {
-    const raw = localStorage.getItem(RECORD_KEY)
+    const raw = localStorage.getItem(RECORD_KEY) ?? localStorage.getItem(LEGACY_RECORD_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as BiometricRecord
+    const parsed = JSON.parse(raw) as {
+      v?: number
+      mode?: string
+      credentialId?: unknown
+      prfSalt?: unknown
+      iv?: unknown
+      ct?: unknown
+      createdAt?: unknown
+    }
     if (
-      parsed?.v !== 1 ||
+      (parsed?.v !== 1 && parsed?.v !== 2) ||
       typeof parsed.credentialId !== 'string' ||
       typeof parsed.prfSalt !== 'string' ||
       typeof parsed.iv !== 'string' ||
@@ -104,7 +136,16 @@ export function readRecord(): BiometricRecord | null {
     ) {
       return null
     }
-    return parsed
+    // A v1 record was always PRF-sealed.
+    return {
+      v: 2,
+      mode: parsed.mode === 'device' ? 'device' : 'prf',
+      credentialId: parsed.credentialId,
+      prfSalt: parsed.prfSalt,
+      iv: parsed.iv,
+      ct: parsed.ct,
+      createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
+    }
   } catch {
     return null
   }
@@ -117,33 +158,66 @@ export function hasEnrolment(): boolean {
 export function clearEnrolment(): void {
   try {
     localStorage.removeItem(RECORD_KEY)
+    localStorage.removeItem(LEGACY_RECORD_KEY)
   } catch {
     /* private mode */
   }
+  void idbDelete(STORE_KEYS, WRAP_KEY_ID).catch(() => undefined)
 }
 
 /* --------------------------------------------------------------- webauthn */
 
 function mapError(error: unknown): BiometricError {
   const name = (error as { name?: string } | null)?.name ?? ''
+  const message = String((error as { message?: string } | null)?.message ?? '')
   if (name === 'NotAllowedError' || name === 'AbortError') {
-    return new BiometricError('cancelled', 'Face ID 인증이 취소되었습니다.')
+    // iOS reports "cancelled", a timeout, and "blocked" all the same way.
+    if (/timeout|timed out/i.test(message)) {
+      return new BiometricError(
+        'cancelled',
+        'Face ID 응답이 없어 취소되었습니다. 다시 시도하거나 PIN을 사용하세요.',
+      )
+    }
+    return new BiometricError(
+      'cancelled',
+      'Face ID 인증이 취소되었습니다. 다시 시도하거나 PIN을 사용하세요.',
+    )
   }
-  if (name === 'NotSupportedError' || name === 'SecurityError') {
-    return new BiometricError('unsupported', '이 환경에서는 Face ID를 사용할 수 없습니다.')
+  if (name === 'SecurityError') {
+    return new BiometricError(
+      'blocked',
+      '이 사이트에서 생체 인증이 차단되어 있습니다. Safari 설정에서 허용한 뒤 다시 시도하세요.',
+    )
   }
-  return new BiometricError('error', 'Face ID 인증에 실패했습니다.')
+  if (name === 'NotSupportedError' || name === 'InvalidStateError') {
+    return new BiometricError(
+      'cancelled',
+      'Face ID를 다시 등록해 주세요. 기기에 저장된 인증 정보가 만료되었습니다.',
+    )
+  }
+  return new BiometricError('error', 'Face ID 인증에 실패했습니다. PIN을 사용해 주세요.')
 }
 
-function prfSaltExtension(salt: Uint8Array) {
+function prfInput(salt: Uint8Array) {
   return { prf: { eval: { first: buf(salt) } } } as unknown as AuthenticationExtensionsClientInputs
 }
 
-function prfOutput(credential: PublicKeyCredential): Uint8Array | null {
-  const results = credential.getClientExtensionResults() as unknown as {
-    prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } }
+interface PrfResults {
+  enabled?: boolean
+  results?: { first?: ArrayBuffer }
+}
+
+function prfExtension(credential: PublicKeyCredential): PrfResults {
+  try {
+    const results = credential.getClientExtensionResults() as unknown as { prf?: PrfResults }
+    return results?.prf ?? {}
+  } catch {
+    return {}
   }
-  const first = results?.prf?.results?.first
+}
+
+function prfOutput(credential: PublicKeyCredential): Uint8Array | null {
+  const first = prfExtension(credential).results?.first
   return first ? new Uint8Array(first) : null
 }
 
@@ -154,7 +228,7 @@ async function createCredential(salt: Uint8Array): Promise<PublicKeyCredential> 
       rp: { id: location.hostname, name: RP_NAME },
       user: {
         id: buf(randomBytes(16)),
-        name: 'sol-wallet',
+        name: 'mono-wallet',
         displayName: RP_NAME,
       },
       pubKeyCredParams: [
@@ -169,7 +243,7 @@ async function createCredential(salt: Uint8Array): Promise<PublicKeyCredential> 
       },
       timeout: 60_000,
       attestation: 'none',
-      extensions: prfSaltExtension(salt),
+      extensions: prfInput(salt),
     } as unknown as PublicKeyCredentialCreationOptions,
   }
   const credential = (await navigator.credentials.create(options)) as PublicKeyCredential | null
@@ -185,7 +259,7 @@ async function getAssertion(credentialId: string, salt: Uint8Array): Promise<Pub
       allowCredentials: [{ type: 'public-key', id: buf(fromBase64Url(credentialId)) }],
       userVerification: 'required',
       timeout: 60_000,
-      extensions: prfSaltExtension(salt),
+      extensions: prfInput(salt),
     } as unknown as PublicKeyCredentialRequestOptions,
   }
   const assertion = (await navigator.credentials.get(options)) as PublicKeyCredential | null
@@ -206,6 +280,34 @@ async function keyFromPrf(secret: Uint8Array): Promise<CryptoKey> {
   )
 }
 
+/** A random AES key that cannot be exported and lives only in IndexedDB. */
+async function createDeviceKey(): Promise<CryptoKey> {
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
+    'encrypt',
+    'decrypt',
+  ])
+  await idbSet(STORE_KEYS, WRAP_KEY_ID, key)
+  return key
+}
+
+async function readDeviceKey(): Promise<CryptoKey | null> {
+  try {
+    const key = await idbGet<CryptoKey>(STORE_KEYS, WRAP_KEY_ID)
+    return key && (key as CryptoKey).type === 'secret' ? (key as CryptoKey) : null
+  } catch {
+    return null
+  }
+}
+
+function writeRecord(record: BiometricRecord): void {
+  try {
+    localStorage.setItem(RECORD_KEY, JSON.stringify(record))
+    localStorage.removeItem(LEGACY_RECORD_KEY)
+  } catch {
+    throw new BiometricError('error', 'Face ID 정보를 저장하지 못했습니다.')
+  }
+}
+
 /* -------------------------------------------------------------------- api */
 
 /**
@@ -213,8 +315,14 @@ async function keyFromPrf(secret: Uint8Array): Promise<CryptoKey> {
  * Throws `BiometricError` with a reason the UI can explain.
  */
 export async function enrol(payload: SecretPayload): Promise<BiometricRecord> {
+  if (!biometricSupportedByBrowser()) {
+    throw new BiometricError('unsupported', '이 브라우저는 생체 인증을 지원하지 않습니다.')
+  }
   if (!(await isPlatformAuthenticatorAvailable())) {
-    throw new BiometricError('unsupported', '이 기기에서는 생체인증을 사용할 수 없습니다.')
+    throw new BiometricError(
+      'unsupported',
+      '이 기기에서는 Face ID를 쓸 수 없습니다. PIN을 계속 사용할 수 있습니다.',
+    )
   }
 
   const prfSalt = randomBytes(32)
@@ -226,45 +334,54 @@ export async function enrol(payload: SecretPayload): Promise<BiometricRecord> {
   }
 
   const credentialId = toBase64Url(new Uint8Array(credential.rawId))
+  const created = prfExtension(credential)
 
   // Safari may return the PRF output only on an assertion, not on creation.
-  let secret = prfOutput(credential)
-  if (!secret) {
+  let secret: Uint8Array | null = created.results?.first
+    ? new Uint8Array(created.results.first)
+    : null
+  if (!secret && created.enabled !== false) {
     try {
       const assertion = await getAssertion(credentialId, prfSalt)
       secret = prfOutput(assertion)
     } catch (error) {
-      throw mapError(error)
+      const mapped = mapError(error)
+      // A cancelled second prompt is not fatal: the credential exists, and the
+      // device-key path needs no PRF at all.
+      if (mapped.reason !== 'cancelled') throw mapped
     }
   }
-  if (!secret) {
-    throw new BiometricError(
-      'prf',
-      '이 브라우저(iOS)는 Face ID 잠금 해제(PRF)를 지원하지 않습니다. PIN을 사용해 주세요.',
-    )
+
+  let mode: BiometricMode = 'prf'
+  let key: CryptoKey
+  if (secret) {
+    key = await keyFromPrf(secret)
+    // Do not keep the raw PRF material around longer than the derivation.
+    secret.fill(0)
+  } else {
+    mode = 'device'
+    try {
+      key = await createDeviceKey()
+    } catch {
+      throw new BiometricError('error', 'Face ID 키를 저장하지 못했습니다. PIN을 사용해 주세요.')
+    }
   }
 
-  const key = await keyFromPrf(secret)
   const iv = randomBytes(12)
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: buf(iv) },
-    key,
-    buf(new TextEncoder().encode(JSON.stringify(payload))),
-  )
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: buf(iv) }, key, buf(plaintext))
+  plaintext.fill(0)
 
   const record: BiometricRecord = {
-    v: 1,
+    v: 2,
+    mode,
     credentialId,
     prfSalt: toBase64Url(prfSalt),
     iv: toBase64Url(iv),
     ct: toBase64Url(new Uint8Array(ciphertext)),
     createdAt: Date.now(),
   }
-  try {
-    localStorage.setItem(RECORD_KEY, JSON.stringify(record))
-  } catch {
-    throw new BiometricError('error', 'Face ID 정보를 저장하지 못했습니다.')
-  }
+  writeRecord(record)
   return record
 }
 
@@ -280,16 +397,28 @@ export async function unlockWithBiometric(): Promise<SecretPayload> {
     throw mapError(error)
   }
 
-  const secret = prfOutput(assertion)
-  if (!secret) {
-    throw new BiometricError(
-      'prf',
-      '이 브라우저(iOS)는 Face ID 잠금 해제(PRF)를 지원하지 않습니다. PIN을 사용해 주세요.',
-    )
+  let key: CryptoKey | null = null
+  if (record.mode === 'prf') {
+    const secret = prfOutput(assertion)
+    if (!secret) {
+      throw new BiometricError(
+        'prf',
+        '이번 인증에서는 Face ID 키를 받지 못했습니다. 다시 시도하거나 PIN을 사용하세요.',
+      )
+    }
+    key = await keyFromPrf(secret)
+    secret.fill(0)
+  } else {
+    key = await readDeviceKey()
+    if (!key) {
+      throw new BiometricError(
+        'corrupt',
+        'Face ID 키를 찾지 못했습니다. PIN으로 잠금 해제한 뒤 다시 등록해 주세요.',
+      )
+    }
   }
 
   try {
-    const key = await keyFromPrf(secret)
     const plaintext = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: buf(fromBase64Url(record.iv)) },
       key,

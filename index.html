@@ -6,17 +6,22 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>Sol Wallet</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self';"
+    />
+    <title>Mono</title>
     <meta name="description" content="기기에만 키를 보관하는 개인 솔라나 지갑" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#FFFFFF" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Sol Wallet" />
+    <meta name="apple-mobile-web-app-title" content="Mono" />
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="./manifest.json" />
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
     <!-- 65 KB variable subset (was a 2.0 MB file), preloaded so the first
@@ -30,6 +35,9 @@
     />
     <link rel="stylesheet" href="%BASE_URL%fonts/pretendard.css" />
     <style>
+      /* Paint the shell before any script runs, so there is never a blank gap.
+         Colour comes from the OS before the saved theme can be read, so a
+         system-dark phone never flashes a white rectangle. */
       html,
       body {
         margin: 0;
@@ -38,7 +46,6 @@
       #root {
         min-height: 100%;
       }
-      /* Paint the shell before any script runs, so there is never a blank gap. */
       #boot {
         position: fixed;
         inset: 0;
@@ -58,6 +65,17 @@
       @keyframes boot-spin {
         to {
           transform: rotate(360deg);
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme='light']),
+        html:not([data-theme='light']) body,
+        html:not([data-theme='light']) #boot {
+          background: #090a0c;
+        }
+        html:not([data-theme='light']) #boot span {
+          border-color: #24272e;
+          border-top-color: #f4f5f7;
         }
       }
       @media (prefers-reduced-motion: reduce) {

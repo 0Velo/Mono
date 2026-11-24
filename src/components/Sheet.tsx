@@ -55,7 +55,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, tall }
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div
         className={cx(
-          'absolute inset-0 bg-[#0D0E12]/30',
+          'absolute inset-0 bg-black/40',
           closing ? 'animate-backdrop-out' : 'animate-backdrop',
         )}
         onClick={onClose}
@@ -65,13 +65,13 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, tall }
         role="dialog"
         aria-modal="true"
         className={cx(
-          'relative flex w-full max-w-[430px] flex-col rounded-t-[28px] bg-white shadow-[0_-18px_50px_-30px_rgba(13,14,18,0.45)]',
+          'relative flex w-full max-w-[430px] flex-col rounded-t-[28px] bg-card shadow-[var(--sheet-shadow)]',
           closing ? 'animate-sheet-out' : 'animate-sheet',
           tall ? 'h-[92vh]' : 'max-h-[90vh]',
         )}
       >
         <div className="flex justify-center pb-1 pt-3">
-          <div className="h-[4px] w-9 rounded-full bg-[#E4E7EB]" />
+          <div className="h-[4px] w-9 rounded-full bg-handle" />
         </div>
         {(title || subtitle) && (
           <div className="flex items-start justify-between px-6 pb-2 pt-3">
