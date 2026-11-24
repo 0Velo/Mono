@@ -54,7 +54,7 @@ function TabFallback() {
 }
 
 export default function Shell() {
-  const { meta, keypair, lock, updateMeta, resetWallet } = useWallet()
+  const { meta, keypair, activeAccount, lock, updateMeta, resetWallet } = useWallet()
   const [tab, setTab] = useState<Tab>('wallet')
   const [sheet, setSheet] = useState<SheetState>(null)
   // Which token the swap screen should start from when opened from detail.
@@ -116,7 +116,7 @@ export default function Shell() {
           {tab === 'wallet' && (
             <Home
               address={meta.address}
-              accountName={meta.name}
+              accountName={activeAccount?.name ?? meta.name}
               network={network}
               portfolio={portfolio.data}
               loading={portfolio.loading}

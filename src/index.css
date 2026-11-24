@@ -316,15 +316,6 @@ textarea {
   animation: shimmer 1.35s infinite linear;
 }
 
-/* The Mono mark is matte art on a photo plate: multiply makes the white plate
- * vanish on light surfaces, screen makes the black plate vanish on dark ones. */
-.mono-mark-light {
-  mix-blend-mode: multiply;
-}
-.mono-mark-dark {
-  mix-blend-mode: screen;
-}
-
 /* hide number input spinners */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {

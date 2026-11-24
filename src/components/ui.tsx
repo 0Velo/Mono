@@ -9,10 +9,10 @@ const MARK_DARK = `${ASSET_BASE}assets/3d/wallet-hero-dark.png`
 /**
  * The Mono mark: the same sculptural matte emblem the app icon is cut from.
  *
- * Two plates are shipped — the emblem photographed on white and on black — and
- * CSS picks the one that matches the theme. `multiply` on light and `screen`
- * on dark make the plate itself disappear, so the mark sits on any surface
- * without a visible square around it.
+ * Two transparent props are shipped — the obsidian emblem for light surfaces
+ * and the alabaster one for dark — because a blend mode is the wrong tool here:
+ * `.press` (will-change) creates a stacking context, so anything blended inside
+ * a button would blend against transparency and show its plate.
  */
 export function MonoMark({
   size = 32,
@@ -36,7 +36,7 @@ export function MonoMark({
         height={size}
         draggable={false}
         decoding="async"
-        className="mono-mark-light absolute inset-0 h-full w-full object-contain"
+        className="absolute inset-0 h-full w-full object-contain dark:hidden"
       />
       <img
         src={MARK_DARK}
@@ -45,7 +45,7 @@ export function MonoMark({
         height={size}
         draggable={false}
         decoding="async"
-        className="mono-mark-dark absolute inset-0 hidden h-full w-full object-contain dark:block"
+        className="absolute inset-0 hidden h-full w-full object-contain dark:block"
       />
     </span>
   )
@@ -94,7 +94,7 @@ export function SolCoin3D({ size = 40 }: { size?: number }) {
       draggable={false}
       decoding="async"
       onError={() => setFailed(true)}
-      className="h-full w-full select-none object-contain mix-blend-multiply"
+      className="h-full w-full select-none object-contain"
       style={{ width: size, height: size }}
     />
   )

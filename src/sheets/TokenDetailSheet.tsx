@@ -181,7 +181,7 @@ export default function TokenDetailSheet({
   const riskyExtensions = security?.extensions ?? []
 
   return (
-    <Sheet open={open} onClose={onClose} tall>
+    <Sheet open={open} onClose={onClose}>
       <div className="flex items-start justify-between pb-1">
         <div className="flex items-center gap-3">
           <TokenIcon symbol={asset.isSol ? 'SOL' : asset.symbol} icon={asset.icon} size={48} />
