@@ -215,9 +215,9 @@ export function Onboarding() {
         <div className="animate-fade flex flex-1 flex-col px-6 pb-10 pt-8">
           <div className="flex flex-1 flex-col justify-center pb-4">
             <div className="animate-rise -ml-2 flex items-center">
-              <MonoMark size={184} />
+              <MonoMark size={172} />
             </div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2">
               <span className="text-[13px] font-semibold uppercase tracking-[0.28em] text-ink">
                 Mono
               </span>
