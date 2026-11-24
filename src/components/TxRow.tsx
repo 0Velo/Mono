@@ -51,7 +51,7 @@ export function TxRow({
     <button
       onClick={() => window.open(explorerTx(item.signature, network), '_blank', 'noopener')}
       className={cx(
-        'flex w-full items-center gap-3.5 px-5 py-[13px] text-left active:bg-[#FAFBFC]',
+        'press flex w-full items-center gap-3.5 px-5 py-[13px] text-left active:bg-[#FAFBFC]',
         showBorder && 'border-t border-line',
       )}
     >

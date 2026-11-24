@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import { Keypair } from '@solana/web3.js'
+import type { Keypair } from '@solana/web3.js'
 import {
   InvalidPinError,
   decryptSecret,
@@ -16,7 +16,16 @@ import {
   type SecretPayload,
   type Vault,
 } from '../lib/vault'
-import { keypairFromPayload } from '../lib/wallet'
+import { loadKeys } from '../lib/keys'
+import {
+  BiometricError,
+  clearEnrolment,
+  enrol,
+  hasEnrolment,
+  isPlatformAuthenticatorAvailable,
+  readRecord,
+  unlockWithBiometric,
+} from '../lib/biometric'
 import type { NetworkId } from '../lib/rpc'
 
 const VAULT_KEY = 'solwallet.vault.v1'
@@ -52,6 +61,16 @@ interface WalletContextValue {
   resetWallet: () => void
   updateMeta: (patch: Partial<WalletMeta>) => void
   verifyPin: (pin: string) => Promise<SecretPayload>
+  restoreBackup: (vault: Vault, pin: string, addressHint?: string) => Promise<void>
+
+  /** Face ID state, driven by `lib/biometric.ts`. */
+  biometricAvailable: boolean
+  biometricEnabled: boolean
+  biometricCreatedAt: number | null
+  unlockWithFaceId: () => Promise<void>
+  enrolBiometric: (payload?: SecretPayload) => Promise<void>
+  disableBiometric: () => void
+  biometricError: string | null
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -89,10 +108,30 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [meta, setMeta] = useState<WalletMeta | null>(null)
   const [keypair, setKeypair] = useState<Keypair | null>(null)
 
+  // Kept in memory only, so Face ID can be enabled from Settings without
+  // asking for the PIN again. It is wiped on lock and never persisted.
+  const payloadRef = useRef<SecretPayload | null>(null)
+
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricEnabled, setBiometricEnabled] = useState(false)
+  const [biometricCreatedAt, setBiometricCreatedAt] = useState<number | null>(null)
+  const [biometricError, setBiometricError] = useState<string | null>(null)
+
   useEffect(() => {
     setVault(readVault())
     setMeta(readMeta())
+    const record = readRecord()
+    setBiometricEnabled(Boolean(record))
+    setBiometricCreatedAt(record?.createdAt ?? null)
     setReady(true)
+
+    let cancelled = false
+    void isPlatformAuthenticatorAvailable().then((available) => {
+      if (!cancelled) setBiometricAvailable(available)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const persistMeta = useCallback((next: WalletMeta) => {
@@ -104,20 +143,34 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const createWallet = useCallback(
-    async (payload: SecretPayload, pin: string) => {
+  const createWallet = useCallback(async (payload: SecretPayload, pin: string) => {
+    const { keypairFromPayload } = await loadKeys()
+    const kp = keypairFromPayload(payload)
+    const nextVault = await encryptSecret(payload, pin)
+    localStorage.setItem(VAULT_KEY, JSON.stringify(nextVault))
+    const nextMeta: WalletMeta = {
+      ...DEFAULT_META,
+      address: kp.publicKey.toBase58(),
+      createdAt: Date.now(),
+    }
+    localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
+    payloadRef.current = payload
+    setVault(nextVault)
+    setMeta(nextMeta)
+    setKeypair(kp)
+  }, [])
+
+  const applyPayload = useCallback(
+    async (payload: SecretPayload) => {
+      const { keypairFromPayload } = await loadKeys()
       const kp = keypairFromPayload(payload)
-      const nextVault = await encryptSecret(payload, pin)
-      localStorage.setItem(VAULT_KEY, JSON.stringify(nextVault))
-      const nextMeta: WalletMeta = {
-        ...DEFAULT_META,
-        address: kp.publicKey.toBase58(),
-        createdAt: Date.now(),
-      }
-      localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
-      setVault(nextVault)
-      setMeta(nextMeta)
+      payloadRef.current = payload
       setKeypair(kp)
+      setMeta((current) => {
+        if (current) return current
+        const stored = readMeta()
+        return stored ?? current
+      })
     },
     [],
   )
@@ -127,27 +180,54 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const current = vault ?? readVault()
       if (!current) throw new Error('지갑이 없습니다.')
       const payload = await decryptSecret(current, pin)
-      const kp = keypairFromPayload(payload)
       setVault(current)
-      setKeypair(kp)
-      if (!meta) {
-        const stored = readMeta()
-        if (stored) setMeta(stored)
-      }
+      await applyPayload(payload)
     },
-    [vault, meta],
+    [vault, applyPayload],
   )
 
   const lock = useCallback(() => {
+    payloadRef.current = null
     setKeypair(null)
   }, [])
+  const restoreBackup = useCallback(
+    async (nextVault: Vault, pin: string, addressHint?: string) => {
+      const payload = await decryptSecret(nextVault, pin)
+      const { keypairFromPayload } = await loadKeys()
+      const kp = keypairFromPayload(payload)
+      const address = kp.publicKey.toBase58()
+      if (addressHint && addressHint !== address) {
+        throw new Error('백업 파일의 주소가 PIN과 맞지 않습니다.')
+      }
+      localStorage.setItem(VAULT_KEY, JSON.stringify(nextVault))
+      const nextMeta: WalletMeta = {
+        ...DEFAULT_META,
+        address,
+        createdAt: nextVault.createdAt ?? Date.now(),
+      }
+      localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
+      // A Face ID credential from another wallet must not outlive the restore.
+      clearEnrolment()
+      setBiometricEnabled(false)
+      setBiometricCreatedAt(null)
+      payloadRef.current = payload
+      setVault(nextVault)
+      setMeta(nextMeta)
+      setKeypair(kp)
+    },
+    [],
+  )
 
   const resetWallet = useCallback(() => {
     localStorage.removeItem(VAULT_KEY)
     localStorage.removeItem(META_KEY)
+    clearEnrolment()
+    payloadRef.current = null
     setVault(null)
     setMeta(null)
     setKeypair(null)
+    setBiometricEnabled(false)
+    setBiometricCreatedAt(null)
   }, [])
 
   const updateMeta = useCallback(
@@ -166,6 +246,56 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     },
     [vault],
   )
+
+  /* ------------------------------------------------------------- face id */
+
+  const enrolBiometric = useCallback(async (payload?: SecretPayload) => {
+    const secret = payload ?? payloadRef.current
+    if (!secret) {
+      throw new BiometricError('error', 'PIN으로 한 번 잠금 해제한 뒤 다시 시도해 주세요.')
+    }
+    setBiometricError(null)
+    try {
+      const record = await enrol(secret)
+      setBiometricEnabled(true)
+      setBiometricCreatedAt(record.createdAt)
+    } catch (error) {
+      const message =
+        error instanceof BiometricError
+          ? error.message
+          : 'Face ID를 등록하지 못했습니다. PIN을 계속 사용할 수 있습니다.'
+      setBiometricError(message)
+      throw error
+    }
+  }, [])
+
+  const disableBiometric = useCallback(() => {
+    clearEnrolment()
+    setBiometricEnabled(false)
+    setBiometricCreatedAt(null)
+    setBiometricError(null)
+  }, [])
+
+  const unlockWithFaceId = useCallback(async () => {
+    setBiometricError(null)
+    try {
+      const payload = await unlockWithBiometric()
+      const current = vault ?? readVault()
+      if (current) setVault(current)
+      await applyPayload(payload)
+    } catch (error) {
+      if (error instanceof BiometricError) {
+        setBiometricError(error.message)
+        // A stale record would keep failing: drop it so the PIN stays the way in.
+        if (error.reason === 'corrupt' || error.reason === 'prf') {
+          clearEnrolment()
+          setBiometricEnabled(false)
+          setBiometricCreatedAt(null)
+        }
+      }
+      throw error
+    }
+  }, [vault, applyPayload])
 
   // Auto-lock after a period without interaction.
   const lastActivity = useRef(Date.now())
@@ -191,6 +321,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const timer = window.setInterval(() => {
       if (autoLockMinutes > 0 && Date.now() - lastActivity.current > autoLockMinutes * 60_000) {
         setKeypair(null)
+        payloadRef.current = null
       }
     }, 15_000)
 
@@ -198,6 +329,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === 'visible') {
         if (autoLockMinutes > 0 && Date.now() - lastActivity.current > autoLockMinutes * 60_000) {
           setKeypair(null)
+          payloadRef.current = null
         } else {
           lastActivity.current = Date.now()
         }
@@ -226,6 +358,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       resetWallet,
       updateMeta,
       verifyPin,
+      restoreBackup,
+      biometricAvailable,
+      biometricEnabled,
+      biometricCreatedAt,
+      unlockWithFaceId,
+      enrolBiometric,
+      disableBiometric,
+      biometricError,
     }),
     [
       ready,
@@ -238,6 +378,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       resetWallet,
       updateMeta,
       verifyPin,
+      restoreBackup,
+      biometricAvailable,
+      biometricEnabled,
+      biometricCreatedAt,
+      unlockWithFaceId,
+      enrolBiometric,
+      disableBiometric,
+      biometricError,
     ],
   )
 
@@ -250,4 +398,4 @@ export function useWallet(): WalletContextValue {
   return context
 }
 
-export { InvalidPinError }
+export { InvalidPinError, hasEnrolment }

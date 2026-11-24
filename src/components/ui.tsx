@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cx } from '../lib/format'
+
+const ASSET_BASE = import.meta.env.BASE_URL
 
 /**
  * The wallet mark: three crisp slanted bars, monochrome, no container.
@@ -23,138 +25,47 @@ export function BrandMark({
       style={{ display: 'block' }}
     >
       <g fill={color}>
-        <path d="M8.9 6.2h17.6l-3.3 3.8H5.6z" />
-        <path d="M5.6 14.1h17.6l-3.3 3.8H2.3z" />
-        <path d="M8.9 22h17.6l-3.3 3.8H5.6z" />
+        <path d="M9.2 6.4h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H6.65a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
+        <path d="M6.65 13.5h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H4.1a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
+        <path d="M9.2 20.6h16.6a.7.7 0 0 1 .55 1.13l-2.55 3.1a.7.7 0 0 1-.55.24H6.65a.7.7 0 0 1-.55-1.13l2.55-3.1a.7.7 0 0 1 .55-.24Z" />
       </g>
-    </svg>
-  )
-}
-
-function SolGlyph({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <g fill="currentColor">
-        <path d="M10.1 7.4h15.2l-2.9 3.3H7.2z" />
-        <path d="M7.2 14.4h15.2l-2.9 3.3H4.3z" />
-        <path d="M10.1 21.3h15.2l-2.9 3.3H7.2z" />
-      </g>
-    </svg>
-  )
-}
-
-function UsdGlyph({ size, glyph }: { size: number; glyph: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="16" cy="16" r="10.2" stroke="currentColor" strokeWidth="2.4" />
-      <text
-        x="16"
-        y="21.4"
-        textAnchor="middle"
-        fontSize="13"
-        fontWeight="700"
-        fill="currentColor"
-        fontFamily="Pretendard Variable, Pretendard, system-ui, sans-serif"
-      >
-        {glyph}
-      </text>
-    </svg>
-  )
-}
-
-function JupGlyph({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="16" cy="16" r="6.4" stroke="currentColor" strokeWidth="2.2" />
-      <ellipse
-        cx="16"
-        cy="16"
-        rx="12"
-        ry="4.3"
-        transform="rotate(-22 16 16)"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-    </svg>
-  )
-}
-
-function RayGlyph({ size }: { size: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="16" cy="16" r="4.6" stroke="currentColor" strokeWidth="2.4" />
-      {Array.from({ length: 8 }).map((_, index) => {
-        const angle = (index * Math.PI) / 4
-        const x1 = 16 + Math.cos(angle) * 8.2
-        const y1 = 16 + Math.sin(angle) * 8.2
-        const x2 = 16 + Math.cos(angle) * 11.2
-        const y2 = 16 + Math.sin(angle) * 11.2
-        return (
-          <line
-            key={index}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-        )
-      })}
     </svg>
   )
 }
 
 /**
- * The bespoke matte clay Solana coin, shot on pure white. Multiply blending on
- * the light surface makes the white backdrop disappear, so no square box shows.
+ * The real thing: a matte 3D coin carrying the official Solana three-bar
+ * emblem, rendered on white. `mix-blend-multiply` makes the white plate vanish
+ * on the light UI, so there is no square box around the disc.
  */
 export function SolCoin3D({ size = 40 }: { size?: number }) {
   const [failed, setFailed] = useState(false)
-  if (failed) return <SolGlyph size={Math.round(size * 0.56)} />
+  if (failed) return <BrandMark size={Math.round(size * 0.78)} />
   return (
     <img
-      src={`${import.meta.env.BASE_URL}assets/3d/sol-coin.png`}
+      src={`${ASSET_BASE}assets/3d/sol-coin.png`}
       alt=""
       width={size}
       height={size}
       draggable={false}
+      decoding="async"
       onError={() => setFailed(true)}
       className="h-full w-full select-none object-contain mix-blend-multiply"
+      style={{ width: size, height: size }}
     />
   )
 }
 
-const STABLE_GLYPHS: Record<string, string> = {
-  USDC: '$',
-  USDT: '₮',
-  PYUSD: '$',
-  USDS: '$',
+/** Recognisable marks for the tokens people actually hold. */
+const TOKEN_ART: Record<string, string> = {
+  USDC: 'usdc',
+  USDT: 'usdt',
+  PYUSD: 'usdc',
+  JUP: 'jup',
+  BONK: 'bonk',
+  RAY: 'ray',
+  JTO: 'jto',
+  MSOL: 'msol',
 }
 
 function monogram(symbol: string): string {
@@ -166,8 +77,8 @@ function monogram(symbol: string): string {
 }
 
 /**
- * Token marks stay monochrome: a real minimal SVG mark for tokens we know,
- * a sober two-letter monogram for everything else.
+ * Real token artwork when we ship it (or when the price API hands us a logo),
+ * a sober two-letter monogram otherwise. SOL is the 3D coin.
  */
 export function TokenIcon({
   symbol,
@@ -179,32 +90,38 @@ export function TokenIcon({
   size?: number
 }) {
   const key = symbol.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-  const glyphSize = Math.round(size * 0.56)
+  const art = TOKEN_ART[key]
+  const src = art ? `${ASSET_BASE}assets/tokens/${art}.png` : icon
+  const [failed, setFailed] = useState(false)
+  const lastSrc = useRef(src)
 
-  let mark: ReactNode = null
-  if (key === 'SOL' || key === 'WSOL') mark = <SolCoin3D size={size} />
-  else if (STABLE_GLYPHS[key]) mark = <UsdGlyph size={glyphSize} glyph={STABLE_GLYPHS[key]} />
-  else if (key === 'JUP') mark = <JupGlyph size={glyphSize} />
-  else if (key === 'RAY') mark = <RayGlyph size={glyphSize} />
+  useEffect(() => {
+    if (lastSrc.current !== src) {
+      lastSrc.current = src
+      setFailed(false)
+    }
+  }, [src])
+
+  if (key === 'SOL' || key === 'WSOL') return <SolCoin3D size={size} />
 
   return (
     <div
-      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface text-ink"
+      className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/[0.05]"
       style={{ width: size, height: size }}
     >
-      {icon ? (
+      {src && !failed ? (
         <img
-          src={icon}
+          src={src}
           alt=""
           width={size}
           height={size}
-          className="h-full w-full bg-white object-cover"
-          onError={(event) => {
-            ;(event.currentTarget as HTMLImageElement).style.display = 'none'
-          }}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          className="h-full w-full select-none object-cover"
+          onError={() => setFailed(true)}
         />
-      ) : null}
-      {mark ?? (
+      ) : (
         <span
           className="font-semibold tracking-[-0.03em] text-ink"
           style={{ fontSize: Math.max(10, size * 0.29) }}
@@ -220,7 +137,6 @@ export function TokenIcon({
 export function SolMark({ size = 40 }: { size?: number }) {
   return <TokenIcon symbol="SOL" size={size} />
 }
-
 
 export function Segmented<T extends string>({
   value,
@@ -239,7 +155,7 @@ export function Segmented<T extends string>({
           type="button"
           onClick={() => onChange(option.value)}
           className={cx(
-            'flex-1 rounded-full py-2 text-[12.5px] transition-colors',
+            'flex-1 rounded-full py-2 text-[12.5px] transition-all duration-200',
             value === option.value
               ? 'bg-white font-semibold text-ink shadow-[0_1px_2px_rgba(13,14,18,0.06)]'
               : 'font-medium text-muted',
@@ -305,6 +221,7 @@ export function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
+        className="animate-draw"
       />
     </svg>
   )
@@ -341,7 +258,7 @@ export function Row({
         type="button"
         onClick={onClick}
         className={cx(
-          'flex w-full items-center justify-between px-4 py-3.5 text-left active:bg-[#EDEFF3]',
+          'flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors active:bg-[#EDEFF3]',
           className,
         )}
       >

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, Eye, EyeOff, ShieldAlert } from 'lucide-react'
+import { Copy, Download, Eye, EyeOff, ShieldAlert } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Keypad, PinDots } from '../components/Keypad'
@@ -7,6 +7,7 @@ import { showToast } from '../components/Toast'
 import { useWallet } from '../state/WalletProvider'
 import type { SecretPayload } from '../lib/vault'
 import { mnemonicWords } from '../lib/wallet'
+import { saveBackupFile } from '../lib/backup'
 
 interface BackupSheetProps {
   open: boolean
@@ -14,12 +15,13 @@ interface BackupSheetProps {
 }
 
 export function BackupSheet({ open, onClose }: BackupSheetProps) {
-  const { verifyPin } = useWallet()
+  const { verifyPin, vault, meta } = useWallet()
   const [pin, setPin] = useState('')
   const [secret, setSecret] = useState<SecretPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -51,6 +53,25 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
       showToast('복사했습니다. 안전한 곳에 보관하세요.')
     } catch {
       showToast('복사할 수 없습니다')
+    }
+  }
+
+  const exportEncrypted = async () => {
+    if (!vault || exporting) return
+    setExporting(true)
+    try {
+      const result = await saveBackupFile(vault, meta?.address)
+      showToast(
+        result === 'shared'
+          ? '공유 시트에서 파일 앱 또는 iCloud Drive를 고르세요'
+          : '백업 파일을 저장했습니다',
+      )
+    } catch (err) {
+      if ((err as { name?: string })?.name !== 'AbortError') {
+        showToast('백업 파일을 저장하지 못했습니다')
+      }
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -141,6 +162,28 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
           </p>
         </div>
       )}
+
+      <div className="mt-6 border-t border-[#EFF1F4] pt-4">
+        <button
+          onClick={() => void exportEncrypted()}
+          className="press flex w-full items-center justify-between rounded-[16px] bg-surface px-4 py-3.5 text-left"
+        >
+          <span className="flex items-center gap-2.5">
+            <Download size={16} strokeWidth={1.9} className="text-ink" />
+            <span>
+              <span className="block text-[13.5px] font-semibold text-ink">
+                암호화 백업 파일 저장
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-snug text-muted">
+                시드 문구 없이 PIN 암호문만 담긴 .json
+              </span>
+            </span>
+          </span>
+          <span className="text-[11.5px] font-semibold text-muted">
+            {exporting ? '저장 중…' : '저장'}
+          </span>
+        </button>
+      </div>
     </Sheet>
   )
 }

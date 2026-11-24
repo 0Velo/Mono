@@ -2,25 +2,16 @@ import * as bip39 from 'bip39'
 import { Keypair } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { deriveEd25519Seed } from './derive'
+import { mnemonicWords, normalizeMnemonic } from './words'
 import type { SecretPayload } from './vault'
 
 /** Phantom-compatible first account path. */
 export const DEFAULT_DERIVATION_PATH = "m/44'/501'/0'/0'"
 
+export { mnemonicWords, normalizeMnemonic }
+
 export function generateMnemonic(words: 12 | 24 = 12): string {
   return bip39.generateMnemonic(words === 24 ? 256 : 128)
-}
-
-export function normalizeMnemonic(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[\s\u3000]+/g, ' ')
-}
-
-export function mnemonicWords(input: string): string[] {
-  const normalized = normalizeMnemonic(input)
-  return normalized ? normalized.split(' ') : []
 }
 
 export function validateMnemonic(input: string): boolean {

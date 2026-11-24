@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cx } from '../lib/format'
 
@@ -12,18 +13,60 @@ interface SheetProps {
   tall?: boolean
 }
 
+/**
+ * Bottom sheet with a real exit: on close the panel slides back down under a
+ * fading backdrop before it unmounts, so dismissing never snaps.
+ */
 export function Sheet({ open, onClose, title, subtitle, children, footer, tall }: SheetProps) {
-  if (!open) return null
+  const [mounted, setMounted] = useState(open)
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (open) {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current)
+      setMounted(true)
+      setClosing(false)
+      return
+    }
+    if (!mounted) return
+    setClosing(true)
+    closeTimer.current = window.setTimeout(() => {
+      setMounted(false)
+      setClosing(false)
+    }, 230)
+    return () => {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    }
+  }, [open, mounted])
+
+  useEffect(() => {
+    if (!mounted) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mounted, onClose])
+
+  if (!mounted) return null
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div
-        className="animate-fade absolute inset-0 bg-[#0D0E12]/30"
+        className={cx(
+          'absolute inset-0 bg-[#0D0E12]/30',
+          closing ? 'animate-backdrop-out' : 'animate-backdrop',
+        )}
         onClick={onClose}
         aria-hidden="true"
       />
       <div
+        role="dialog"
+        aria-modal="true"
         className={cx(
-          'animate-sheet relative flex w-full max-w-[430px] flex-col rounded-t-[28px] bg-white',
+          'relative flex w-full max-w-[430px] flex-col rounded-t-[28px] bg-white shadow-[0_-18px_50px_-30px_rgba(13,14,18,0.45)]',
+          closing ? 'animate-sheet-out' : 'animate-sheet',
           tall ? 'h-[92vh]' : 'max-h-[90vh]',
         )}
       >
@@ -41,13 +84,15 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, tall }
             <button
               onClick={onClose}
               aria-label="닫기"
-              className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink active:bg-[#E9ECF0]"
+              className="press -mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
             >
               <X size={16} strokeWidth={2} />
             </button>
           </div>
         )}
-        <div className="no-scrollbar flex-1 overflow-y-auto px-6 pb-6 pt-2">{children}</div>
+        <div className="no-scrollbar flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-2">
+          {children}
+        </div>
         {footer && (
           <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3">{footer}</div>
         )}

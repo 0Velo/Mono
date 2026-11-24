@@ -9,3 +9,5 @@ screenshots
 design
 tmp
 *.log
+.cache-tok
+.deploy-gh-pages

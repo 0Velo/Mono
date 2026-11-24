@@ -8,6 +8,7 @@
     />
     <title>Sol Wallet</title>
     <meta name="description" content="기기에만 키를 보관하는 개인 솔라나 지갑" />
+    <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#FFFFFF" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -18,10 +19,56 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
-    <link rel="stylesheet" href="./fonts/pretendard.css" />
+    <!-- 65 KB variable subset (was a 2.0 MB file), preloaded so the first
+         screen paints in Pretendard without a font-blocking round trip. -->
+    <link
+      rel="preload"
+      href="%BASE_URL%fonts/pretendard-subset.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="%BASE_URL%fonts/pretendard.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #ffffff;
+      }
+      #root {
+        min-height: 100%;
+      }
+      /* Paint the shell before any script runs, so there is never a blank gap. */
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+      }
+      #boot span {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 2.5px solid #eceef2;
+        border-top-color: #0d0e12;
+        animation: boot-spin 0.85s linear infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot span {
+          animation-duration: 3s;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot"><span></span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

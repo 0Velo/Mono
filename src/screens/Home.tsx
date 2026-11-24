@@ -128,15 +128,24 @@ export function Home({
 
       <div className="px-5 pt-11">
         <div className="text-[12.5px] font-medium text-muted">총 자산</div>
-        <button
-          onClick={() => setCurrency((value) => (value === 'usd' ? 'krw' : 'usd'))}
-          className="mt-2 block max-w-full text-left"
-          aria-label="표시 통화 전환"
-        >
-          <span className="tnum block text-[42px] font-bold leading-[1.06] tracking-[-0.04em] text-ink">
-            {heroValue}
-          </span>
-        </button>
+        {portfolio || !loading ? (
+          <button
+            onClick={() => setCurrency((value) => (value === 'usd' ? 'krw' : 'usd'))}
+            className="mt-2 block max-w-full text-left"
+            aria-label="표시 통화 전환"
+          >
+            <span
+              className={cx(
+                'tnum block text-[42px] font-bold leading-[1.06] tracking-[-0.04em]',
+                totalUsd === null ? 'text-[#D3D8DF]' : 'text-ink',
+              )}
+            >
+              {heroValue}
+            </span>
+          </button>
+        ) : (
+          <div className="mt-3 h-[44px] w-[216px] skeleton rounded-[12px]" aria-hidden="true" />
+        )}
 
         <div className="mt-2.5 flex items-center gap-2 text-[12.5px]">
           <span className="tnum font-medium text-muted">
@@ -172,13 +181,13 @@ export function Home({
       <div className="mt-6 grid grid-cols-2 gap-2.5 px-5">
         <button
           onClick={() => onSend(null)}
-          className="h-[54px] rounded-full bg-ink text-[15.5px] font-semibold tracking-[-0.02em] text-white active:bg-[#1D1F27]"
+          className="press h-[54px] rounded-full bg-ink text-[15.5px] font-semibold tracking-[-0.02em] text-white active:bg-[#1D1F27]"
         >
           보내기
         </button>
         <button
           onClick={onReceive}
-          className="h-[54px] rounded-full bg-surface2 text-[15.5px] font-semibold tracking-[-0.02em] text-ink active:bg-[#E9ECF0]"
+          className="press h-[54px] rounded-full bg-surface2 text-[15.5px] font-semibold tracking-[-0.02em] text-ink active:bg-[#E9ECF0]"
         >
           받기
         </button>
@@ -213,7 +222,7 @@ export function Home({
         <button
           onClick={onRefresh}
           aria-label="새로고침"
-          className="flex items-center gap-1 pb-0.5 text-[11.5px] font-medium text-muted active:opacity-60"
+          className="press flex items-center gap-1 pb-0.5 text-[11.5px] font-medium text-muted"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin-slow' : ''} />
           {loading ? '불러오는 중' : '새로고침'}
@@ -223,7 +232,7 @@ export function Home({
       <div className="mt-1.5 px-5">
         <button
           onClick={() => onSend('SOL')}
-          className="flex w-full items-center gap-3.5 py-3.5 text-left active:opacity-70"
+          className="press flex w-full items-center gap-3.5 py-3.5 text-left"
         >
           <SolMark size={40} />
           <div className="min-w-0 flex-1">
@@ -240,11 +249,12 @@ export function Home({
           </div>
         </button>
 
-        {visibleTokens.map((token) => (
+        {visibleTokens.map((token, index) => (
           <button
             key={token.mint}
             onClick={() => onSend(token.mint)}
-            className="flex w-full items-center gap-3.5 py-3.5 text-left active:opacity-70"
+            className="press animate-rise flex w-full items-center gap-3.5 py-3.5 text-left"
+            style={{ animationDelay: `${Math.min(index * 26, 180)}ms` }}
           >
             <TokenIcon symbol={token.symbol} icon={token.icon} size={40} />
             <div className="min-w-0 flex-1">

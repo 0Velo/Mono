@@ -35,7 +35,7 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       className={cx(
-        'inline-flex h-[54px] items-center justify-center gap-2 rounded-full px-5 text-[15.5px] font-semibold tracking-[-0.02em] transition-colors disabled:cursor-not-allowed',
+        'press inline-flex h-[54px] items-center justify-center gap-2 rounded-full px-5 text-[15.5px] font-semibold tracking-[-0.02em] disabled:cursor-not-allowed',
         full && 'w-full',
         styles[variant],
         className,

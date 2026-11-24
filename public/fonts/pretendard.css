@@ -1,7 +1,10 @@
+/* Pretendard Variable — subset to the glyphs this app actually renders.
+ * 2.0 MB -> ~68 KB. `font-display: swap` plus a system-UI fallback means text
+ * is painted on the first frame, never waiting on a font request. */
 @font-face {
   font-family: 'Pretendard Variable';
   font-weight: 45 920;
   font-style: normal;
   font-display: swap;
-  src: url('./PretendardVariable.woff2') format('woff2-variations');
+  src: url('./pretendard-subset.woff2') format('woff2-variations');
 }

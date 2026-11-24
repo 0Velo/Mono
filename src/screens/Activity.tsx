@@ -36,7 +36,7 @@ export function Activity({
         <button
           onClick={onRefresh}
           aria-label="새로고침"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink active:bg-[#E9ECF0]"
+          className="press flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink"
         >
           <RefreshCw size={15} className={loading ? 'animate-spin-slow' : ''} />
         </button>
@@ -60,13 +60,18 @@ export function Activity({
       {items.length > 0 && (
         <div className="mt-1">
           {items.map((item, index) => (
-            <TxRow
+            <div
               key={item.signature}
-              item={item}
-              tokenSymbols={tokenSymbols}
-              network={network}
-              showBorder={index > 0}
-            />
+              className="animate-rise"
+              style={{ animationDelay: `${Math.min(index * 22, 200)}ms` }}
+            >
+              <TxRow
+                item={item}
+                tokenSymbols={tokenSymbols}
+                network={network}
+                showBorder={index > 0}
+              />
+            </div>
           ))}
         </div>
       )}

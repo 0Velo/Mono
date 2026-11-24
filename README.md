@@ -1,7 +1,28 @@
 # Sol Wallet
 
 Phantom 스타일의 개인 솔라나 지갑 PWA. React 18 + Vite + TypeScript + Tailwind, 실제
-Mainnet/Devnet 연결, 기기 내 PIN 암호화(AES-GCM), iOS 홈 화면 설치를 지원합니다.
+Mainnet/Devnet 연결, 기기 내 PIN 암호화(AES-GCM), Face ID(WebAuthn) 잠금 해제, 암호화 백업
+파일(.json) 내보내기/복원, iOS 홈 화면 설치를 지원합니다.
+
+## 1.1.0 변경점
+
+- **실제 SOL 로고**: 3D 매트 클레이 코인(`public/assets/3d/sol-coin.png`)에 공식 솔라나 3단
+  바 엠블럼. 흰 배경은 `mix-blend-multiply`로 사라지므로 아이콘에 사각 박스가 없습니다.
+  USDC · USDT · JUP · BONK · RAY · JTO · mSOL은 실제 토큰 아트(`public/assets/tokens/`)를
+  로컬에서 서빙합니다(외부 요청 0).
+- **초기 렌더 속도**: 엔트리 JS 708KB → **45KB**(gzip 15KB). `@solana/web3.js` ·
+  `@solana/spl-token` · `bip39`은 모두 `import()` 지연 청크로 빠졌고, 잠금 화면이 뜬 뒤
+  idle 시간에 미리 받아 둡니다. Pretendard는 2.0MB 통짜 대신 **68KB 서브셋**
+  (`tmp/make-font-subset.py`로 재생성) + `font-display: swap`.
+- **Face ID 잠금 해제**: `navigator.credentials.create/get` + `prf` 확장. PRF가 없으면
+  평문 키를 남기지 않고 PIN을 안내합니다(잠금 사고 방지). 설정에서 켜고 끌 수 있습니다.
+- **모션**: iOS 시트 커브(`cubic-bezier(0.32,0.72,0,1)`) 슬라이드 업/다운, 백드롭 페이드,
+  버튼 프레스 스케일, 탭 크로스페이드, 스켈레톤 셰이머, 스파크라인 드로잉.
+- **Helius RPC 가이드**: 설정에 `https://mainnet.helius-rpc.com/?api-key=…` 예시·복사 버튼·
+  키 발급 링크.
+- **암호화 백업 파일**: PIN으로 암호화된 금고 JSON을 그대로 `.json`으로 저장(iOS 공유 시트 →
+  파일 앱/iCloud). 시드 문구 평문은 파일에 없습니다. 온보딩 '기존 지갑 가져오기 → 백업 파일'에서
+  파일 선택 + PIN 입력으로 즉시 복원됩니다.
 
 ```
 /workspace/work/sol-wallet
@@ -10,14 +31,18 @@ Mainnet/Devnet 연결, 기기 내 PIN 암호화(AES-GCM), iOS 홈 화면 설치�
 │  │  ├─ derive.ts   SLIP-0010 ed25519 파생 (Phantom과 동일한 m/44'/501'/0'/0')
 │  │  ├─ wallet.ts   니모닉/개인키 → Keypair, 주소 검증
 │  │  ├─ vault.ts    PBKDF2-SHA256(210k) + AES-256-GCM 로컬 금고
-│  │  ├─ rpc.ts      네트워크/RPC, CORS 폴백, Solscan 링크
+│  │  ├─ rpc.ts      네트워크 상수·Solscan 링크 (web3 없음, 엔트리 청크용)
+│  │  ├─ connection.ts  web3 Connection + CORS 폴백 (지연 청크)
+│  │  ├─ keys.ts     wallet.ts 지연 로더
+│  │  ├─ biometric.ts   Face ID(WebAuthn PRF) 등록·해제
+│  │  ├─ backup.ts   암호화 백업 파일 내보내기/파싱
 │  │  ├─ tokens.ts    잔액·SPL 토큰 계정·온체인 메타데이터
 │  │  ├─ prices.ts    CoinGecko → Binance/er-api → DexScreener 폴백 시세
 │  │  └─ tx.ts        SOL/SPL 전송, 수수료·계정 생성비 추정, 거래내역 파싱
 │  ├─ state/WalletProvider.tsx   잠금/해제, 자동 잠금, 메타 저장
 │  ├─ screens/  Onboarding · LockScreen · Home · Activity · Settings
 │  └─ sheets/   SendSheet · ReceiveSheet · BackupSheet · ResetSheet
-├─ public/  manifest.json, sw.js, icons/, fonts/PretendardVariable.woff2, assets/3d/
+├─ public/  manifest.json, sw.js(v3), icons/, fonts/pretendard-subset.woff2, assets/3d/, assets/tokens/
 ├─ design/  masters/(원본 1000px) · originals/(교체 전 아이콘 백업)
 └─ screenshots/  390×844 iPhone 뷰포트 캡처
 ```

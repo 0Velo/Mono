@@ -1,27 +1,17 @@
-import { useMemo, useState } from 'react'
-import { History, Settings2, Wallet } from 'lucide-react'
+import { Suspense, lazy, useEffect } from 'react'
 import { useWallet } from './state/WalletProvider'
 import { Onboarding } from './screens/Onboarding'
 import { LockScreen } from './screens/LockScreen'
-import { Home } from './screens/Home'
-import { Activity } from './screens/Activity'
-import { Settings } from './screens/Settings'
-import { SendSheet } from './sheets/SendSheet'
-import { ReceiveSheet } from './sheets/ReceiveSheet'
-import { BackupSheet } from './sheets/BackupSheet'
-import { ResetSheet } from './sheets/ResetSheet'
-import { ToastHost } from './components/Toast'
-import { usePortfolio, useHistory } from './hooks/useChainData'
-import { makeConnection, type NetworkId } from './lib/rpc'
-import { cx } from './lib/format'
+import { ShellSkeleton } from './screens/ShellSkeleton'
+import { prefetchKeys } from './lib/keys'
 
-type Tab = 'wallet' | 'activity' | 'settings'
-type SheetState =
-  | { type: 'send'; mint: string | null }
-  | { type: 'receive' }
-  | { type: 'backup' }
-  | { type: 'reset' }
-  | null
+/**
+ * Everything behind the lock (web3.js, spl-token, the send flow) is one lazy
+ * chunk. That keeps the first paint — onboarding and the PIN screen — at a
+ * fraction of the old 708 KB bundle, and the chunk is warmed during idle time
+ * so unlocking still feels instant.
+ */
+const Shell = lazy(() => import('./Shell'))
 
 function SecureContextGate({ children }: { children: React.ReactNode }) {
   const secure =
@@ -42,169 +32,41 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { ready, vaultExists, unlocked } = useWallet()
 
+  // Warm the heavy chunks while the person is still on the lock screen or
+  // reading the seed phrase: nothing blocks, and the swap is instant.
+  useEffect(() => {
+    if (!vaultExists) return
+    const warm = () => {
+      void import('./Shell')
+      prefetchKeys()
+    }
+    const idle = window.requestIdleCallback?.bind(window)
+    let handle: number | undefined
+    const timer = window.setTimeout(() => {
+      if (idle) handle = idle(warm, { timeout: 2500 })
+      else warm()
+    }, 700)
+    return () => {
+      window.clearTimeout(timer)
+      if (handle !== undefined) window.cancelIdleCallback?.(handle)
+    }
+  }, [vaultExists])
+
   if (!ready) {
     return <div className="min-h-full bg-white" />
   }
+
   return (
     <SecureContextGate>
-      {!vaultExists ? <Onboarding /> : !unlocked ? <LockScreen /> : <Shell />}
+      {!vaultExists ? (
+        <Onboarding />
+      ) : !unlocked ? (
+        <LockScreen />
+      ) : (
+        <Suspense fallback={<ShellSkeleton />}>
+          <Shell />
+        </Suspense>
+      )}
     </SecureContextGate>
-  )
-}
-
-function Shell() {
-  const { meta, keypair, lock, updateMeta, resetWallet } = useWallet()
-  const [tab, setTab] = useState<Tab>('wallet')
-  const [sheet, setSheet] = useState<SheetState>(null)
-
-  const network: NetworkId = meta?.network ?? 'mainnet'
-  const connection = useMemo(
-    () => makeConnection(network, meta?.rpc?.[network] ?? ''),
-    [network, meta?.rpc?.[network]],
-  )
-
-  const portfolio = usePortfolio(connection, meta?.address ?? null, network)
-  const history = useHistory(connection, meta?.address ?? null, network, Boolean(meta?.address))
-
-  if (!meta) {
-    return (
-      <div className="mx-auto flex min-h-full max-w-[430px] flex-col items-center justify-center gap-4 bg-white px-8">
-        <p className="text-center text-[13px] leading-relaxed text-muted">
-          지갑 메타데이터를 찾을 수 없습니다. 초기화 후 다시 불러와 주세요.
-        </p>
-        <button
-          onClick={resetWallet}
-          className="rounded-full bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink"
-        >
-          초기화
-        </button>
-      </div>
-    )
-  }
-
-  const tokenSymbols = Object.fromEntries(
-    (portfolio.data?.tokens ?? []).map((token) => [
-      token.mint,
-      { symbol: token.symbol, decimals: token.decimals, icon: token.icon },
-    ]),
-  )
-
-  return (
-    <div className="relative mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-base">
-      <div className="flex flex-1 flex-col pb-[86px]">
-        {tab === 'wallet' && (
-          <Home
-            address={meta.address}
-            network={network}
-            portfolio={portfolio.data}
-            loading={portfolio.loading}
-            error={portfolio.error}
-            recent={history.items}
-            tokenSymbols={tokenSymbols}
-            onRefresh={() => {
-              void portfolio.refresh()
-              void history.refresh()
-            }}
-            onSend={(mint) => setSheet({ type: 'send', mint })}
-            onReceive={() => setSheet({ type: 'receive' })}
-            onActivity={() => {
-              setTab('activity')
-              void history.refresh()
-            }}
-            onSettings={() => setTab('settings')}
-            onNetworkChange={(next) => {
-              // The connection is rebuilt for the new network, which already
-              // refetches the portfolio and history.
-              updateMeta({ network: next })
-            }}
-          />
-        )}
-        {tab === 'activity' && (
-          <Activity
-            address={meta.address}
-            network={network}
-            items={history.items}
-            loading={history.loading}
-            error={history.error}
-            tokenSymbols={tokenSymbols}
-            onRefresh={() => void history.refresh()}
-          />
-        )}
-        {tab === 'settings' && (
-          <Settings
-            meta={meta}
-            onChangeNetwork={(next) => {
-              updateMeta({ network: next })
-            }}
-            onSaveRpc={(target, value) => {
-              updateMeta({ rpc: { ...meta.rpc, [target]: value } })
-            }}
-            onAutoLockChange={(minutes) => updateMeta({ autoLockMinutes: minutes })}
-            onBackup={() => setSheet({ type: 'backup' })}
-            onReset={() => setSheet({ type: 'reset' })}
-            onLock={lock}
-          />
-        )}
-      </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[430px] border-t border-line bg-white">
-        <div className="safe-bottom flex items-stretch px-3">
-          {[
-            { key: 'wallet' as Tab, label: '지갑', icon: Wallet },
-            { key: 'activity' as Tab, label: '활동', icon: History },
-            { key: 'settings' as Tab, label: '설정', icon: Settings2 },
-          ].map((item) => {
-            const active = tab === item.key
-            return (
-              <button
-                key={item.key}
-                onClick={() => {
-                  setTab(item.key)
-                  if (item.key === 'activity') void history.refresh()
-                }}
-                className="flex flex-1 flex-col items-center gap-[5px] pb-2 pt-2.5"
-              >
-                <item.icon
-                  size={21}
-                  strokeWidth={active ? 2.1 : 1.7}
-                  className={cx(active ? 'text-ink' : 'text-[#B3BAC4]')}
-                />
-                <span
-                  className={cx(
-                    'text-[10.5px] tracking-[-0.01em]',
-                    active ? 'font-semibold text-ink' : 'font-medium text-[#B3BAC4]',
-                  )}
-                >
-                  {item.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </nav>
-
-      <SendSheet
-        open={sheet?.type === 'send'}
-        initialMint={sheet?.type === 'send' ? sheet.mint : null}
-        onClose={() => setSheet(null)}
-        portfolio={portfolio.data}
-        connection={connection}
-        keypair={keypair}
-        network={network}
-        onSent={() => {
-          void portfolio.refresh()
-          void history.refresh()
-        }}
-      />
-      <ReceiveSheet
-        open={sheet?.type === 'receive'}
-        onClose={() => setSheet(null)}
-        address={meta.address}
-        network={network}
-      />
-      <BackupSheet open={sheet?.type === 'backup'} onClose={() => setSheet(null)} />
-      <ResetSheet open={sheet?.type === 'reset'} onClose={() => setSheet(null)} />
-      <ToastHost />
-    </div>
   )
 }
