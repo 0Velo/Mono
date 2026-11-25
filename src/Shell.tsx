@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { ArrowLeftRight, History, Settings2, Wallet } from 'lucide-react'
 import { useWallet } from './state/WalletProvider'
 import { Home } from './screens/Home'
@@ -10,13 +10,26 @@ import { BackupSheet } from './sheets/BackupSheet'
 import { ResetSheet } from './sheets/ResetSheet'
 import { AccountsSheet } from './sheets/AccountsSheet'
 import { AddressBookSheet } from './sheets/AddressBookSheet'
-import { ToastHost } from './components/Toast'
+import { showToast, ToastHost } from './components/Toast'
 import { Spinner } from './components/Spinner'
 import { usePortfolio, useHistory } from './hooks/useChainData'
 import { makeConnection } from './lib/connection'
 import { buildAssets } from './lib/assets'
 import type { NetworkId } from './lib/rpc'
 import { cx } from './lib/format'
+import {
+  disableDepositNotifications,
+  enableDepositNotifications,
+  isDepositNotificationsEnabled,
+} from './lib/depositNotifications'
+import {
+  disableRemotePush,
+  enableRemotePush,
+  getPushUiState,
+  prepareRemotePush,
+  syncExistingPushAssociation,
+  type PushUiState,
+} from './lib/pushSubscriptions'
 
 /**
  * Three of the four screens are cheap; swap and token detail carry the Jupiter
@@ -57,6 +70,9 @@ export default function Shell() {
   const { meta, keypair, activeAccount, lock, updateMeta, resetWallet } = useWallet()
   const [tab, setTab] = useState<Tab>('wallet')
   const [sheet, setSheet] = useState<SheetState>(null)
+  const [depositNotificationsEnabled, setDepositNotificationsEnabled] = useState(isDepositNotificationsEnabled)
+  const [pushUiState, setPushUiState] = useState<PushUiState>(getPushUiState)
+  const [pushIdentityRef] = useState(() => ({ address: '', network: 'mainnet' as NetworkId, generation: 0 }))
   // Which token the swap screen should start from when opened from detail.
   const [swapSeed, setSwapSeed] = useState<string | null>(null)
 
@@ -67,8 +83,40 @@ export default function Shell() {
   )
 
   const portfolio = usePortfolio(connection, meta?.address ?? null, network)
-  const history = useHistory(connection, meta?.address ?? null, network, Boolean(meta?.address))
+  const watchedAddresses = portfolio.data && portfolio.data.owner === meta?.address
+    ? portfolio.data.tokenAccountAddresses
+    : []
+  const history = useHistory(connection, meta?.address ?? null, network, Boolean(meta?.address), watchedAddresses)
   const assets = useMemo(() => buildAssets(portfolio.data), [portfolio.data])
+
+  pushIdentityRef.address = meta?.address ?? ''
+  pushIdentityRef.network = network
+
+  useEffect(() => {
+    let cancelled = false
+    void prepareRemotePush().then(() => {
+      if (!cancelled) setPushUiState(getPushUiState())
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const generation = ++pushIdentityRef.generation
+    if (!keypair || !meta?.address) {
+      setPushUiState(getPushUiState())
+      return
+    }
+    const isCurrent = () =>
+      pushIdentityRef.generation === generation &&
+      pushIdentityRef.address === meta.address &&
+      pushIdentityRef.network === network
+    void syncExistingPushAssociation(meta.address, network, keypair, isCurrent).then(() => {
+      if (isCurrent()) setPushUiState(getPushUiState())
+    })
+    return () => {
+      if (pushIdentityRef.generation === generation) pushIdentityRef.generation += 1
+    }
+  }, [keypair, meta?.address, network])
 
   if (!meta) {
     return (
@@ -97,6 +145,45 @@ export default function Shell() {
     setSwapSeed(mint)
     setSheet(null)
     setTab('swap')
+  }
+
+  const toggleDepositNotifications = async () => {
+    if (depositNotificationsEnabled) {
+      disableDepositNotifications()
+      setDepositNotificationsEnabled(false)
+      showToast('입금 알림을 껐습니다')
+      return
+    }
+    const enabled = await enableDepositNotifications()
+    setDepositNotificationsEnabled(enabled)
+    if (enabled) showToast('입금 알림을 켰습니다')
+    else if (!('Notification' in window)) showToast('이 브라우저는 웹 알림을 지원하지 않습니다')
+    else showToast('브라우저 알림 권한을 허용해 주세요')
+  }
+
+  const toggleRemotePush = async () => {
+    if (pushUiState === 'enabled' || pushUiState === 'enabled-unavailable' || pushUiState === 'revoke-failed') {
+      setPushUiState('disabled')
+      const result = await disableRemotePush()
+      setPushUiState(getPushUiState())
+      if (result.remoteRevoked && result.localUnsubscribed) showToast('백그라운드 푸시를 해제했습니다')
+      else if (!result.localUnsubscribed) showToast('기기 구독 해제에 실패했습니다. 브라우저 설정을 확인해 주세요')
+      else showToast('기기 푸시는 중지했지만 서버 해제에 실패했습니다. 원격 푸시가 남을 수 있어 다시 시도해 주세요')
+      return
+    }
+    try {
+      const generation = pushIdentityRef.generation
+      const isCurrent = () =>
+        pushIdentityRef.generation === generation &&
+        pushIdentityRef.address === meta.address &&
+        pushIdentityRef.network === network
+      await enableRemotePush(meta.address, network, keypair, isCurrent)
+      setPushUiState(getPushUiState())
+      showToast('백그라운드 푸시를 설정했습니다')
+    } catch (error) {
+      setPushUiState(getPushUiState())
+      showToast((error as Error)?.message ?? '백그라운드 푸시를 설정하지 못했습니다')
+    }
   }
 
   const selectTab = (next: Tab) => {
@@ -186,6 +273,10 @@ export default function Shell() {
               onLock={lock}
               onAddressBook={() => setSheet({ type: 'addressBook' })}
               onAccounts={() => setSheet({ type: 'accounts' })}
+              depositNotificationsEnabled={depositNotificationsEnabled}
+              onToggleDepositNotifications={toggleDepositNotifications}
+              pushUiState={pushUiState}
+              onToggleRemotePush={toggleRemotePush}
             />
           )}
         </div>
@@ -248,10 +339,6 @@ export default function Shell() {
       <AccountsSheet
         open={sheet?.type === 'accounts'}
         onClose={() => setSheet(null)}
-        onSwitched={() => {
-          void portfolio.refresh()
-          void history.refresh()
-        }}
       />
       <AddressBookSheet open={sheet?.type === 'addressBook'} onClose={() => setSheet(null)} />
 
@@ -263,6 +350,8 @@ export default function Shell() {
             assets={assets}
             connection={connection}
             network={network}
+            ownerAddress={meta.address}
+            portfolioReady={Boolean(portfolio.data)}
             historyItems={history.items}
             historyLoading={history.loading}
             historyError={history.error}

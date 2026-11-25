@@ -53,10 +53,11 @@ function fromPrices(raw: unknown): PriceSeries | null {
 export async function fetchPriceSeries(
   mint: string | null,
   days: 1 | 7 = 1,
+  options: { force?: boolean } = {},
 ): Promise<PriceSeries | null> {
   const id = `${mint ?? 'SOL'}:${days}`
   const hit = cache.get(id)
-  if (hit && Date.now() - hit.at < TTL) return hit.value
+  if (!options.force && hit && Date.now() - hit.at < TTL) return hit.value
 
   let series: PriceSeries | null = null
 

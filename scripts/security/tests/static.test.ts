@@ -99,6 +99,14 @@ test('the service worker is same-origin only and drops old caches on activate', 
   assert.match(sw, /CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)
 })
 
+test('the service worker displays Web Push immediately and validates notification links', () => {
+  const sw = readRepoFile('public/sw.js')
+  assert.match(sw, /addEventListener\('push'/)
+  assert.match(sw, /registration\.showNotification/)
+  assert.match(sw, /function safeNotificationUrl/)
+  assert.match(sw, /url\.hostname === 'solscan\.io'/)
+})
+
 test('the shipped build carries no source maps and no /src/ path', () => {
   const dist = path.join(REPO_ROOT, 'dist')
   if (!fs.existsSync(dist)) {

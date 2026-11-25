@@ -9,7 +9,6 @@ import { MonoMark } from '../components/ui'
 interface AccountsSheetProps {
   open: boolean
   onClose: () => void
-  onSwitched: () => void
 }
 
 /**
@@ -17,7 +16,7 @@ interface AccountsSheetProps {
  * address on the standard Phantom path, so any wallet that imports the phrase
  * shows the same list in the same order.
  */
-export function AccountsSheet({ open, onClose, onSwitched }: AccountsSheetProps) {
+export function AccountsSheet({ open, onClose }: AccountsSheetProps) {
   const { accounts, activeIndex, switchAccount, renameAccount, meta } = useWallet()
   const [editing, setEditing] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
@@ -33,7 +32,6 @@ export function AccountsSheet({ open, onClose, onSwitched }: AccountsSheetProps)
     setBusy(true)
     try {
       await switchAccount(index)
-      onSwitched()
       showToast('계정을 바꿨습니다')
       onClose()
     } catch {
@@ -47,7 +45,6 @@ export function AccountsSheet({ open, onClose, onSwitched }: AccountsSheetProps)
     setBusy(true)
     try {
       await switchAccount(nextIndex)
-      onSwitched()
       showToast(`계정 ${nextIndex + 1}을 추가했습니다`)
       onClose()
     } catch {

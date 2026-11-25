@@ -12,6 +12,7 @@ import {
   Trash2,
   UserRound,
   BookUser,
+  Bell,
 } from 'lucide-react'
 import { MonoMark, Segmented } from '../components/ui'
 import { Spinner } from '../components/Spinner'
@@ -29,6 +30,7 @@ import { useWallet, type WalletMeta } from '../state/WalletProvider'
 import { useTheme, type ThemePref } from '../lib/theme'
 import { useAddressBook } from '../lib/addressBook'
 import { cx, shortAddress } from '../lib/format'
+import type { PushUiState } from '../lib/pushSubscriptions'
 
 interface SettingsProps {
   meta: WalletMeta
@@ -40,6 +42,10 @@ interface SettingsProps {
   onLock: () => void
   onAddressBook: () => void
   onAccounts: () => void
+  depositNotificationsEnabled: boolean
+  onToggleDepositNotifications: () => void | Promise<void>
+  pushUiState: PushUiState
+  onToggleRemotePush: () => void | Promise<void>
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -74,6 +80,10 @@ export function Settings({
   onLock,
   onAddressBook,
   onAccounts,
+  depositNotificationsEnabled,
+  onToggleDepositNotifications,
+  pushUiState,
+  onToggleRemotePush,
 }: SettingsProps) {
   const {
     vault,
@@ -203,6 +213,63 @@ export function Settings({
             <Segmented value={themePref} onChange={setTheme} options={THEME_OPTIONS} compact />
           </div>
         </div>
+      </Group>
+
+      <Group title="알림">
+        <button
+          onClick={() => void onToggleDepositNotifications()}
+          aria-pressed={depositNotificationsEnabled}
+          className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-press"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <Bell size={16} strokeWidth={1.9} /> 앱 실행 중 입금 알림
+          </span>
+          <span className={cx(
+            'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+            depositNotificationsEnabled ? 'bg-mintSoft text-mint' : 'bg-card text-muted',
+          )}>
+            {depositNotificationsEnabled ? '켜짐' : '끔'}
+          </span>
+        </button>
+        <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
+          이 알림은 웹앱이 실행 중일 때 이 기기의 RPC 조회로 감지합니다. 아래 백그라운드 푸시와는 별도 설정입니다.
+        </p>
+        <button
+          onClick={() => void onToggleRemotePush()}
+          disabled={pushUiState === 'unavailable' || pushUiState === 'unsupported' || pushUiState === 'ios-install-required'}
+          aria-pressed={pushUiState === 'enabled' || pushUiState === 'enabled-unavailable'}
+          className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <Bell size={16} strokeWidth={1.9} /> 백그라운드 Web Push
+          </span>
+          <span className={cx(
+            'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+            pushUiState === 'enabled' ? 'bg-mintSoft text-mint' :
+              pushUiState === 'revoke-failed' ? 'bg-warn/10 text-warn' : 'bg-card text-muted',
+          )}>
+            {pushUiState === 'enabled' ? '켜짐' :
+              pushUiState === 'revoke-failed' ? '해제 확인 필요' :
+                pushUiState === 'unavailable' || pushUiState === 'enabled-unavailable' ? '서버 미설정' :
+                  pushUiState === 'unsupported' ? '미지원' :
+                    pushUiState === 'ios-install-required' ? '홈 화면 설치 필요' : '끔'}
+          </span>
+        </button>
+        <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
+          {pushUiState === 'enabled-unavailable'
+            ? '푸시 서버 설정이 없어 앱 종료 중 알림 전달을 확인할 수 없습니다. 이 기기의 구독은 아래 버튼으로 중지할 수 있지만 서버에 연락할 수 없어 원격 구독 해제는 확인할 수 없습니다.'
+            : pushUiState === 'unavailable'
+            ? '푸시 서버 설정이 없어 앱을 닫은 뒤 받는 알림은 사용할 수 없습니다. 서버가 설정되면 이 버튼으로 명시적으로 등록할 수 있습니다.'
+              : pushUiState === 'ios-install-required'
+              ? 'iPhone/iPad에서는 앱을 홈 화면에 추가하고 설치된 앱을 연 뒤 설정해야 Web Push를 받을 수 있습니다.'
+              : pushUiState === 'unsupported'
+                ? '이 브라우저는 Web Push 또는 지갑 연결에 필요한 Ed25519 WebCrypto를 지원하지 않습니다. iPhone/iPad는 iOS/iPadOS 17 이상이 필요합니다.'
+                : pushUiState === 'revoke-failed'
+                  ? '기기에서는 푸시 구독을 중지했지만 서버 해제를 확인하지 못했습니다. 원격 푸시가 남을 수 있으므로 눌러 해제를 재시도하세요.'
+                  : pushUiState === 'enabled'
+                    ? '닫힌 상태의 전달은 푸시 서버와 운영체제에 의존하며 보장되지 않습니다. 지갑 키/시드는 전송되지 않고, 계정 연결은 잠금 해제 중에만 서명합니다.'
+                    : '설정 버튼을 누르면 브라우저 권한을 확인한 뒤 기기를 등록합니다. 서버가 설정되지 않았거나 사용할 수 없으면 앱 종료 중 푸시는 제공되지 않습니다.'}
+        </p>
       </Group>
 
       <Group title="지갑">

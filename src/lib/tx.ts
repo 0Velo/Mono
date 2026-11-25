@@ -609,8 +609,32 @@ export async function fetchHistory(
   connection: Connection,
   ownerAddress: string,
   limit = 20,
+  watchedAddresses: string[] = [],
 ): Promise<HistoryItem[]> {
-  const signatures = await connection.getSignaturesForAddress(new PublicKey(ownerAddress), { limit })
+  const addresses = Array.from(new Set([ownerAddress, ...watchedAddresses].filter(Boolean)))
+  const signaturesByAddress = new Map<string, Awaited<ReturnType<Connection['getSignaturesForAddress']>>[number]>()
+  let ownerQueryError: unknown = null
+
+  // Public RPCs rate-limit bursts, so query monitored token accounts in small batches.
+  for (let offset = 0; offset < addresses.length; offset += 4) {
+    const batch = addresses.slice(offset, offset + 4)
+    await Promise.all(batch.map(async (address) => {
+      try {
+        const entries = await connection.getSignaturesForAddress(new PublicKey(address), { limit })
+        for (const entry of entries) {
+          const current = signaturesByAddress.get(entry.signature)
+          if (!current || entry.slot > current.slot) signaturesByAddress.set(entry.signature, entry)
+        }
+      } catch (error) {
+        if (address === ownerAddress) ownerQueryError = error
+      }
+    }))
+  }
+
+  if (signaturesByAddress.size === 0 && ownerQueryError) throw ownerQueryError
+  const signatures = Array.from(signaturesByAddress.values())
+    .sort((a, b) => b.slot - a.slot)
+    .slice(0, limit)
   if (signatures.length === 0) return []
 
   const items: HistoryItem[] = signatures.map((entry) => ({

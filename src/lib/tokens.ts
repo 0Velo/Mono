@@ -17,6 +17,8 @@ export interface TokenHolding {
 
 export interface Portfolio {
   owner: string
+  /** Token accounts owned by this wallet; used for log/account subscriptions. */
+  tokenAccountAddresses: string[]
   solLamports: bigint
   solPriceUsd: number | null
   solChange24h: number | null
@@ -93,16 +95,45 @@ export async function fetchOnChainMetadata(
 }
 
 interface RawTokenAccount {
+  address: string
   mint: string
   amount: bigint
   decimals: number
 }
 
+const TOKEN_HISTORY_KEY = 'mono.token-history-addresses.v1:'
+const MAX_REMEMBERED_TOKEN_ACCOUNTS = 32
+
+function rememberTokenAccountAddresses(
+  network: NetworkId,
+  ownerAddress: string,
+  currentAddresses: string[],
+): string[] {
+  const key = `${TOKEN_HISTORY_KEY}${network}:${ownerAddress}`
+  let previous: string[] = []
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
+    if (Array.isArray(parsed)) previous = parsed.filter((value): value is string => typeof value === 'string')
+  } catch {
+    // Corrupt or unavailable local storage must not block wallet data refresh.
+  }
+
+  const addresses = Array.from(new Set([...currentAddresses, ...previous])).slice(0, MAX_REMEMBERED_TOKEN_ACCOUNTS)
+  try {
+    localStorage.setItem(key, JSON.stringify(addresses))
+  } catch {
+    // The live RPC result is still usable when storage is unavailable.
+  }
+  return addresses
+}
+
 async function fetchTokenAccounts(
   connection: Connection,
   owner: PublicKey,
-): Promise<{ accounts: RawTokenAccount[]; partial: boolean }> {
+  network: NetworkId,
+): Promise<{ accounts: RawTokenAccount[]; addresses: string[]; partial: boolean }> {
   const accounts: RawTokenAccount[] = []
+  const addresses: string[] = []
   let partial = false
 
   for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
@@ -115,16 +146,41 @@ async function fetchTokenAccounts(
         const amountRaw = info?.tokenAmount?.amount
         const decimals = info?.tokenAmount?.decimals
         if (!info?.mint || amountRaw === undefined || decimals === undefined) continue
+        addresses.push(item.pubkey.toBase58())
         const amount = BigInt(amountRaw)
         if (amount === 0n) continue
-        accounts.push({ mint: info.mint, amount, decimals })
+        accounts.push({ address: item.pubkey.toBase58(), mint: info.mint, amount, decimals })
       }
     } catch {
       partial = true
     }
   }
 
-  return { accounts, partial }
+  return {
+    accounts,
+    addresses: rememberTokenAccountAddresses(network, owner.toBase58(), addresses),
+    partial,
+  }
+}
+
+/** Returns SPL and Token-2022 account addresses without loading market data. */
+export async function fetchTokenAccountAddresses(
+  connection: Connection,
+  ownerAddress: string,
+  network: NetworkId,
+): Promise<string[]> {
+  const owner = new PublicKey(ownerAddress)
+  const responses = await Promise.all(
+    [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].map(async (programId) => {
+      try {
+        const result = await connection.getParsedTokenAccountsByOwner(owner, { programId })
+        return result.value.map((item) => item.pubkey.toBase58())
+      } catch {
+        return []
+      }
+    }),
+  )
+  return rememberTokenAccountAddresses(network, ownerAddress, Array.from(new Set(responses.flat())))
 }
 
 export async function fetchPortfolio(
@@ -136,7 +192,7 @@ export async function fetchPortfolio(
 
   const [lamports, tokenData, market, sparkline] = await Promise.all([
     connection.getBalance(owner),
-    fetchTokenAccounts(connection, owner),
+    fetchTokenAccounts(connection, owner, network),
     fetchMarketSnapshot(),
     fetchSolSparkline().catch(() => null),
   ])
@@ -199,6 +255,7 @@ export async function fetchPortfolio(
 
   return {
     owner: ownerAddress,
+    tokenAccountAddresses: tokenData.addresses,
     solLamports: BigInt(lamports),
     solPriceUsd: market.solUsd,
     solChange24h: market.change24h ?? changeFromSeries,

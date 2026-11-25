@@ -1,0 +1,17 @@
+name = "mono-solana-push-prototype"
+main = "src/worker.js"
+compatibility_date = "2026-11-25"
+workers_dev = true
+
+[vars]
+APP_ORIGIN = "http://localhost:3000"
+# VAPID_PUBLIC_KEY is public but intentionally not configured here.
+# VAPID_PRIVATE_KEY and VAPID_SUBJECT must be supplied only in a separately approved future setup.
+
+[[kv_namespaces]]
+binding = "SUBSCRIPTIONS"
+id = "00000000000000000000000000000000"
+preview_id = "00000000000000000000000000000000"
+
+[triggers]
+crons = ["0,30 * * * *"]
