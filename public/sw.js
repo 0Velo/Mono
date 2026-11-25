@@ -7,12 +7,14 @@
  * 입금 알림을 위해 서버에 기기를 등록할 수 있다.
  * v16 (Mono): 스플래시를 2.5초로 늘리고, 외계인이 우주선을 타고 날아가는
  * 장면으로 바꿨다(index.html의 CSS 키프레임 + 인라인 SVG).
+ * v17 (Mono): SOL 코인 아이콘을 AI 생성 이미지에서 공식 솔라나 로고(정식 벡터
+ * SVG, 검은 원형 배지)로 교체하고 아트 쿼리스트링을 v5로 올렸다.
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v16`
+const CACHE = `${CACHE_PREFIX}v17`
 
 self.addEventListener('install', () => {
   self.skipWaiting()
