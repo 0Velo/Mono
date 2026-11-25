@@ -1,9 +1,10 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useWallet } from './state/WalletProvider'
 import { Onboarding } from './screens/Onboarding'
 import { LockScreen } from './screens/LockScreen'
 import { ShellSkeleton } from './screens/ShellSkeleton'
 import { prefetchKeys } from './lib/keys'
+import { DEPOSIT_NOTIFICATION_SETTING_EVENT, isDepositNotificationsEnabled } from './lib/depositNotifications'
 
 /**
  * Everything behind the lock (web3.js, spl-token, the send flow) is one lazy
@@ -12,6 +13,7 @@ import { prefetchKeys } from './lib/keys'
  * so unlocking still feels instant.
  */
 const Shell = lazy(() => import('./Shell'))
+const DepositMonitor = lazy(() => import('./components/DepositMonitor'))
 
 function SecureContextGate({ children }: { children: React.ReactNode }) {
   const secure =
@@ -30,7 +32,18 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { ready, initializationError, vaultExists, unlocked } = useWallet()
+  const { ready, initializationError, vaultExists, unlocked, meta } = useWallet()
+  const [monitorEnabled, setMonitorEnabled] = useState(isDepositNotificationsEnabled)
+
+  useEffect(() => {
+    const syncPreference = () => setMonitorEnabled(isDepositNotificationsEnabled())
+    window.addEventListener(DEPOSIT_NOTIFICATION_SETTING_EVENT, syncPreference)
+    document.addEventListener('visibilitychange', syncPreference)
+    return () => {
+      window.removeEventListener(DEPOSIT_NOTIFICATION_SETTING_EVENT, syncPreference)
+      document.removeEventListener('visibilitychange', syncPreference)
+    }
+  }, [])
 
   // Warm the heavy chunks while the person is still on the lock screen or
   // reading the seed phrase: nothing blocks, and the swap is instant.
@@ -82,6 +95,15 @@ export default function App() {
       ) : (
         <Suspense fallback={<ShellSkeleton />}>
           <Shell />
+        </Suspense>
+      )}
+      {vaultExists && meta?.address && monitorEnabled && (
+        <Suspense fallback={null}>
+          <DepositMonitor
+            address={meta.address}
+            network={meta.network}
+            rpc={meta.rpc[meta.network] ?? ''}
+          />
         </Suspense>
       )}
     </SecureContextGate>

@@ -28,6 +28,7 @@ import {
   sendSplToken,
   signPreparedSend,
   TxOutcomeError,
+  fetchHistory,
 } from '../../../src/lib/tx'
 import { PREVIEW_TTL_MS, assertMessageMatches } from '../../../src/lib/transactionPreview'
 
@@ -302,7 +303,37 @@ test('expired blockhash with no history is reported as unresolved expiry, not pr
 
 test('RPC status lookup failure stays unknown', async () => {
   const fake = broadcastConnection({ failStatus: true })
-  assert.equal(await inspectTransaction(fake.connection, 'unknown-signature', 20), 'unknown')
+  assert.equal(await inspectTransaction(fake.connection, 'unknown-signature', 10), 'unknown')
+})
+
+test('recent history merges and sorts signatures from the owner and token accounts', async () => {
+  const owner = Keypair.generate().publicKey
+  const tokenAccount = Keypair.generate().publicKey
+  const olderTokenAccount = Keypair.generate().publicKey
+  const queried: string[] = []
+  const entry = (signature: string, slot: number) => ({
+    signature,
+    slot,
+    blockTime: null,
+    err: null,
+    memo: null,
+  })
+  const fake = {
+    getSignaturesForAddress: async (address: PublicKey) => {
+      const key = address.toBase58()
+      queried.push(key)
+      if (key === owner.toBase58()) return [entry('owner-signature', 9), entry('shared-signature', 7)]
+      if (key === tokenAccount.toBase58()) return [entry('token-signature', 8), entry('shared-signature', 10)]
+      if (key === olderTokenAccount.toBase58()) return [entry('older-token-signature', 4)]
+      return []
+    },
+    getParsedTransaction: async () => null,
+  } as any
+
+  const items = await fetchHistory(fake, owner.toBase58(), 3, [tokenAccount.toBase58(), olderTokenAccount.toBase58()])
+  assert.deepEqual(new Set(queried), new Set([owner.toBase58(), tokenAccount.toBase58(), olderTokenAccount.toBase58()]))
+  assert.deepEqual(items.map((item) => item.signature), ['shared-signature', 'owner-signature', 'token-signature'])
+  assert.equal(items[0].slot, 10)
 })
 
 test('SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing', async () => {

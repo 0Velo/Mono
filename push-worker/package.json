@@ -1,0 +1,16 @@
+{
+  "name": "mono-solana-push-worker-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Cloudflare Workers Free + KV + Cron Solana deposit Web Push prototype",
+  "engines": { "node": ">=22.0.0" },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/crypto.js && node --check src/monitor.js && node --check src/worker.js && node --test",
+    "dev": "wrangler dev --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

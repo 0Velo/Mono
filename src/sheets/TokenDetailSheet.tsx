@@ -30,6 +30,8 @@ interface TokenDetailSheetProps {
   assets: Asset[]
   connection: Connection | null
   network: NetworkId
+  ownerAddress: string
+  portfolioReady: boolean
   historyItems: HistoryItem[]
   historyLoading: boolean
   historyError: string | null
@@ -116,6 +118,8 @@ export default function TokenDetailSheet({
   assets,
   connection,
   network,
+  ownerAddress,
+  portfolioReady,
   historyItems,
   historyLoading,
   historyError,
@@ -128,6 +132,7 @@ export default function TokenDetailSheet({
   const asset = assets.find((item) => item.key === assetKey) ?? assets[0] ?? null
   const prefs = usePrefs()
   const [range, setRange] = useState<1 | 7>(1)
+  const [chartRefresh, setChartRefresh] = useState(0)
   const [series, setSeries] = useState<PriceSeries | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
   const [security, setSecurity] = useState<TokenSecurity | null>(null)
@@ -146,7 +151,7 @@ export default function TokenDetailSheet({
     if (!open || !asset) return
     let cancelled = false
     setChartLoading(true)
-    void fetchPriceSeries(mint, range)
+    void fetchPriceSeries(mint, range, { force: true })
       .then((result) => {
         if (!cancelled) setSeries(result)
       })
@@ -156,7 +161,20 @@ export default function TokenDetailSheet({
     return () => {
       cancelled = true
     }
-  }, [open, mint, range, asset?.key])
+  }, [open, mint, range, asset?.key, ownerAddress, chartRefresh])
+
+  useEffect(() => {
+    if (!open) return
+    const refreshVisible = () => {
+      if (document.visibilityState === 'visible') setChartRefresh((value) => value + 1)
+    }
+    const timer = window.setInterval(refreshVisible, 60_000)
+    document.addEventListener('visibilitychange', refreshVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshVisible)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open || !mint || !connection) {
@@ -243,8 +261,9 @@ export default function TokenDetailSheet({
           )}
         </div>
         <div className="mt-1 text-[11.5px] text-muted tnum">
-          보유 {formatAmount(asset.amount, asset.decimals, 6)}{' '}
-          {asset.isSol ? 'SOL' : asset.symbol} · {formatUsd(asset.valueUsd)}
+          {portfolioReady
+            ? <>보유 {formatAmount(asset.amount, asset.decimals, 6)} {asset.isSol ? 'SOL' : asset.symbol} · {formatUsd(asset.valueUsd)}</>
+            : '보유 — · —'}
         </div>
       </div>
 
