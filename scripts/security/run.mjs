@@ -68,14 +68,26 @@ log(`   status=${secretScan.status} tree=${secretScan.workingTree?.findings?.len
 /* ----------------------------------------------------------- dependencies */
 log('== dependency audit (npm audit)')
 const auditRaw = spawnSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-let audit = {}
+let audit = null
+let auditParseError = null
 try {
-  audit = JSON.parse(auditRaw.stdout)
+  const output = auditRaw.stdout ?? ''
+  const jsonStart = output.indexOf('{')
+  if (jsonStart < 0) throw new Error('npm audit produced no JSON object')
+  audit = JSON.parse(output.slice(jsonStart))
 } catch {
-  audit = { error: (auditRaw.stderr || '').slice(0, 2000) }
+  auditParseError = (auditRaw.stderr || auditRaw.stdout || 'npm audit output could not be parsed').slice(0, 2000)
 }
-const vulns = audit.metadata?.vulnerabilities ?? {}
-const advisories = Object.entries(audit.vulnerabilities ?? {}).map(([name, item]) => ({
+const auditValid = Boolean(
+  audit &&
+  typeof audit === 'object' &&
+  audit.metadata?.vulnerabilities &&
+  typeof audit.metadata.vulnerabilities === 'object' &&
+  audit.vulnerabilities &&
+  typeof audit.vulnerabilities === 'object',
+)
+const vulns = auditValid ? audit.metadata.vulnerabilities : null
+const advisories = Object.entries(auditValid ? audit.vulnerabilities : {}).map(([name, item]) => ({
   package: name,
   severity: item.severity,
   range: item.range,
@@ -86,13 +98,15 @@ const advisories = Object.entries(audit.vulnerabilities ?? {}).map(([name, item]
     .map((via) => ({ title: via.title, url: via.url, cvss: via.cvss?.score, cwe: via.cwe })),
 }))
 report.sections.dependencies = {
+  status: auditValid ? 'PASS' : 'ERROR',
   counts: vulns,
   advisories,
-  prodDependencies: audit.metadata?.dependencies?.prod,
-  totalDependencies: audit.metadata?.dependencies?.total,
+  prodDependencies: audit?.metadata?.dependencies?.prod,
+  totalDependencies: audit?.metadata?.dependencies?.total,
+  error: auditValid ? undefined : auditParseError ?? 'npm audit JSON lacks required metadata',
 }
 fs.writeFileSync(path.join(OUT_DIR, 'npm-audit.json'), JSON.stringify(audit, null, 2))
-log(`   ${JSON.stringify(vulns)}`)
+log(auditValid ? `   ${JSON.stringify(vulns)}` : `   ERROR ${report.sections.dependencies.error}`)
 
 /* ------------------------------------------------------------------ unit */
 log('== unit tests (esbuild bundle + node:test)')
@@ -108,6 +122,7 @@ const bundleBanner =
   "import { createRequire as __monoCreateRequire } from 'node:module'; import { fileURLToPath as __monoFileURLToPath } from 'node:url'; import { dirname as __monoDirname } from 'node:path'; const require = __monoCreateRequire(import.meta.url); const __filename = __monoFileURLToPath(import.meta.url); const __dirname = __monoDirname(__filename);"
 const bundles = []
 const compileErrors = []
+let unitProcessStatus = null
 for (const file of testFiles) {
   const name = path.basename(file, '.ts')
   const outfile = path.join(BUILD_DIR, `${name}.mjs`)
@@ -128,6 +143,7 @@ if (bundles.length) {
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
   })
+  unitProcessStatus = run.status
   const output = `${run.stdout ?? ''}\n${run.stderr ?? ''}`
   fs.writeFileSync(path.join(OUT_DIR, 'unit-tests.tap.txt'), output)
   const suiteFile = new Map()
@@ -211,10 +227,28 @@ if (wantLive) {
 /* ---------------------------------------------------------------- summary */
 report.durationSeconds = Math.round((Date.now() - started) / 10) / 100
 const blocking = []
-if (staticScan.checks?.some((item) => item.status === 'FAIL')) blocking.push('static')
-if (secretScan.status === 'FAIL') blocking.push('secrets')
-if (unit.fail > 0 || compileErrors.length > 0) blocking.push('unit')
-if (wantUi && report.sections.ui?.status === 'FAIL') blocking.push('ui')
+const staticStatusesValid = Array.isArray(staticScan?.checks) && staticScan.checks.length > 0 &&
+  staticScan.checks.every((item) => ['PASS', 'FAIL', 'INFO', 'REVIEW'].includes(item?.status))
+if (!staticStatusesValid || staticScan.checks.some((item) => item.status === 'FAIL')) blocking.push('static')
+const secretsComplete = secretScan?.status === 'PASS' &&
+  Array.isArray(secretScan.workingTree?.findings) &&
+  Array.isArray(secretScan.builtArtifacts?.findings) &&
+  Array.isArray(secretScan.gitHistory?.findings) &&
+  !secretScan.gitHistory.error
+if (!secretsComplete) blocking.push('secrets')
+if (secretScan?.workingTree?.findings?.length || secretScan?.builtArtifacts?.findings?.length || secretScan?.gitHistory?.findings?.length) {
+  if (!blocking.includes('secrets')) blocking.push('secrets')
+}
+if (!auditValid) blocking.push('dependencies')
+if (
+  testFiles.length === 0 ||
+  unit.tests.length === 0 ||
+  unit.pass + unit.fail !== unit.tests.length ||
+  unitProcessStatus !== 0 ||
+  unit.fail > 0 ||
+  compileErrors.length > 0
+) blocking.push('unit')
+if (wantUi && report.sections.ui?.status !== 'PASS') blocking.push('ui')
 report.blockingFailures = blocking
 
 fs.writeFileSync(path.join(OUT_DIR, 'security-report.json'), JSON.stringify(report, null, 2))

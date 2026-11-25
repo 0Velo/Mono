@@ -91,6 +91,7 @@
         "jayson"
       ],
       "effects": [
+        "@solana/buffer-layout-utils",
         "@solana/spl-token",
         "@solana/spl-token-group",
         "@solana/spl-token-metadata"
@@ -268,7 +269,7 @@
       ],
       "fixAvailable": {
         "name": "vite",
-        "version": "6.4.6",
+        "version": "8.3.8",
         "isSemVerMajor": true
       }
     },
@@ -562,7 +563,7 @@
       ],
       "fixAvailable": {
         "name": "vite",
-        "version": "6.4.6",
+        "version": "8.3.8",
         "isSemVerMajor": true
       }
     },

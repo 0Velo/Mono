@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { WalletProvider } from './state/WalletProvider'
 import { applyTheme, watchSystemTheme } from './lib/theme'
+import './assets/fonts/pretendard.css'
 import './index.css'
 
 // Paint the saved theme before the first React render so the app never opens

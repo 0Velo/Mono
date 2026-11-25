@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Connection, Keypair } from '@solana/web3.js'
 import { Bookmark, Check, ChevronDown, ClipboardPaste, ExternalLink, X } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
@@ -23,11 +23,20 @@ import {
   BASE_FEE_LAMPORTS,
   assessSend,
   estimateFee,
+  inspectTransaction,
   sendSol,
   sendSplToken,
   type FeeEstimate,
+  type TransactionResolution,
+  TxOutcomeError,
 } from '../lib/tx'
 import { explorerTx, type NetworkId } from '../lib/rpc'
+import {
+  clearPendingTransaction,
+  readPendingTransaction,
+  savePendingTransaction,
+  type PendingTransaction,
+} from '../lib/pendingTx'
 import { showToast } from '../components/Toast'
 
 interface SendSheetProps {
@@ -41,7 +50,7 @@ interface SendSheetProps {
   onSent: () => void
 }
 
-type Step = 'form' | 'confirm' | 'sending' | 'done'
+type Step = 'form' | 'confirm' | 'sending' | 'tracking' | 'done'
 
 export function SendSheet({
   open,
@@ -60,25 +69,52 @@ export function SendSheet({
   const [fee, setFee] = useState<FeeEstimate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
+  const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null)
+  const [resolution, setResolution] = useState<TransactionResolution | null>(null)
+  const [checking, setChecking] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveLabel, setSaveLabel] = useState('')
+  const inFlightRef = useRef(false)
+  const signedRef = useRef(false)
+  const statusCheckRef = useRef(false)
+  const reportedSignatureRef = useRef<string | null>(null)
 
   const book = useAddressBook()
+  const owner = keypair?.publicKey.toBase58() ?? ''
 
   useEffect(() => {
     if (!open) return
-    setStep('form')
     setMint(initialMint ?? 'SOL')
     setRecipient('')
     setAmount('')
     setFee(null)
     setError(null)
     setSignature(null)
+    setPendingTx(null)
+    setResolution(null)
     setPickerOpen(false)
     setSaveOpen(false)
     setSaveLabel('')
-  }, [open, initialMint])
+    if (!owner) {
+      setStep('form')
+      return
+    }
+    try {
+      const saved = readPendingTransaction(owner, network)
+      if (saved) {
+        setPendingTx(saved)
+        setSignature(saved.signature)
+        setResolution('pending')
+        setStep('tracking')
+      } else {
+        setStep('form')
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '저장된 전송 상태를 확인할 수 없습니다.')
+      setStep('tracking')
+    }
+  }, [open, initialMint, owner, network])
   const assets: Asset[] = useMemo(() => buildAssets(portfolio), [portfolio])
 
   const asset = assets.find((item) => item.key === mint) ?? assets[0]
@@ -108,18 +144,91 @@ export function SendSheet({
   const amountValid = baseUnits > 0n && !insufficient
   const canContinue = recipientValid && amountValid
 
+  const checkPending = useCallback(async (record?: PendingTransaction) => {
+    const target = record ?? pendingTx
+    if (!target) return
+    if (!connection || target.network !== network) {
+      setResolution('unknown')
+      return
+    }
+    if (statusCheckRef.current) return
+    statusCheckRef.current = true
+    setChecking(true)
+    try {
+      const result = await inspectTransaction(
+        connection,
+        target.signature,
+        target.lastValidBlockHeight,
+      )
+      setResolution(result)
+      if (result === 'confirmed' || result === 'failed') {
+        try {
+          clearPendingTransaction(target.owner, target.network)
+          setPendingTx(null)
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : '확인된 전송 기록을 정리하지 못했습니다.')
+        }
+        if (result === 'confirmed') {
+          setSignature(target.signature)
+          setStep('tracking')
+          if (reportedSignatureRef.current !== target.signature) {
+            reportedSignatureRef.current = target.signature
+            try {
+              onSent()
+            } catch {
+              // A balance refresh cannot change the confirmed transaction result.
+            }
+          }
+        }
+      }
+    } finally {
+      statusCheckRef.current = false
+      setChecking(false)
+    }
+  }, [connection, network, onSent, pendingTx])
+
+  useEffect(() => {
+    if (!open || step !== 'tracking' || !pendingTx || !connection) return
+    let active = true
+    const check = () => {
+      if (active) void checkPending(pendingTx)
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    void checkPending(pendingTx)
+    const timer = window.setInterval(check, 8_000)
+    window.addEventListener('online', check)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('online', check)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [open, step, pendingTx, connection, checkPending])
+
   // A token send needs its real fee + rent before the button can be trusted:
   // whether the recipient already has a token account decides the
   // ~0.00204 SOL rent, and that is read from chain as soon as the address is valid.
   useEffect(() => {
     if (!open || !connection || !keypair || !asset || asset.isSol || !recipientValid) return
     let cancelled = false
+    setFee(null)
     const timer = window.setTimeout(() => {
       void estimateFee(connection, 'spl', keypair.publicKey, asset.mint, recipient)
         .then((estimate) => {
           if (!cancelled) setFee(estimate)
         })
-        .catch(() => undefined)
+        .catch((cause) => {
+          if (!cancelled) {
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : '토큰 계정 및 수수료를 확인하지 못했습니다. 네트워크를 확인하세요.',
+            )
+          }
+        })
     }, 260)
     return () => {
       cancelled = true
@@ -179,7 +288,6 @@ export function SendSheet({
       )
       return
     }
-    setStep('confirm')
     setError(null)
     try {
       const estimate = await estimateFee(
@@ -190,24 +298,83 @@ export function SendSheet({
         recipient,
       )
       setFee(estimate)
-    } catch {
-      setFee({
-        feeLamports: BASE_FEE_LAMPORTS,
-        rentLamports: 0n,
-        totalLamports: BASE_FEE_LAMPORTS,
-        createsAta: false,
+      const latestAffordability = assessSend({
+        kind: asset.isSol ? 'sol' : 'spl',
+        amount: baseUnits,
+        balance: asset.amount,
+        solBalance,
+        feeLamports: estimate.feeLamports,
+        rentLamports: estimate.rentLamports,
       })
+      if (!latestAffordability.ok) {
+        setError(
+          latestAffordability.reason === 'insufficient-fee'
+            ? '수수료와 계정 생성 비용을 포함할 SOL 잔액이 부족합니다.'
+            : '잔액이 부족합니다.',
+        )
+        return
+      }
+      setStep('confirm')
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : '수수료를 확인하지 못했습니다. 네트워크를 확인한 뒤 다시 시도하세요.',
+      )
     }
   }
 
   const submit = async () => {
     if (!connection || !keypair || !asset) return
+    if (inFlightRef.current) return
+    const activeOwner = keypair.publicKey.toBase58()
+    try {
+      const existing = readPendingTransaction(activeOwner, network)
+      if (existing) {
+        setPendingTx(existing)
+        setSignature(existing.signature)
+        setResolution('pending')
+        setStep('tracking')
+        void checkPending(existing)
+        return
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '저장된 전송 상태를 확인할 수 없습니다.')
+      setStep('tracking')
+      return
+    }
+
+    inFlightRef.current = true
+    signedRef.current = false
     setStep('sending')
     setError(null)
+    const hooks = {
+      onSigned: (attempt: { signature: string; blockhash: string; lastValidBlockHeight: number }) => {
+        const record: PendingTransaction = {
+          version: 1,
+          network,
+          owner: activeOwner,
+          signature: attempt.signature,
+          blockhash: attempt.blockhash,
+          lastValidBlockHeight: attempt.lastValidBlockHeight,
+          createdAt: Date.now(),
+          symbol: ticker,
+          amount: baseUnits.toString(),
+        }
+        // Persistence is synchronous and must succeed before submit sends bytes.
+        savePendingTransaction(record)
+        signedRef.current = true
+        setPendingTx(record)
+        setSignature(record.signature)
+        setResolution('pending')
+        setStep('tracking')
+      },
+      onTerminal: () => clearPendingTransaction(activeOwner, network),
+    }
     try {
       let sig: string
       if (asset.isSol) {
-        sig = await sendSol(connection, keypair, recipient.trim(), baseUnits)
+        sig = await sendSol(connection, keypair, recipient.trim(), baseUnits, hooks)
       } else {
         sig = await sendSplToken(
           connection,
@@ -216,20 +383,58 @@ export function SendSheet({
           recipient.trim(),
           baseUnits,
           asset.decimals,
+          hooks,
         )
       }
       setSignature(sig)
+      setResolution('confirmed')
+      setPendingTx(null)
       setStep('done')
-      onSent()
-    } catch (err: any) {
-      const message = String(err?.message ?? '')
-      setError(
-        message.includes('insufficient')
-          ? '잔액이 부족합니다. 수수료를 포함해 다시 확인하세요.'
-          : message || '전송에 실패했습니다.',
-      )
-      setStep('confirm')
+      try {
+        onSent()
+      } catch {
+        // Refreshing balances must never turn a confirmed transaction into a retry prompt.
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause ?? '')
+      if (cause instanceof TxOutcomeError) {
+        setSignature(cause.signature)
+        setResolution(cause.outcome)
+        try {
+          setPendingTx(readPendingTransaction(activeOwner, network))
+        } catch (storageError) {
+          setError(storageError instanceof Error ? storageError.message : message)
+        }
+        setError(message)
+        setStep('tracking')
+      } else if (signedRef.current) {
+        setResolution('unknown')
+        try {
+          setPendingTx(readPendingTransaction(activeOwner, network))
+        } catch (storageError) {
+          setError(storageError instanceof Error ? storageError.message : message)
+        }
+        setError(message || '서명 이후 오류가 발생했습니다. 같은 전송을 다시 시도하지 마세요.')
+        setStep('tracking')
+      } else {
+        setError(
+          message.includes('insufficient')
+            ? '잔액이 부족합니다. 수수료를 포함해 다시 확인하세요.'
+            : message || '서명 또는 RPC 준비 단계에서 실패했습니다. 전송이 시작되지 않았습니다.',
+        )
+        setStep('confirm')
+      }
+    } finally {
+      inFlightRef.current = false
     }
+  }
+
+  const handleClose = () => {
+    if (inFlightRef.current && !signedRef.current) {
+      showToast('안전한 상태 기록을 마칠 때까지 잠시 기다려 주세요.')
+      return
+    }
+    onClose()
   }
 
   const feeLamports = fee?.feeLamports ?? BASE_FEE_LAMPORTS
@@ -251,16 +456,25 @@ export function SendSheet({
         </Button>
       </div>
     ) : step === 'done' ? (
-      <Button full onClick={onClose}>
+      <Button full onClick={handleClose}>
         닫기
       </Button>
+    ) : step === 'tracking' ? (
+      <div className="space-y-2">
+        <Button full onClick={() => void checkPending()} disabled={checking || !pendingTx || !connection}>
+          {checking ? '서명 상태 확인 중…' : '서명 상태 다시 확인'}
+        </Button>
+        <Button full variant="secondary" onClick={handleClose}>
+          닫기
+        </Button>
+      </div>
     ) : undefined
 
   return (
     <Sheet
       open={open}
-      onClose={onClose}
-      title={step === 'done' ? undefined : step === 'confirm' ? '전송 확인' : '보내기'}
+      onClose={handleClose}
+      title={step === 'done' ? undefined : step === 'tracking' ? '전송 상태' : step === 'confirm' ? '전송 확인' : '보내기'}
       footer={footer}
     >
       {step === 'form' && asset && (
@@ -298,6 +512,7 @@ export function SendSheet({
                   onClick={() => {
                     setMint(item.key)
                     setAmount('')
+                    setFee(null)
                     setPickerOpen(false)
                     setError(null)
                   }}
@@ -349,6 +564,7 @@ export function SendSheet({
               value={recipient}
               onChange={(event) => {
                 setRecipient(event.target.value.trim())
+                setFee(null)
                 setError(null)
               }}
               placeholder="Solana 주소"
@@ -543,7 +759,62 @@ export function SendSheet({
         <div className="flex h-full flex-col items-center justify-center pb-16">
           <Spinner size={28} className="text-ink" />
           <div className="mt-4 text-[14.5px] font-semibold text-ink">전송 중</div>
-          <div className="mt-1.5 text-[12.5px] text-muted">네트워크에 서명을 보내고 있습니다.</div>
+          <div className="mt-1.5 text-center text-[12.5px] text-muted">
+            서명 상태를 안전하게 저장한 뒤 네트워크에 전송을 시작합니다.
+          </div>
+        </div>
+      )}
+
+      {step === 'tracking' && (
+        <div className="flex flex-col items-center pb-6 pt-3 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface text-ink">
+            {checking ? <Spinner size={23} /> : <ExternalLink size={22} />}
+          </div>
+          <div className="mt-4 text-[18px] font-bold tracking-[-0.03em] text-ink">
+            {resolution === 'confirmed'
+              ? '전송 성공 확인'
+              : resolution === 'pending'
+              ? '네트워크 확인 중'
+              : resolution === 'failed'
+                ? '전송 실패 확인'
+                : resolution === 'expired'
+                  ? '블록해시 만료 · 결과 미확정'
+                  : '전송 결과 불명확'}
+          </div>
+          <div className="mt-2 max-w-[290px] text-[12.5px] leading-relaxed text-muted">
+            {resolution === 'confirmed'
+              ? '네트워크에서 이 서명의 성공을 확인했습니다.'
+              : resolution === 'failed'
+                ? '네트워크가 이 서명의 실패를 확인했습니다. 새 전송을 하려면 닫은 뒤 직접 다시 시작하세요.'
+                : resolution === 'expired'
+                  ? '블록해시 유효기간은 지났지만 이 서명이 처리됐는지는 확인되지 않았습니다. 중복 송금 방지를 위해 새 전송은 차단됩니다.'
+                  : resolution === 'pending'
+                    ? '이 서명의 확정을 기다리는 중입니다. 같은 송금을 다시 보내지 마세요.'
+                    : '이 서명의 상태를 확인할 수 없습니다. 같은 송금을 다시 보내지 말고 네트워크 복구 후 다시 조회하세요.'}
+          </div>
+          {pendingTx?.amount && (
+            <div className="tnum mt-3 text-[12.5px] font-semibold text-ink">
+              {pendingTx.symbol ?? ''} {pendingTx.amount}
+            </div>
+          )}
+          {signature && (
+            <>
+              <a
+                href={explorerTx(signature, network)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 flex items-center gap-1.5 rounded-full bg-surface px-3.5 py-2 text-[12px] font-medium text-ink"
+              >
+                Solscan에서 확인 <ExternalLink size={12} />
+              </a>
+              <div className="mt-2 font-mono text-[10.5px] text-faint">{shortAddress(signature, 8)}</div>
+            </>
+          )}
+          {error && (
+            <div className="mt-4 w-full rounded-[14px] bg-dangerSoft px-3.5 py-2.5 text-left text-[12px] leading-snug text-danger">
+              {error}
+            </div>
+          )}
         </div>
       )}
 

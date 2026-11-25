@@ -47,12 +47,17 @@ export function keypairForAccount(mnemonic: string, index: number): Keypair {
  * Derives several accounts from one seed in a single pass — mnemonicToSeed is
  * the expensive part, so it runs once per unlock rather than once per account.
  */
-export function deriveAccounts(mnemonic: string, indices: number[]): Keypair[] {
+export function deriveAccounts(
+  mnemonic: string,
+  indices: number[],
+  accountZeroPath = DEFAULT_DERIVATION_PATH,
+): Keypair[] {
   const seed = bip39.mnemonicToSeedSync(normalizeMnemonic(mnemonic))
   const seedBytes = new Uint8Array(seed)
   try {
     return indices.map((index) => {
-      const privateSeed = deriveEd25519Seed(seedBytes, accountPath(index))
+      const path = index === 0 ? normalizePayloadPath({ path: accountZeroPath }).path! : accountPath(index)
+      const privateSeed = deriveEd25519Seed(seedBytes, path)
       try {
         return Keypair.fromSeed(privateSeed)
       } finally {

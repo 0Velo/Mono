@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-24T21:12:47.862Z",
+  "generatedAt": "2026-11-25T00:16:03.903Z",
   "checks": [
     {
       "id": "SS-01",
@@ -65,7 +65,7 @@
       "id": "SS-11",
       "title": "localStorage key inventory (no plaintext secret keys expected)",
       "status": "INFO",
-      "detail": "faceid-wrap.v2, keys, mono.addressBook.v1, mono.faceid.v2, mono.meta.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.faceid.v1, solwallet.meta.v1, solwallet.vault.v1"
+      "detail": "keys, mono.addressBook.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
     },
     {
       "id": "SS-12",

@@ -1,73 +1,93 @@
-name: security
-
-# Blocks mainnet publishing: this repository deploys by pushing `dist/` to the
-# `gh-pages` branch, so make this workflow a required status check on `main`
-# (Settings → Branches → Branch protection) before any deploy job runs.
+name: MONO security and Pages
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: security-${{ github.ref }}
+  group: mono-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  audit:
-    name: Static, secrets, dependencies, unit tests
+  verify:
+    name: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out full history for secret scanning
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          # The secret scan walks every commit, so history is required.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-      - run: npm ci
-      - name: Typecheck and build
-        run: npm run build
-      - name: Security suite (crypto, tx, swap guard, static, secrets, npm audit)
-        run: npm run test:security
-      - name: Deploy gate (Critical/High findings block the build)
-        run: npm run security:gate
-      - name: Upload audit evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-audit
-          path: docs/security-audit/
-          retention-days: 30
 
-  browser:
-    name: Built-app checks (CSP, storage, pagehide, XSS)
-    runs-on: ubuntu-latest
-    needs: audit
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
-      - run: npm ci
-      - run: npm run build
-      - run: pip install --disable-pip-version-check playwright
-      - run: python -m playwright install --with-deps chromium
-      - name: Drive the production build in Chromium
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck and build production app
+        run: npm run build
+
+      - name: Install Chromium for the built-app test
+        run: |
+          python -m pip install --disable-pip-version-check 'playwright==1.62.0'
+          python -m playwright install --with-deps chromium
+
+      - name: Run security, regression, and built-app UI tests
         run: npm run test:security:ui
-      - name: Upload browser evidence
+
+      - name: Enforce fail-closed deployment gate
+        run: npm run security:gate
+
+      - name: Archive security evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: security-ui
+          name: mono-security-evidence
           path: docs/security-audit/
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+
+      - name: Upload tested production build
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: dist
+
+  deploy:
+    name: deploy
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the verified Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

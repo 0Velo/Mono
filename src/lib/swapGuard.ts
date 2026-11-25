@@ -370,6 +370,29 @@ function tokenDeltas(
   return out
 }
 
+function tokenAccountDeltas(
+  before: TokenBalanceLike[] | null | undefined,
+  after: TokenBalanceLike[] | null | undefined,
+  owner: string,
+): Array<{ mint: string; delta: bigint }> {
+  const accounts = new Map<string, { mint: string; before: bigint; after: bigint }>()
+  const collect = (balances: TokenBalanceLike[] | null | undefined, side: 'before' | 'after') => {
+    for (const balance of balances ?? []) {
+      if (balance.owner !== owner) continue
+      const key = `${balance.accountIndex}:${balance.mint}`
+      const entry = accounts.get(key) ?? { mint: balance.mint, before: 0n, after: 0n }
+      entry[side] = BigInt(balance.uiTokenAmount?.amount ?? '0')
+      accounts.set(key, entry)
+    }
+  }
+  collect(before, 'before')
+  collect(after, 'after')
+  return Array.from(accounts.values(), ({ mint, before: previous, after: next }) => ({
+    mint,
+    delta: next - previous,
+  }))
+}
+
 /**
  * Verifies the simulated balance changes against the quote. This is what
  * catches a transaction that is structurally "a swap" but moves more than the
@@ -401,15 +424,47 @@ export function assertSwapSimulation(simulation: SwapSimulationLike, expect: Swa
   const tol = SOL_FEE_TOLERANCE
   const inputIsSol = isWsol(expect.inputMint)
   const outputIsSol = isWsol(expect.outputMint)
+  const perAccountDeltas = tokenAccountDeltas(value.preTokenBalances, value.postTokenBalances, expect.owner)
 
   if (!inputIsSol) {
-    const deltaIn = deltaOf(expect.inputMint)
-    if (deltaIn > 0n || -deltaIn > inAmount) {
+    if (!pre.has(expect.inputMint) && !post.has(expect.inputMint)) {
+      fail('simulation-incomplete', `no ${expect.inputMint} input balance`, '스왑 입력 토큰 잔액을 확인하지 못했습니다.')
+    }
+    const inputOutflow = perAccountDeltas
+      .filter((entry) => entry.mint === expect.inputMint && entry.delta < 0n)
+      .reduce((total, entry) => total - entry.delta, 0n)
+    const unexpectedOutflow = perAccountDeltas.find(
+      (entry) => entry.delta < 0n && entry.mint !== expect.inputMint,
+    )
+    if (unexpectedOutflow) {
       fail(
         'simulation-delta',
-        `input ${expect.inputMint} delta ${deltaIn}`,
+        `unexpected token outflow ${unexpectedOutflow.mint} delta ${unexpectedOutflow.delta}`,
+        '시뮬레이션에서 스왑 입력과 무관한 토큰이 빠져나갑니다. 서명하지 않았습니다.',
+      )
+    }
+    if (inputOutflow > inAmount) {
+      fail(
+        'simulation-delta',
+        `input ${expect.inputMint} outflow ${inputOutflow}`,
         '시뮬레이션 결과가 견적보다 많은 토큰을 빼앗습니다. 서명하지 않았습니다.',
       )
+    }
+  } else if (perAccountDeltas.some((entry) => entry.delta < 0n && entry.mint !== expect.inputMint)) {
+    const unexpectedOutflow = perAccountDeltas.find(
+      (entry) => entry.delta < 0n && entry.mint !== expect.inputMint,
+    )!
+    fail(
+      'simulation-delta',
+      `unexpected token outflow ${unexpectedOutflow.mint} delta ${unexpectedOutflow.delta}`,
+      '시뮬레이션에서 스왑 입력과 무관한 토큰이 빠져나갑니다. 서명하지 않았습니다.',
+    )
+  } else {
+    const inputOutflow = perAccountDeltas
+      .filter((entry) => entry.mint === expect.inputMint && entry.delta < 0n)
+      .reduce((total, entry) => total - entry.delta, 0n)
+    if (inputOutflow > inAmount) {
+      fail('simulation-delta', `input ${expect.inputMint} outflow ${inputOutflow}`, '시뮬레이션 결과가 견적보다 많은 토큰을 빼앗습니다. 서명하지 않았습니다.')
     }
   }
   if (!outputIsSol) {
@@ -440,10 +495,11 @@ export function assertSwapSimulation(simulation: SwapSimulationLike, expect: Swa
     fail('simulation-delta', `sol delta ${solDelta}`, '시뮬레이션에서 예상 밖의 SOL이 빠져나갑니다. 서명하지 않았습니다.')
   }
   if (outputIsSol) {
-    if (solDelta < minOut - (inAmount + tol)) {
+    const expectedSolCost = inputIsSol ? inAmount : 0n
+    if (solDelta < minOut - (expectedSolCost + tol)) {
       fail(
         'simulation-delta',
-        `sol delta ${solDelta} < ${minOut - inAmount - tol}`,
+        `sol delta ${solDelta} < ${minOut - expectedSolCost - tol}`,
         '시뮬레이션 결과가 최소 수령량보다 적습니다. 서명하지 않았습니다.',
       )
     }

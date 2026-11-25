@@ -159,12 +159,6 @@ def main():
         page.get_by_role("button", name="다음").click()
         page.wait_for_selector("text=PIN 설정", timeout=10000)
 
-        # Turn the Face ID offer off: a headless browser has no authenticator,
-        # and this check is about storage, not WebAuthn.
-        toggle = page.locator('button[role="switch"]')
-        if toggle.count():
-            toggle.first.click()
-
         type_pin(page, "123456")
         page.wait_for_selector("text=PIN 확인", timeout=10000)
         type_pin(page, "123456")
@@ -229,12 +223,19 @@ def main():
             json.dumps({key: vault.get(key) for key in ("v", "kdf", "iter", "iv", "salt")}, default=str) if isinstance(vault, dict) else str(vault)[:200],
         )
 
-        faceid = storage_dump["local"].get("mono.faceid.v2")
+        biometric_ui = page.evaluate(
+            "() => /Face ID|생체인증|WebAuthn|PRF/i.test(document.body.innerText)"
+        )
+        biometric_storage_keys = [
+            key
+            for key in [*storage_dump["local"].keys(), *storage_dump["keys"]]
+            if any(term in key.lower() for term in ("faceid", "biometric", "webauthn", "prf"))
+        ]
         record(
             "UI-09",
-            "Any Face ID record on disk is ciphertext only",
-            "PASS" if not faceid or '"ct"' in str(faceid) else "FAIL",
-            (str(faceid)[:160] if faceid else "no enrolment (toggle off)"),
+            "Biometric unlock UI and persisted state are absent",
+            "PASS" if not biometric_ui and not biometric_storage_keys else "FAIL",
+            f"ui_present={biometric_ui} storage_keys={biometric_storage_keys}",
         )
 
         # --- pagehide must lock ------------------------------------------------

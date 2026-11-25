@@ -13,6 +13,8 @@ interface ResetSheetProps {
 export function ResetSheet({ open, onClose }: ResetSheetProps) {
   const { resetWallet } = useWallet()
   const [ack, setAck] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) setAck(false)
@@ -46,14 +48,23 @@ export function ResetSheet({ open, onClose }: ResetSheetProps) {
         <Button
           full
           variant="danger"
-          disabled={!ack}
-          onClick={() => {
-            resetWallet()
-            onClose()
+          disabled={!ack || busy}
+          onClick={async () => {
+            setBusy(true)
+            setError(null)
+            try {
+              await resetWallet()
+              onClose()
+            } catch (reason) {
+              setError((reason as Error)?.message || '지갑을 초기화하지 못했습니다.')
+            } finally {
+              setBusy(false)
+            }
           }}
         >
           지갑 삭제
         </Button>
+        {error && <p className="text-center text-[12px] text-danger">{error}</p>}
         <Button full variant="secondary" onClick={onClose}>
           취소
         </Button>

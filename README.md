@@ -33,8 +33,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 | --- | --- |
 | 키 보관 | PBKDF2-SHA256(210,000회) → AES-256-GCM. 암호화된 금고만 기기에 저장 |
 | 저장 위치 | **IndexedDB** (`mono-vault`). 구버전 `localStorage` 금고는 최초 실행 시 자동 이전 후 삭제 |
-| 잠금 해제 | 6자리 PIN 또는 Face ID(WebAuthn platform authenticator, `userVerification: required`) |
-| Face ID 봉인 | PRF 지원 시 HKDF로 키 유도, 미지원(iOS Safari/PWA) 시 **추출 불가능한** AES 키를 IndexedDB에 보관하고 인증 성공 후에만 사용 |
+| 잠금 해제 | 6자리 PIN (생체인증 로그인은 지원하지 않음) |
 | 잠금 시 | 복호화된 키페어의 `secretKey` 바이트를 `fill(0)`으로 덮어쓰고 메모리 참조 해제 |
 | 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음, `form-action 'none'`, `frame-src 'none'`) |
 | 스왑 서명 | Jupiter가 만든 트랜잭션을 **서명 전에** 검사: 수수료 지불자·서명자 확인, 허용 프로그램 목록, System/토큰 권한 명령 차단, 시뮬레이션 잔액 변화가 견적과 일치하는지 확인 |
@@ -57,7 +56,7 @@ Mono는 비수탁(non-custodial) 지갑입니다. 시드 문구와 PIN을 잃으
 
 1. Safari에서 https://0velo.github.io/Mono/ 열기
 2. 공유 → **홈 화면에 추가**
-3. 홈 화면 아이콘으로 실행 (주소창 없는 전체 화면, 생체 인증 사용 가능)
+3. 홈 화면 아이콘으로 실행 (주소창 없는 전체 화면, PIN으로 잠금 해제)
 
 ### RPC 설정 (선택)
 
@@ -80,8 +79,8 @@ npm run build      # tsc --noEmit && vite build
 npm run preview
 ```
 
-배포는 `tmp/deploy.sh` — `main`에 소스를, `dist/`를 `gh-pages`에 올리고 GitHub Pages를 갱신합니다.
-(https://0velo.github.io/Mono/)
+GitHub Actions는 빌드·보안 검사·브라우저 테스트가 모두 성공한 뒤에만 `main`에서 GitHub Pages를
+배포합니다. Pull request에서는 검사만 실행하며 배포하지 않습니다.
 
 ---
 
@@ -95,7 +94,7 @@ happens client-side. There is no server component and no analytics.
 - **Portfolio** — SOL + SPL balances, USD/KRW value, 24h change, keyless price fallbacks
 - **Send / Receive** — confirmation step, ATA rent disclosure, QR receive sheet, Solscan links
 - **Address book** — label recurring recipients and pick them with one tap in the send sheet
-- **Accounts** — multiple accounts from one seed (`m/44'/501'/n/0'`) with custom nicknames
+- **Accounts** — explicitly added accounts from one seed (`m/44'/501'/n'/0'`) with custom nicknames
 - **Swap** — Jupiter quote/execute, slippage presets, price impact, minimum received, route
 - **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions)
 - **Spam control** — hide any SPL token from the wallet list
@@ -105,10 +104,7 @@ happens client-side. There is no server component and no analytics.
 
 - Vault: `PBKDF2-SHA256 (210k) → AES-256-GCM`, stored in **IndexedDB** (`mono-vault`). Legacy
   `localStorage` vaults are migrated once and deleted.
-- Unlock: 6-digit PIN, or Face ID via WebAuthn platform authenticator (`userVerification: required`).
-  - PRF-capable authenticators derive the AES key with HKDF (nothing persisted).
-  - Without PRF (common on iOS Safari/PWA) a **non-extractable** AES key is kept in IndexedDB and
-    only used after a successful assertion.
+- Unlock: 6-digit PIN only; biometric authentication is not supported.
 - On lock: the decrypted `secretKey` bytes are zeroed with `fill(0)` and the payload reference dropped.
 - Transport: HTTPS plus a strict `Content-Security-Policy` (`script-src 'self'`, no inline scripts).
 - Backup: a single PIN-encrypted `.json`; the mnemonic is never written in plaintext.
@@ -122,8 +118,7 @@ src/
 │  ├─ wallet.ts       mnemonic/secret key → Keypair (intermediate buffers zeroed)
 │  ├─ vault.ts        PBKDF2 + AES-256-GCM sealed payload
 │  ├─ vaultStore.ts   IndexedDB vault + one-time localStorage migration
-│  ├─ idb.ts          minimal IndexedDB helper (vault + Face ID key stores)
-│  ├─ biometric.ts    WebAuthn enrolment, PRF or device-key sealing
+│  ├─ idb.ts          minimal IndexedDB helper (vault + legacy vault migration)
 │  ├─ swap.ts         Jupiter quote/swap client with endpoint fallbacks
 │  ├─ chart.ts        price history (CoinGecko → Binance)
 │  ├─ security.ts     mint/freeze authority + Token-2022 extension probe
@@ -134,7 +129,7 @@ src/
 │  └─ prices.ts       keyless price sources
 ├─ screens/           Onboarding, Lock, Home, Swap (lazy), Activity, Settings
 ├─ sheets/            Send, Receive, TokenDetail (lazy), Accounts, AddressBook, Backup, Reset
-└─ state/             WalletProvider (vault, accounts, auto-lock, Face ID)
+└─ state/             WalletProvider (vault, explicitly selected accounts, auto-lock)
 ```
 
 The entry chunk stays small: `@solana/web3.js`, `bip39`, Jupiter and the chart code are separate

@@ -8,6 +8,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import bs58 from 'bs58'
 import {
   ComputeBudgetProgram,
   Keypair,
@@ -33,7 +34,8 @@ import {
   assertSwapSimulation,
   assertSwapTransaction,
 } from '../../../src/lib/swapGuard'
-import { executeSwap } from '../../../src/lib/swapExecute'
+import { executeSwap, SwapExecutionError } from '../../../src/lib/swapExecute'
+import { TxOutcomeError } from '../../../src/lib/tx'
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 const user = Keypair.generate()
@@ -289,28 +291,77 @@ test('an SPL input that is over-drawn is refused', () => {
   )
 })
 
+test('a swap that spends an unrelated user token is refused even when its quoted input and output are valid', () => {
+  expectGuardError(
+    () =>
+      assertSwapSimulation(
+        simulation({
+          preBalances: [1_000_000_000],
+          postBalances: [1_000_000_000 + 1_000_000],
+          preTokenBalances: [
+            { accountIndex: 2, mint: USDC_MINT, owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '5000000', decimals: 6 } },
+            { accountIndex: 3, mint: 'BONK_MINT', owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '900', decimals: 5 } },
+          ],
+          postTokenBalances: [
+            { accountIndex: 2, mint: USDC_MINT, owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '4000000', decimals: 6 } },
+            { accountIndex: 4, mint: WSOL_MINT, owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '1000000', decimals: 9 } },
+          ],
+        }),
+        { ...expectation, inputMint: USDC_MINT, inAmount: '1000000', outputMint: WSOL_MINT, minOut: '900000' },
+      ),
+    'simulation-delta',
+  )
+})
+
+test('SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units', () => {
+  expectGuardError(
+    () =>
+      assertSwapSimulation(
+        simulation({
+          preBalances: [1_000_000_000],
+          postBalances: [1_050_000_000],
+          preTokenBalances: [
+            { accountIndex: 2, mint: USDC_MINT, owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '100000000', decimals: 6 } },
+          ],
+          postTokenBalances: [
+            { accountIndex: 2, mint: USDC_MINT, owner: user.publicKey.toBase58(), uiTokenAmount: { amount: '50000000', decimals: 6 } },
+          ],
+        }),
+        { ...expectation, inputMint: USDC_MINT, inAmount: '50000000', outputMint: WSOL_MINT, minOut: '100000000' },
+      ),
+    'simulation-delta',
+  )
+})
+
 test('the SOL fee tolerance is small enough to be a real bound', () => {
   assert.ok(SOL_FEE_TOLERANCE <= 20_000_000n, 'tolerance must stay under 0.02 SOL')
 })
 
 /* ----------------------------------------------------------- full execution */
 
-function fakeSwapConnection(overrides: { simulation?: any } = {}) {
+function fakeSwapConnection(overrides: { simulation?: any; status?: any; failSend?: boolean } = {}) {
   const calls: string[] = []
   const connection = {
     simulateTransaction: async () => {
       calls.push('simulate')
       return overrides.simulation ?? simulation()
     },
-    sendRawTransaction: async () => {
+    sendRawTransaction: async (raw: Uint8Array) => {
       calls.push('send')
-      return 'SIGNATURE'
+      const signed = VersionedTransaction.deserialize(raw).signatures[0]
+      if (overrides.failSend) throw new Error('RPC connection lost')
+      return bs58.encode(signed)
     },
-    confirmTransaction: async () => {
+    getSignatureStatuses: async () => {
       calls.push('confirm')
-      return { value: { err: null } }
+      return {
+        value: ['status' in overrides ? overrides.status : { err: null, confirmationStatus: 'confirmed' }],
+      }
     },
-    getBlockHeight: async () => 1_000,
+    getBlockHeight: async () => {
+      calls.push('height')
+      return 1_000
+    },
     getAccountInfo: async () => null,
   }
   return { connection: connection as any, calls }
@@ -331,16 +382,27 @@ test('executeSwap runs guard → simulate → sign → send → confirm and retu
   const { connection, calls } = fakeSwapConnection()
   const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
   const steps: string[] = []
+  let persistedSignature = ''
+  let terminal = false
   const signature = await executeSwap({
     connection,
     keypair: user,
     built: builtFor(tx),
     quote,
     onStep: (step) => steps.push(step),
+    hooks: {
+      onSigned: (attempt) => {
+        calls.push('persist')
+        persistedSignature = attempt.signature
+        assert.equal(attempt.lastValidBlockHeight, 1_500)
+      },
+      onTerminal: () => { terminal = true },
+    },
   })
-  assert.equal(signature, 'SIGNATURE')
+  assert.equal(signature, persistedSignature)
+  assert.equal(terminal, true)
   assert.deepEqual(steps, ['guard', 'simulate', 'sign', 'send', 'confirm'])
-  assert.deepEqual(calls, ['simulate', 'send', 'confirm'])
+  assert.deepEqual(calls, ['simulate', 'persist', 'send', 'confirm'])
 })
 
 test('executeSwap never broadcasts a draining transaction', async () => {
@@ -387,6 +449,57 @@ test('executeSwap rejects a payload that is not a transaction', async () => {
         quote,
       }),
     /스왑 트랜잭션을 읽지 못했습니다/,
+  )
+  assert.deepEqual(calls, [])
+})
+
+test('executeSwap will not broadcast if persisting the local signature fails', async () => {
+  const { connection, calls } = fakeSwapConnection()
+  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  await assert.rejects(
+    () =>
+      executeSwap({
+        connection,
+        keypair: user,
+        built: builtFor(tx),
+        quote,
+        hooks: { onSigned: () => { throw new Error('storage unavailable') } },
+      }),
+    /storage unavailable/,
+  )
+  assert.deepEqual(calls, ['simulate'])
+})
+
+test('executeSwap keeps an RPC-loss attempt pending and does not clear its record', async () => {
+  const { connection, calls } = fakeSwapConnection({ failSend: true, status: null })
+  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  let saved = ''
+  let terminal = false
+  await assert.rejects(
+    () =>
+      executeSwap({
+        connection,
+        keypair: user,
+        built: builtFor(tx),
+        quote,
+        hooks: {
+          onSigned: (attempt) => { saved = attempt.signature },
+          onTerminal: () => { terminal = true },
+        },
+      }),
+    (error: unknown) => error instanceof TxOutcomeError && error.outcome === 'pending',
+  )
+  assert.ok(saved)
+  assert.equal(terminal, false)
+  assert.deepEqual(calls, ['simulate', 'send', 'confirm', 'height'])
+})
+
+test('executeSwap refuses to sign when Jupiter omits the real last valid block height', async () => {
+  const { connection, calls } = fakeSwapConnection()
+  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  await assert.rejects(
+    () => executeSwap({ connection, keypair: user, built: { ...builtFor(tx), lastValidBlockHeight: null }, quote }),
+    (error: unknown) => error instanceof SwapExecutionError && error.step === 'guard',
   )
   assert.deepEqual(calls, [])
 })
