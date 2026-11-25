@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import type { Connection } from '@solana/web3.js'
 import {
   Check,
   ChevronRight,
+  Coins,
   Copy,
   Download,
   ExternalLink,
@@ -30,7 +32,9 @@ import { saveBackupFile } from '../lib/backup'
 import { useWallet, type WalletMeta } from '../state/WalletProvider'
 import { useTheme, type ThemePref } from '../lib/theme'
 import { useAddressBook } from '../lib/addressBook'
-import { cx, shortAddress } from '../lib/format'
+import { findEmptyTokenAccounts, sumLamports, type EmptyTokenAccount } from '../lib/rent'
+import { RentSheet } from '../sheets/RentSheet'
+import { cx, formatTxAmount, shortAddress } from '../lib/format'
 import type { PushUiState } from '../lib/pushSubscriptions'
 import {
   needsHomeScreenInstall,
@@ -39,6 +43,7 @@ import {
 
 interface SettingsProps {
   meta: WalletMeta
+  connection: Connection | null
   onChangeNetwork: (network: NetworkId) => void
   onSaveRpc: (network: NetworkId, value: string) => void
   onAutoLockChange: (minutes: number) => void
@@ -47,6 +52,7 @@ interface SettingsProps {
   onLock: () => void
   onAddressBook: () => void
   onAccounts: () => void
+  onRefreshPortfolio: () => void
   activityNotificationsEnabled: boolean
   notificationPermission: NotificationPermissionState
   onToggleActivityNotifications: () => void | Promise<void>
@@ -78,6 +84,7 @@ const THEME_OPTIONS: Array<{ value: ThemePref; label: string }> = [
 
 export function Settings({
   meta,
+  connection,
   onChangeNetwork,
   onSaveRpc,
   onAutoLockChange,
@@ -86,6 +93,7 @@ export function Settings({
   onLock,
   onAddressBook,
   onAccounts,
+  onRefreshPortfolio,
   activityNotificationsEnabled,
   notificationPermission,
   onToggleActivityNotifications,
@@ -97,16 +105,41 @@ export function Settings({
     accounts,
     activeIndex,
     activeAccount,
+    keypair,
   } = useWallet()
   const { pref: themePref, setTheme } = useTheme()
   const book = useAddressBook()
   const [rpcInput, setRpcInput] = useState(meta.rpc[meta.network] ?? '')
   const [copied, setCopied] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [emptyTokenAccounts, setEmptyTokenAccounts] = useState<EmptyTokenAccount[] | null>(null)
+  const [rentOpen, setRentOpen] = useState(false)
+  const [rentLookup, setRentLookup] = useState(0)
 
   useEffect(() => {
     setRpcInput(meta.rpc[meta.network] ?? '')
   }, [meta.network, meta.rpc])
+
+  // Which empty token accounts this wallet holds — the only reason the cleanup
+  // row exists. Nothing is shown until the chain answered.
+  useEffect(() => {
+    if (!connection || !keypair) {
+      setEmptyTokenAccounts(null)
+      return
+    }
+    let cancelled = false
+    setEmptyTokenAccounts(null)
+    findEmptyTokenAccounts(connection, keypair.publicKey.toBase58())
+      .then((list) => {
+        if (!cancelled) setEmptyTokenAccounts(list)
+      })
+      .catch(() => {
+        if (!cancelled) setEmptyTokenAccounts([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [connection, keypair, rentLookup])
 
   const dirty = (meta.rpc[meta.network] ?? '') !== rpcInput
   const valid = !rpcInput.trim() || looksLikeRpc(rpcInput)
@@ -346,6 +379,21 @@ export function Settings({
             {book.length}개 <ChevronRight size={16} className="text-faint2" />
           </span>
         </button>
+        {emptyTokenAccounts && emptyTokenAccounts.length > 0 && (
+          <button
+            onClick={() => setRentOpen(true)}
+            id="rent-cleanup"
+            className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press"
+          >
+            <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+              <Coins size={16} strokeWidth={1.9} /> 빈 토큰 계정 {emptyTokenAccounts.length}개 정리
+            </span>
+            <span className="flex items-center gap-1 text-[12.5px] font-medium text-mint">
+              약 +{formatTxAmount(sumLamports(emptyTokenAccounts), 9)} SOL
+              <ChevronRight size={16} className="text-faint2" />
+            </span>
+          </button>
+        )}
       </Group>
 
       <Group title="네트워크">
@@ -531,6 +579,19 @@ export function Settings({
           Mono · {BUILD_ID} · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
         </span>
       </div>
+
+      <RentSheet
+        open={rentOpen}
+        onClose={() => setRentOpen(false)}
+        connection={connection}
+        keypair={keypair}
+        network={meta.network}
+        accounts={emptyTokenAccounts ?? []}
+        onDone={() => {
+          setRentLookup((value) => value + 1)
+          onRefreshPortfolio()
+        }}
+      />
     </div>
   )
 }

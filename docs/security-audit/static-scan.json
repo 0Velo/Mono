@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-25T14:57:54.521Z",
+  "generatedAt": "2026-11-25T15:58:28.965Z",
   "checks": [
     {
       "id": "SS-01",
@@ -35,7 +35,7 @@
       "id": "SS-06",
       "title": "CSP blocks inline/external script, plugins, base-uri override, forms and frames",
       "status": "PASS",
-      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
     },
     {
       "id": "SS-07",
@@ -59,7 +59,7 @@
       "id": "SS-10",
       "title": "Service worker caches same-origin assets only and prunes old caches",
       "status": "PASS",
-      "detail": "cacheVersion=17"
+      "detail": "cacheVersion=19"
     },
     {
       "id": "SS-11",
@@ -89,17 +89,29 @@
       "id": "SS-15",
       "title": "Built dist/index.html carries the CSP",
       "status": "PASS",
-      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+      "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
     },
     {
       "id": "SS-16",
       "title": "package-lock.json present and structurally valid",
       "status": "PASS",
-      "detail": "397 locked package entries"
+      "detail": "398 locked package entries"
+    },
+    {
+      "id": "SS-17",
+      "title": "QR decoding is bundled and pinned, with no external script or CDN",
+      "status": "PASS",
+      "detail": "jsqr@^1.4.0 dynamic=true"
+    },
+    {
+      "id": "SS-18",
+      "title": "The camera stream is released by the code that opens it",
+      "status": "PASS",
+      "detail": "getUserMedia + track.stop() in the same module tree"
     }
   ],
   "counts": {
-    "PASS": 11,
+    "PASS": 13,
     "INFO": 2,
     "REVIEW": 3
   }

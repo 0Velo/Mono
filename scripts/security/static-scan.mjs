@@ -181,6 +181,37 @@ const allowlist = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'
 const lockPackages = Object.keys(allowlist.packages || {}).length
 record('SS-16', 'package-lock.json present and structurally valid', 'PASS', `${lockPackages} locked package entries`)
 
+/* ------------------------------------------------------- camera + QR decoder */
+// Scanning a QR loads a decoder. That code must come from this bundle — an
+// external script would be blocked by `script-src 'self'` anyway, but a build
+// that only worked with one would fail closed on the price tab instead of on
+// the send screen. `jsqr` is pinned in the lockfile and imported dynamically.
+const pkgDeps = { ...pkg.dependencies }
+const cdnHits = linesMatching(/\b(?:cdn\.|cdnjs\.|unpkg\.com|jsdelivr\.net)/)
+const decoderPinned = typeof pkgDeps.jsqr === 'string' && /^\^?\d+\.\d+\.\d+$/.test(pkgDeps.jsqr)
+const decoderBundled = SRC_FILES.some((file) =>
+  /import\(['"]jsqr['"]\)/.test(fs.readFileSync(file, 'utf8')),
+)
+record(
+  'SS-17',
+  'QR decoding is bundled and pinned, with no external script or CDN',
+  cdnHits.length === 0 && decoderPinned && decoderBundled ? 'PASS' : 'FAIL',
+  cdnHits.length
+    ? cdnHits.slice(0, 6).join(' | ')
+    : `jsqr@${pkgDeps.jsqr ?? 'missing'} dynamic=${decoderBundled}`,
+)
+
+const cameraGuard = SRC_FILES.some((file) => {
+  const text = fs.readFileSync(file, 'utf8')
+  return /getUserMedia/.test(text) && /track\.stop\(\)|\.stop\(\)/s.test(text)
+})
+record(
+  'SS-18',
+  'The camera stream is released by the code that opens it',
+  cameraGuard ? 'PASS' : 'FAIL',
+  cameraGuard ? 'getUserMedia + track.stop() in the same module tree' : 'no getUserMedia release found',
+)
+
 /* ------------------------------------------------------------------ output */
 const summary = {
   generatedAt: new Date().toISOString(),

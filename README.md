@@ -20,6 +20,10 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 
 - **지갑** — SOL · SPL 잔액과 평가금액, 24시간 변동, 실시간 시세(CoinGecko → Binance → DexScreener 폴백)
 - **보내기 / 받기** — 주소·수량 확인 단계, 토큰 계정 생성 수수료 미리 표시, Solscan 링크, QR 받기. 전송은 RPC가 서명을 받아들이는 즉시 결과 화면으로 넘어가고, 확정 확인은 HTTPS 조회로 최대 30초만 기다린 뒤 서명 해시와 함께 명확한 상태를 남깁니다
+- **QR로 보내기** — 송금 화면의 QR 버튼으로 카메라를 열어 솔라나 주소나 `solana:<주소>?amount=…&spl-token=…&memo=…` Solana Pay 코드를 읽고 주소·금액·토큰·메모를 한 번에 채웁니다. Android Chrome은 `BarcodeDetector`, iOS Safari는 번들에 포함된 `jsQR` 디코더(외부 스크립트·CDN 없음)를 쓰고, 권한이 없거나 카메라가 없으면 안내만 남기고 스트림을 즉시 닫습니다
+- **보내기 전 확인** — 받는 주소가 내 계정이면 `내 계정 2`, 주소록이면 저장한 이름 배지를, 처음 보내는 주소면 `처음 보내는 주소` 칩을 보여 주고, 금액을 넣으면 수수료·계정 생성비까지 뺀 `보낸 뒤 잔액`과 0에 가까워질 때의 경고를 한 줄로 표시합니다
+- **프라이버시 모드** — 홈 화면의 총 잔액을 탭하면 `••••`로 가려지고 다시 탭하면 보입니다. 선택은 기기에 저장되어 앱을 다시 열어도 유지됩니다
+- **빈 토큰 계정 정리** — 잔액이 0이고 동결되지 않은 토큰 계정이 있으면 설정에 `빈 토큰 계정 N개 정리 · 약 +0.00XX SOL`이 나타납니다. 서명 전 시뮬레이션으로 회수 금액과 닫힐 계정을 확인한 뒤 `createCloseAccountInstruction`으로 계정을 닫아 묶여 있던 SOL rent를 돌려받습니다
 - **주소록** — "투빗 입금", "내 팬텀" 같은 이름으로 저장하고 보내기 화면에서 한 번에 선택
 - **계정** — 같은 시드 문구에서 `m/44'/501'/n'/0'` 파생. 최대 100개까지 추가·전환·이름 변경·삭제할 수 있고, 삭제한 번호를 다시 추가하면 같은 주소가 돌아옵니다
 - **스왑** — Jupiter 애그리게이터 견적·실행, 슬리피지(0.5 / 1 / 3%), 가격 영향·최소 수령·경로 표시
@@ -40,6 +44,8 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 | 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음, `form-action 'none'`, `frame-src 'none'`) |
 | RPC 연결 | 지정한 RPC로 HTTPS와 WebSocket(wss)을 연결합니다. `connect-src`는 사용자 지정 RPC를 위해 `https:`·`wss:`를 허용합니다(스크립트는 `self`만) |
 | 스왑 서명 | Jupiter가 만든 트랜잭션을 **서명 전에** 검사: 수수료 지불자·서명자 확인, 허용 프로그램 목록, System/토큰 권한 명령 차단, 시뮬레이션 잔액 변화가 견적과 일치하는지 확인 |
+| QR·메모 | 스캔·붙여넣기한 텍스트는 주소(32바이트)·금액(부호·지수 없는 10진수) 형식을 모두 통과할 때만 채워지고, 하나라도 어긋나면 요청 전체를 거부합니다. 메모는 계정·서명자가 없는 Memo 프로그램 명령 한 줄로만 전송되며 길이가 제한됩니다 |
+| 빈 계정 정리 | 잔액 0·비동결·내가 닫을 수 있는 계정만 대상. 시뮬레이션에서 지갑 lamport 증가분이 rent 합계에서 수수료를 뺀 값과 같고 대상 계정이 모두 사라졌을 때만 서명합니다 |
 | RPC | 사용자 지정 RPC는 https만 허용(로컬 검증기용 localhost 예외) |
 | 백업 | PIN으로 암호화된 `.json` 한 개. 파일 안에 시드 문구 평문은 없음 |
 
@@ -48,7 +54,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 
 ```bash
 npm run test:security        # 정적 검사 + 비밀키 스캔 + npm audit + crypto/tx 단위 테스트
-npm run test:security:ui     # 빌드된 앱을 Chromium에서 실제로 구동 (CSP·저장소·pagehide·XSS·계정 6개 추가/이름/삭제)
+npm run test:security:ui     # 빌드된 앱을 Chromium에서 실제로 구동 (CSP·저장소·pagehide·XSS·계정 6개 추가/이름/삭제·QR 스캔·보낸 뒤 잔액·프라이버시 모드·QR 디코더)
 npm run test:send            # 모의 Devnet RPC로 송금 확인·타임아웃·RPC 오류·실패 경로를 브라우저에서 확인
 npm run security:gate        # 배포 차단 게이트 (Critical/High)
 ```
@@ -143,8 +149,12 @@ src/
 │  ├─ swap.ts         Jupiter quote/swap client with endpoint fallbacks
 │  ├─ chart.ts        price history (CoinGecko → Binance)
 │  ├─ security.ts     mint/freeze authority + Token-2022 extension probe
-│  ├─ prefs.ts        hidden tokens, watchlist
+│  ├─ prefs.ts        hidden tokens, watchlist, privacy mode
 │  ├─ addressBook.ts  saved recipients
+│  ├─ solanaPay.ts    Solana Pay URI / 주소 / 금액 / 메모 파서
+│  ├─ qrScan.ts       카메라 QR 스캔 (BarcodeDetector → 번들 jsQR 폴백)
+│  ├─ sendSafety.ts   받는 주소 별명 배지, 보낸 뒤 잔액
+│  ├─ rent.ts         빈 토큰 계정 조회·시뮬레이션·closeAccount
 │  ├─ theme.ts        light/dark/system, CSS-variable switching
 │  ├─ splash.ts       static splash hand-off (minimum on-screen time, one-shot fade, lock-screen landing)
 │  ├─ splashLanding.ts  where the saucer sets the alien down: mark coordinates, shrink ratio, beat timings
@@ -152,7 +162,7 @@ src/
 │  ├─ tokens.ts       balances, SPL accounts, on-chain metadata
 │  └─ prices.ts       keyless price sources
 ├─ screens/           Onboarding, Lock, Home, Swap (lazy), Activity, Settings
-├─ sheets/            Send, Receive, TokenDetail (lazy), Accounts, AddressBook, Backup, Reset
+├─ sheets/            Send, Receive, TokenDetail (lazy), Accounts, AddressBook, Backup, Reset, Rent
 └─ state/             WalletProvider (vault, explicitly selected accounts, auto-lock)
 ```
 

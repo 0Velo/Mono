@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T14:57:53.822Z",
-  "node": "v22.11.0",
+  "startedAt": "2026-11-25T15:58:28.045Z",
+  "node": "v22.20.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T14:57:54.521Z",
+      "generatedAt": "2026-11-25T15:58:28.965Z",
       "checks": [
         {
           "id": "SS-01",
@@ -39,7 +39,7 @@
           "id": "SS-06",
           "title": "CSP blocks inline/external script, plugins, base-uri override, forms and frames",
           "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
         },
         {
           "id": "SS-07",
@@ -63,7 +63,7 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=17"
+          "detail": "cacheVersion=19"
         },
         {
           "id": "SS-11",
@@ -93,26 +93,38 @@
           "id": "SS-15",
           "title": "Built dist/index.html carries the CSP",
           "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
         },
         {
           "id": "SS-16",
           "title": "package-lock.json present and structurally valid",
           "status": "PASS",
-          "detail": "397 locked package entries"
+          "detail": "398 locked package entries"
+        },
+        {
+          "id": "SS-17",
+          "title": "QR decoding is bundled and pinned, with no external script or CDN",
+          "status": "PASS",
+          "detail": "jsqr@^1.4.0 dynamic=true"
+        },
+        {
+          "id": "SS-18",
+          "title": "The camera stream is released by the code that opens it",
+          "status": "PASS",
+          "detail": "getUserMedia + track.stop() in the same module tree"
         }
       ],
       "counts": {
-        "PASS": 11,
+        "PASS": 13,
         "INFO": 2,
         "REVIEW": 3
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T14:58:07.943Z",
+      "generatedAt": "2026-11-25T15:58:42.568Z",
       "scanned": {
-        "trackedFiles": 169,
-        "commits": 66
+        "trackedFiles": 182,
+        "commits": 68
       },
       "workingTree": {
         "findings": [],
@@ -319,8 +331,8 @@
           "advisories": []
         }
       ],
-      "prodDependencies": 81,
-      "totalDependencies": 396
+      "prodDependencies": 82,
+      "totalDependencies": 397
     },
     "unit": {
       "tests": [
@@ -540,6 +552,26 @@
           "file": null
         },
         {
+          "name": "no memo means no instruction at all",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the memo instruction targets the Memo program and touches no account",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "memo text is sanitised and bounded before it reaches the chain",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the memo program id is a real 32-byte public key",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "pending transaction records round-trip by owner and network",
           "status": "PASS",
           "file": null
@@ -655,6 +687,51 @@
           "file": null
         },
         {
+          "name": "an empty, unfrozen, self-closable account is offered",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an account with tokens is never offered, not even a single base unit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a frozen account is left alone",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an account whose close authority is someone else is left alone",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "rent is summarised and the largest account comes first",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "chunks stay inside the per-transaction limit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "each close instruction pays the rent to the wallet and uses the right token program",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the on-chain lookup offers only the accounts that can safely be closed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wallet with no token accounts yields an empty list",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "looksLikeRpc accepts https endpoints",
           "status": "PASS",
           "file": null
@@ -706,6 +783,136 @@
         },
         {
           "name": "the source uses the shared affordability check, not an inline balance compare",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an own account is named by its number, not shown as a stranger",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a renamed own account keeps the name",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the active account says so, and is still a caution",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an address-book entry shows its own label",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an address seen for the first time is the caution chip",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "nothing is shown before an address exists",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the SOL left after a transfer subtracts amount, fee and token-account rent",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transfer that cannot be paid shows a negative remainder",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the near-zero warning fires below the rent-exempt minimum only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a bare address is accepted, a 31-byte look-alike is not",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transfer request carries address, amount, token and memo",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a bare `solana:` URI without parameters is a plain address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "amounts must be plain positive decimals",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a request with an unusable amount is refused as a whole, not applied partially",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an invalid token mint or address refuses the request",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "other links and schemes are not payment requests",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a memo is reduced to one line of printable text",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "memo text cannot smuggle markup into the sheet",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "recipient input separates a bare address from a request",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the alien is shrunk to the mark’s own character size, not its box",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the landing never grows the alien or divides by a missing size",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the beat leaves as soon as the intro is over, and still fits the splash",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "centreOf is the middle of the measured box",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash markup carries the landing ending only next to a lock-screen target",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash waits for the landing before it fades out",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker cache moved past the landed build",
           "status": "PASS",
           "file": null
         },
@@ -1280,7 +1487,7 @@
           "file": null
         }
       ],
-      "pass": 191,
+      "pass": 230,
       "fail": 0,
       "compileErrors": []
     },
@@ -1303,7 +1510,7 @@
           "id": "UI-02",
           "title": "The CSP meta tag is served and carries the required directives",
           "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
         },
         {
           "id": "UI-03",
@@ -1315,7 +1522,7 @@
           "id": "UI-04",
           "title": "Every script is same-origin",
           "status": "PASS",
-          "detail": "http://127.0.0.1:53705/assets/index-DdVBZmK4.js"
+          "detail": "http://127.0.0.1:52253/assets/index-DbeSpiya.js"
         },
         {
           "id": "UI-05",
@@ -1339,7 +1546,7 @@
           "id": "UI-08",
           "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
           "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"9Ks9HL4G6dvqBLhV\", \"salt\": \"EbGfzbrWIbY1BaaguM604g==\"}"
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"blMg1RgEcKtvdVy5\", \"salt\": \"0kwGs73CumEtDi4EKLTMCQ==\"}"
         },
         {
           "id": "UI-09",
@@ -1381,13 +1588,13 @@
           "id": "UI-19",
           "title": "A freshly created mnemonic wallet presents exactly one account",
           "status": "PASS",
-          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\"}}"
+          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795622346858, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\"}}"
         },
         {
           "id": "UI-20",
           "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
           "status": "PASS",
-          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\", \"5ddHD8h5X5DGtZreijjrJRcgVnrmjmckePE9hNYqPEbg\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795622346858, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"5ddHD8h5X5DGtZreijjrJRcgVnrmjmckePE9hNYqPEbg\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
         },
         {
           "id": "UI-21",
@@ -1399,7 +1606,7 @@
           "id": "UI-22",
           "title": "The second account and selected main account persist through reload and unlock",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"accountIndices\": [1]}}}"
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\", \"5ddHD8h5X5DGtZreijjrJRcgVnrmjmckePE9hNYqPEbg\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795622346858, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\", \"accountIndices\": [1]}}}"
         },
         {
           "id": "UI-23",
@@ -1423,13 +1630,73 @@
           "id": "UI-26",
           "title": "The six-to-five account list, the rename and the remaining active account survive a reload",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"accountIndices\": [1, 2, 3, 4]}}"
+          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795622346858, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"Agfk9dibExvBREeXRU9amTT4dWtCa4oLQKqvdrHBpWwJ\", \"accountIndices\": [1, 2, 3, 4]}}"
         },
         {
           "id": "UI-27",
           "title": "The built app points at the background push server and offers the opt-in",
           "status": "PASS",
           "detail": "{\"state\": \"끔\", \"actionable\": true}"
+        },
+        {
+          "id": "UI-28",
+          "title": "The lock screen path lands the splash mascot on the MonoMark slot and hands the spot over",
+          "status": "PASS",
+          "detail": "{\"landing\": {\"mounted\": true, \"mode\": \"land\", \"state\": \"\", \"dx\": 0.5, \"dy\": -232.1, \"scale\": 0.307, \"targetSize\": [92, 92], \"stageSize\": [189, 272], \"markOpacity\": 0, \"landingClass\": true}, \"settled\": {\"mounted\": false, \"mode\": \"\", \"state\": \"\", \"dx\": null, \"dy\": null, \"scale\": null, \"targetSize\": [92, 92], \"stageSize\": null, \"markOpacity\": 1, \"landingClass\": false}}"
+        },
+        {
+          "id": "UI-29",
+          "title": "Reduced motion keeps a static splash and reveals the lock screen without the landing flight",
+          "status": "PASS",
+          "detail": "{\"mounted\": true, \"mode\": \"\", \"state\": \"\", \"dx\": NaN, \"dy\": NaN, \"scale\": NaN, \"targetSize\": [92, 92], \"stageSize\": [189, 272], \"markOpacity\": 1, \"landingClass\": false}"
+        },
+        {
+          "id": "UI-30",
+          "title": "Tapping the home total masks it with •••• and stores the choice on the device",
+          "status": "PASS",
+          "detail": "{\"text\": \"••••\", \"saved\": true}"
+        },
+        {
+          "id": "UI-31",
+          "title": "The masked total survives a reload, and tapping again shows the balance",
+          "status": "PASS",
+          "detail": "still_masked=1 revealed=1"
+        },
+        {
+          "id": "UI-32",
+          "title": "The address field offers QR scanning and reports a missing camera instead of hanging",
+          "status": "PASS",
+          "detail": "{\"button\": 1, \"message\": \"카메라를 여는 중…\", \"closed\": true}"
+        },
+        {
+          "id": "UI-33",
+          "title": "An own account, a saved address and a first-time address are each labelled before sending",
+          "status": "PASS",
+          "detail": "{\"own\": {\"kind\": \"own\", \"text\": \"내 계정 2\"}, \"book\": {\"kind\": \"book\", \"text\": \"<script>window.__mono_xs\"}, \"external\": {\"kind\": \"external\", \"text\": \"처음 보내는 주소\"}}"
+        },
+        {
+          "id": "UI-34",
+          "title": "Typing an amount shows the SOL left afterwards (5 − 1 − fee = 3.9999 SOL)",
+          "status": "PASS",
+          "detail": "{\"remaining\": \"3.9999 SOL\", \"mock_lamports\": 5000000000}"
+        },
+        {
+          "id": "UI-35",
+          "title": "A pasted Solana Pay URI fills the address, the amount and the memo",
+          "status": "PASS",
+          "detail": "{\"address\": \"5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1\", \"amount\": \"0.5\", \"memo\": \"메모 · order 42\", \"remaining\": \"4.4999 SOL\"}"
+        },
+        {
+          "id": "UI-36",
+          "title": "A wallet with no empty token accounts shows no cleanup row",
+          "status": "PASS",
+          "detail": "rows=0"
+        },
+        {
+          "id": "UI-37",
+          "title": "The bundled QR decoder turns a real Solana Pay code into its exact payload",
+          "status": "PASS",
+          "detail": "{\"decoded\": \"solana:5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1?amount=0.5&memo=order%2042\", \"expected\": \"solana:5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1?amount=0.5&memo=order%2042\"}"
         },
         {
           "id": "UI-14",
@@ -1441,32 +1708,32 @@
           "id": "UI-15",
           "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
           "status": "REVIEW",
-          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:53705' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:53705' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\"]"
+          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:52253' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:52253' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\"]"
         },
         {
           "id": "UI-16",
           "title": "External origins contacted by the page",
           "status": "INFO",
-          "detail": "127.0.0.1:53705, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
+          "detail": "127.0.0.1:52253, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
         }
       ],
       "counts": {
-        "PASS": 25,
+        "PASS": 35,
         "FAIL": 0,
         "REVIEW": 1,
         "INFO": 1
       },
       "requests": [
-        "127.0.0.1:53705",
+        "127.0.0.1:52253",
         "api.coingecko.com",
         "api.mainnet-beta.solana.com",
         "mono-push-server.vercel.app",
         "solana-rpc.publicnode.com",
         "solana.drpc.org"
       ],
-      "generatedAt": "2026-11-25T23:58:52+0900"
+      "generatedAt": "2026-11-26T00:59:33+0900"
     }
   },
-  "durationSeconds": 58.77,
+  "durationSeconds": 65.71,
   "blockingFailures": []
 }

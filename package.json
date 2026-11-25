@@ -21,6 +21,7 @@
     "bigint-buffer": "file:vendor/bigint-buffer",
     "bip39": "^3.1.0",
     "bs58": "^6.0.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.468.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

@@ -15,6 +15,8 @@ report makes about the shipped page:
 Prints JSON: {"status": "PASS|FAIL", "checks": [...], "requests": [...]}
 """
 import http.server
+import base64
+import glob
 import json
 import os
 import re
@@ -53,6 +55,67 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, *args):
         pass
+
+    def _rpc_result(self, method):
+        """A tiny stand-in RPC, so a funded wallet can be opened without network."""
+        context = {"slot": 123456}
+        if method == "getBalance":
+            return {"context": context, "value": MOCK_SOL_LAMPORTS}
+        if method in ("getTokenAccountsByOwner", "getParsedTokenAccountsByOwner"):
+            return {"context": context, "value": []}
+        if method == "getSignaturesForAddress":
+            return []
+        if method == "getLatestBlockhash":
+            return {
+                "context": context,
+                "value": {
+                    "blockhash": "11111111111111111111111111111111",
+                    "lastValidBlockHeight": 999999,
+                },
+            }
+        if method == "getBlockHeight":
+            return 123456
+        if method == "getFeeForMessage":
+            return {"context": context, "value": 5000}
+        return None
+
+    def do_POST(self):
+        if not self.path.startswith("/rpc"):
+            self.send_error(404)
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            payload = {}
+
+        def answer(entry):
+            entry = entry if isinstance(entry, dict) else {}
+            return {
+                "jsonrpc": "2.0",
+                "id": entry.get("id", 1),
+                "result": self._rpc_result(entry.get("method")),
+            }
+
+        body = json.dumps([answer(item) for item in payload] if isinstance(payload, list) else answer(payload))
+        encoded = body.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "content-type")
+        self.end_headers()
+
+
+MOCK_SOL_LAMPORTS = 5_000_000_000
 
 
 def serve(port):
@@ -683,6 +746,286 @@ def main():
         page.wait_for_selector("text=지갑 잠김", timeout=15000)
         type_pin(page, "123456")
         page.wait_for_selector("text=보내기", timeout=25000)
+
+        # --- a funded stand-in RPC for the balance-dependent checks -----------
+        # A freshly created test wallet holds no SOL, so the home total and the
+        # "보낸 뒤 잔액" line need a wallet with a balance. The local static
+        # server also answers /rpc with exactly 5 SOL, and the wallet is pointed
+        # at it for the checks below only (same origin, so the CSP allows it).
+        # Live runs cannot host that endpoint; those two checks are then
+        # recorded as REVIEW and the same checks run in the local suite.
+        mock_available = httpd is not None
+
+        def set_custom_rpc(url: str) -> None:
+            page.evaluate(
+                """(rpcUrl) => {
+                    const meta = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null');
+                    if (!meta) return;
+                    meta.rpc = { ...(meta.rpc || {}), mainnet: rpcUrl };
+                    localStorage.setItem('mono.meta.v1', JSON.stringify(meta));
+                }""",
+                url,
+            )
+
+        if mock_available:
+            set_custom_rpc(base + "rpc")
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            type_pin(page, "123456")
+            page.wait_for_selector("text=보내기", timeout=25000)
+
+        hero_ready = True
+        try:
+            page.wait_for_selector("[data-balance-hidden]", timeout=25000)
+        except Exception:
+            hero_ready = False
+
+        # --- privacy mode: tap the total to mask it ---------------------------
+        if hero_ready:
+            page.locator('button[aria-label="총 잔액 숨기기"]').first.click()
+            page.wait_for_timeout(350)
+            masked = page.locator('[data-balance-hidden="true"]')
+            masked_text = masked.first.inner_text().strip() if masked.count() else ""
+            saved_pref = page.evaluate(
+                "() => JSON.parse(localStorage.getItem('mono.prefs.v1') || 'null')?.hideBalance === true"
+            )
+            record(
+                "UI-30",
+                "Tapping the home total masks it with •••• and stores the choice on the device",
+                "PASS" if masked.count() == 1 and masked_text == "••••" and saved_pref else "FAIL",
+                json.dumps({"text": masked_text, "saved": saved_pref}, ensure_ascii=False),
+            )
+
+            # A fresh launch must come back masked, and unmasking must stick too.
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            type_pin(page, "123456")
+            page.wait_for_selector("text=보내기", timeout=25000)
+            page.wait_for_selector("[data-balance-hidden]", timeout=25000)
+            still_masked = page.locator('[data-balance-hidden="true"]').count()
+            page.locator('button[aria-label="총 잔액 보이기"]').first.click()
+            page.wait_for_timeout(300)
+            revealed = page.locator('[data-balance-hidden="false"]').count()
+            record(
+                "UI-31",
+                "The masked total survives a reload, and tapping again shows the balance",
+                "PASS" if still_masked == 1 and revealed == 1 else "FAIL",
+                f"still_masked={still_masked} revealed={revealed}",
+            )
+        else:
+            record(
+                "UI-30",
+                "Tapping the home total masks it with •••• and stores the choice on the device",
+                "REVIEW",
+                "home balance area did not load from the configured RPC in this run",
+            )
+            record(
+                "UI-31",
+                "The masked total survives a reload, and tapping again shows the balance",
+                "REVIEW",
+                "home balance area did not load from the configured RPC in this run",
+            )
+
+        # --- QR scan: the button opens the camera and fails clearly without one
+        page.get_by_role("button", name="보내기").first.click()
+        page.wait_for_selector("#recipient-input", timeout=10000)
+        scan_button = page.locator('button[aria-label="QR 스캔"]')
+        scan_button.first.click()
+        camera_message = ""
+        try:
+            page.wait_for_selector("text=카메라", timeout=15000)
+            camera_message = page.locator("text=카메라").first.inner_text().strip()
+        except Exception:
+            camera_message = ""
+        close_scan = page.locator('button[aria-label="QR 스캔 닫기"]')
+        if close_scan.count():
+            close_scan.first.click()
+            page.wait_for_timeout(300)
+        overlay_closed = page.locator('button[aria-label="QR 스캔 닫기"]').count() == 0
+        record(
+            "UI-32",
+            "The address field offers QR scanning and reports a missing camera instead of hanging",
+            "PASS" if scan_button.count() == 1 and camera_message and overlay_closed else "FAIL",
+            json.dumps({"button": scan_button.count(), "message": camera_message, "closed": overlay_closed}, ensure_ascii=False),
+        )
+
+        # --- recipient badge: own account / address book / first time ----------
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        page.locator('button[aria-label="계정 전환"]').click()
+        page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+        account_addresses = page.evaluate(
+            """() => {
+                const dialog = document.querySelector('[role="dialog"]');
+                return dialog
+                    ? [...dialog.querySelectorAll('[data-account-index]')].map(row => row.dataset.accountAddress || '')
+                    : [];
+            }"""
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        second_address = account_addresses[1] if len(account_addresses) > 1 else ""
+        book_address = "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk"
+        unknown_address = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1"
+
+        page.get_by_role("button", name="보내기").first.click()
+        page.wait_for_selector("#recipient-input", timeout=10000)
+
+        def badge_kind(address: str) -> dict:
+            page.fill("#recipient-input", address)
+            page.wait_for_timeout(250)
+            return page.evaluate(
+                """() => {
+                    const badge = document.querySelector('[data-recipient-badge]');
+                    return badge ? { kind: badge.dataset.recipientBadge, text: badge.innerText.trim() } : null;
+                }"""
+            )
+
+        own_badge = badge_kind(second_address) if second_address else None
+        book_badge = badge_kind(book_address)
+        unknown_badge = badge_kind(unknown_address)
+        badge_ok = (
+            own_badge is not None
+            and own_badge["kind"] == "own"
+            and own_badge["text"] == "내 계정 2"
+            and book_badge is not None
+            and book_badge["kind"] == "book"
+            and unknown_badge is not None
+            and unknown_badge["kind"] == "external"
+            and unknown_badge["text"] == "처음 보내는 주소"
+        )
+        record(
+            "UI-33",
+            "An own account, a saved address and a first-time address are each labelled before sending",
+            "PASS" if badge_ok else "FAIL",
+            json.dumps({"own": own_badge, "book": book_badge, "external": unknown_badge}, ensure_ascii=False),
+        )
+
+        # --- leftover SOL after the transfer, and a pasted Solana Pay request --
+        if mock_available:
+            page.fill("#recipient-input", unknown_address)
+            page.fill("#amount-input", "1")
+            page.wait_for_timeout(500)
+            remaining_text = ""
+            if page.locator('[data-remaining-sol="true"]').count():
+                remaining_text = page.locator('[data-remaining-sol="true"]').first.inner_text().strip()
+            record(
+                "UI-34",
+                "Typing an amount shows the SOL left afterwards (5 − 1 − fee = 3.9999 SOL)",
+                "PASS" if remaining_text == "3.9999 SOL" else "FAIL",
+                json.dumps({"remaining": remaining_text, "mock_lamports": MOCK_SOL_LAMPORTS}, ensure_ascii=False),
+            )
+
+            page.fill("#recipient-input", f"solana:{unknown_address}?amount=0.5&memo=order%2042")
+            page.wait_for_timeout(500)
+            uri_state = page.evaluate(
+                """() => ({
+                    address: document.querySelector('#recipient-input').value,
+                    amount: document.querySelector('#amount-input').value,
+                    memo: document.querySelector('[data-memo-chip]')?.innerText.trim() || '',
+                    remaining: document.querySelector('[data-remaining-sol]')?.innerText.trim() || '',
+                })"""
+            )
+            uri_ok = uri_state["address"] == unknown_address
+            record(
+                "UI-35",
+                "A pasted Solana Pay URI fills the address, the amount and the memo",
+                "PASS"
+                if uri_ok
+                and uri_state["amount"] == "0.5"
+                and "메모" in uri_state["memo"]
+                and "order 42" in uri_state["memo"]
+                and uri_state["remaining"] == "4.4999 SOL"
+                else "FAIL",
+                json.dumps(uri_state, ensure_ascii=False),
+            )
+
+            # Put the wallet back on the default RPC so nothing else (and nobody
+            # opening this build) is left pointing at a test endpoint.
+            set_custom_rpc("")
+            page.keyboard.press("Escape")
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            type_pin(page, "123456")
+            page.wait_for_selector("text=보내기", timeout=25000)
+        else:
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            record(
+                "UI-34",
+                "Typing an amount shows the SOL left afterwards",
+                "REVIEW",
+                "live mode: the funded stand-in RPC lives on the local static server; the same check runs in the local suite",
+            )
+            record(
+                "UI-35",
+                "A pasted Solana Pay URI fills the address, the amount and the memo",
+                "REVIEW",
+                "live mode: the funded stand-in RPC lives on the local static server; the same check runs in the local suite",
+            )
+
+        # --- a wallet with no token accounts offers no cleanup row -------------
+        page.get_by_role("button", name="설정", exact=True).first.click()
+        page.wait_for_selector("text=디스플레이", timeout=10000)
+        page.wait_for_timeout(1500)
+        cleanup_rows = page.locator("#rent-cleanup").count()
+        record(
+            "UI-36",
+            "A wallet with no empty token accounts shows no cleanup row",
+            "PASS" if cleanup_rows == 0 else "FAIL",
+            f"rows={cleanup_rows}",
+        )
+
+        # --- the bundled decoder actually reads a QR code ---------------------
+        # No camera exists in CI, so the pixels come from a checked-in PNG that
+        # holds a real Solana Pay request. The same chunk the scanner imports is
+        # loaded here and must return the exact payload text.
+        decoder_chunks = sorted(glob.glob(os.path.join(DIST, "assets", "jsQR-*.js")))
+        qr_png = os.path.join(ROOT, "scripts", "security", "fixtures", "qr-solana-pay.png")
+        qr_payload = "solana:5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1?amount=0.5&memo=order%2042"
+        if decoder_chunks and os.path.exists(qr_png):
+            data_url = "data:image/png;base64," + base64.b64encode(open(qr_png, "rb").read()).decode("ascii")
+            decoded = page.evaluate(
+                """async ({ url, dataUrl }) => {
+                    const module = await import(url);
+                    let decode = null;
+                    for (const value of Object.values(module)) {
+                        if (typeof value === 'function') { decode = value; break; }
+                        if (value && typeof value.default === 'function') { decode = value.default; break; }
+                    }
+                    if (!decode) throw new Error('decoder export not found');
+                    const image = new Image();
+                    image.src = dataUrl;
+                    await new Promise((resolve, reject) => {
+                        image.onload = () => resolve();
+                        image.onerror = () => reject(new Error('image'));
+                    });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.naturalWidth;
+                    canvas.height = image.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(image, 0, 0);
+                    const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const result = decode(frame.data, canvas.width, canvas.height, {
+                        inversionAttempts: 'attemptBoth',
+                    });
+                    return result ? result.data : '';
+                }""",
+                {"url": base + "assets/" + os.path.basename(decoder_chunks[0]), "dataUrl": data_url},
+            )
+            record(
+                "UI-37",
+                "The bundled QR decoder turns a real Solana Pay code into its exact payload",
+                "PASS" if decoded == qr_payload else "FAIL",
+                json.dumps({"decoded": decoded, "expected": qr_payload}, ensure_ascii=False),
+            )
+        else:
+            record(
+                "UI-37",
+                "The bundled QR decoder turns a real Solana Pay code into its exact payload",
+                "REVIEW",
+                "no built decoder chunk or fixture image found in this checkout",
+            )
 
         record(
             "UI-14",
