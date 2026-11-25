@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T12:06:01.285Z",
+  "startedAt": "2026-11-25T12:14:53.011Z",
   "node": "v22.11.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T12:06:02.029Z",
+      "generatedAt": "2026-11-25T12:14:53.823Z",
       "checks": [
         {
           "id": "SS-01",
@@ -45,7 +45,7 @@
           "id": "SS-07",
           "title": "CSP connect-src scope",
           "status": "REVIEW",
-          "detail": "connect-src allows any https origin because the user may point the wallet at their own RPC; script execution stays self-only, so this cannot load code."
+          "detail": "connect-src allows any https/wss origin because the user may point the wallet at their own RPC (HTTP + its WebSocket); script execution stays self-only, so this cannot load code."
         },
         {
           "id": "SS-08",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T12:06:07.111Z",
+      "generatedAt": "2026-11-25T12:14:59.940Z",
       "scanned": {
         "trackedFiles": 142,
-        "commits": 33
+        "commits": 35
       },
       "workingTree": {
         "findings": [],
@@ -1185,6 +1185,6 @@
       "compileErrors": []
     }
   },
-  "durationSeconds": 22.33,
+  "durationSeconds": 26.2,
   "blockingFailures": []
 }

@@ -116,7 +116,7 @@ if (!cspMatch) {
 const connectAnyHttps = /connect-src[^;]*https:/.test(csp)
 record('SS-07', 'CSP connect-src scope', connectAnyHttps ? 'REVIEW' : 'PASS',
   connectAnyHttps
-    ? "connect-src allows any https origin because the user may point the wallet at their own RPC; script execution stays self-only, so this cannot load code."
+    ? "connect-src allows any https/wss origin because the user may point the wallet at their own RPC (HTTP + its WebSocket); script execution stays self-only, so this cannot load code."
     : csp)
 
 const imgAnyHttps = /img-src[^;]*https:/.test(csp)
