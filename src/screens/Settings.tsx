@@ -34,7 +34,7 @@ import { useTheme, type ThemePref } from '../lib/theme'
 import { useAddressBook } from '../lib/addressBook'
 import { findEmptyTokenAccounts, sumLamports, type EmptyTokenAccount } from '../lib/rent'
 import { RentSheet } from '../sheets/RentSheet'
-import { cx, formatTxAmount, shortAddress } from '../lib/format'
+import { cx, formatAmount, shortAddress } from '../lib/format'
 import type { PushUiState } from '../lib/pushSubscriptions'
 import {
   needsHomeScreenInstall,
@@ -389,7 +389,7 @@ export function Settings({
               <Coins size={16} strokeWidth={1.9} /> 빈 토큰 계정 {emptyTokenAccounts.length}개 정리
             </span>
             <span className="flex items-center gap-1 text-[12.5px] font-medium text-mint">
-              약 +{formatTxAmount(sumLamports(emptyTokenAccounts), 9)} SOL
+              약 +{formatAmount(sumLamports(emptyTokenAccounts), 9, 4)} SOL
               <ChevronRight size={16} className="text-faint2" />
             </span>
           </button>

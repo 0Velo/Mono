@@ -5,7 +5,7 @@ import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Spinner } from '../components/Spinner'
 import { showToast } from '../components/Toast'
-import { cx, formatTxAmount, shortAddress } from '../lib/format'
+import { cx, formatAmount, formatTxAmount, shortAddress } from '../lib/format'
 import { BASE_FEE_LAMPORTS } from '../lib/tx'
 import {
   closeEmptyTokenAccounts,
@@ -102,7 +102,7 @@ export function RentSheet({
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-semibold tracking-[-0.02em] text-ink">
-                약 +{formatTxAmount(expected, 9)} SOL 회수
+                약 +{formatAmount(expected, 9, 4)} SOL 회수
               </div>
               <div className="mt-0.5 text-[11.5px] text-muted">
                 잔액 0 · 동결되지 않은 계정 {accounts.length}개
