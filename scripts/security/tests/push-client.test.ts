@@ -224,8 +224,8 @@ test('stale wallet/network sync stops after signing and never posts', async () =
   assert.equal(saveCount, 0)
 })
 
-test('deposit monitor and token detail hold data to their current scopes and show unknown while loading', () => {
-  const monitor = readRepoFile('src/components/DepositMonitor.tsx')
+test('activity monitor and token detail hold data to their current scopes and show unknown while loading', () => {
+  const monitor = readRepoFile('src/components/ActivityMonitor.tsx')
   assert.match(monitor, /accountsSnapshot\.network === network/)
   assert.match(monitor, /accountsSnapshot\.rpc === rpc/)
   assert.match(monitor, /if \(!cancelled\) setAccountsSnapshot/)

@@ -31,6 +31,10 @@ import { useTheme, type ThemePref } from '../lib/theme'
 import { useAddressBook } from '../lib/addressBook'
 import { cx, shortAddress } from '../lib/format'
 import type { PushUiState } from '../lib/pushSubscriptions'
+import {
+  needsHomeScreenInstall,
+  type NotificationPermissionState,
+} from '../lib/activityNotifications'
 
 interface SettingsProps {
   meta: WalletMeta
@@ -42,8 +46,9 @@ interface SettingsProps {
   onLock: () => void
   onAddressBook: () => void
   onAccounts: () => void
-  depositNotificationsEnabled: boolean
-  onToggleDepositNotifications: () => void | Promise<void>
+  activityNotificationsEnabled: boolean
+  notificationPermission: NotificationPermissionState
+  onToggleActivityNotifications: () => void | Promise<void>
   pushUiState: PushUiState
   onToggleRemotePush: () => void | Promise<void>
 }
@@ -80,8 +85,9 @@ export function Settings({
   onLock,
   onAddressBook,
   onAccounts,
-  depositNotificationsEnabled,
-  onToggleDepositNotifications,
+  activityNotificationsEnabled,
+  notificationPermission,
+  onToggleActivityNotifications,
   pushUiState,
   onToggleRemotePush,
 }: SettingsProps) {
@@ -103,6 +109,43 @@ export function Settings({
 
   const dirty = (meta.rpc[meta.network] ?? '') !== rpcInput
   const valid = !rpcInput.trim() || looksLikeRpc(rpcInput)
+
+  // iOS는 홈 화면 앱에서만 알림 권한을 준다. 그 경우를 "끔"과 구분해 보여 준다.
+  const iosNeedsInstall = needsHomeScreenInstall()
+  const notificationStatus: 'unsupported' | 'install' | 'denied' | 'on' | 'off' =
+    notificationPermission === 'unsupported'
+      ? 'unsupported'
+      : activityNotificationsEnabled
+        ? 'on'
+        : iosNeedsInstall
+          ? 'install'
+          : notificationPermission === 'denied'
+            ? 'denied'
+            : 'off'
+  const notificationStatusLabel =
+    notificationStatus === 'unsupported'
+      ? '미지원'
+      : notificationStatus === 'install'
+        ? '홈 화면 설치 필요'
+        : notificationStatus === 'denied'
+          ? '차단됨'
+          : notificationStatus === 'on'
+            ? '켜짐'
+            : '끔'
+  const notificationNote =
+    notificationStatus === 'unsupported'
+      ? '이 브라우저는 웹 알림을 지원하지 않습니다. 앱을 열어 둔 동안 화면 안 토스트로만 알립니다.'
+      : notificationStatus === 'install'
+        ? 'iPhone은 홈 화면에 추가한 앱에서만 웹 알림을 켤 수 있습니다. 추가하기 전에는 앱 안 토스트로 알립니다.'
+        : notificationStatus === 'denied'
+          ? '브라우저 설정에서 이 사이트의 알림을 허용하면 켤 수 있습니다.'
+          : activityNotificationsEnabled
+            ? '앱이 열려 있을 때 20초마다 이 기기에서 직접 확인해 입금·출금·스왑을 알립니다. 앱을 닫으면 오지 않습니다.'
+            : '켜면 입금·출금·스왑을 알립니다. 서버 없이 기기에서 직접 확인하므로 앱이 열려 있을 때만 동작합니다.'
+  const notificationHint =
+    notificationStatus === 'install'
+      ? null
+      : 'iPhone에서는 홈 화면에 추가한 앱으로 열어야 웹 알림이 켜집니다.'
 
   const copy = async () => {
     try {
@@ -217,22 +260,29 @@ export function Settings({
 
       <Group title="알림">
         <button
-          onClick={() => void onToggleDepositNotifications()}
-          aria-pressed={depositNotificationsEnabled}
+          onClick={() => void onToggleActivityNotifications()}
+          aria-pressed={activityNotificationsEnabled}
           className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-press"
         >
           <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
-            <Bell size={16} strokeWidth={1.9} /> 앱 실행 중 입금 알림
+            <Bell size={16} strokeWidth={1.9} /> 입출금 알림
           </span>
           <span className={cx(
             'rounded-full px-2.5 py-1 text-[11px] font-semibold',
-            depositNotificationsEnabled ? 'bg-mintSoft text-mint' : 'bg-card text-muted',
+            activityNotificationsEnabled
+              ? 'bg-mintSoft text-mint'
+              : notificationStatus === 'denied'
+                ? 'bg-warn/10 text-warn'
+                : 'bg-card text-muted',
           )}>
-            {depositNotificationsEnabled ? '켜짐' : '끔'}
+            {notificationStatusLabel}
           </span>
         </button>
         <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
-          이 알림은 웹앱이 실행 중일 때 이 기기의 RPC 조회로 감지합니다. 아래 백그라운드 푸시와는 별도 설정입니다.
+          {notificationNote}
+          {notificationHint && (
+            <span className="mt-1 block text-faint2">{notificationHint}</span>
+          )}
         </p>
         <button
           onClick={() => void onToggleRemotePush()}

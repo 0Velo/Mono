@@ -1,14 +1,14 @@
 /* Minimal app-shell service worker: enables install + offline shell.
  * Scope-aware, so it also works when the app is served from a sub path
- * (GitHub Pages: https://cbalhub.github.io/mono/).
+ * (GitHub Pages: https://0velo.github.io/Mono/).
  *
- * v12 (Mono): Web Push display/click support. Same caching rules as v10;
+ * v13 (Mono): 입출금 알림 UI와 스플래시 화면. Same caching rules as v12;
  * hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v12`
+const CACHE = `${CACHE_PREFIX}v13`
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -110,13 +110,13 @@ self.addEventListener('push', (event) => {
     }
     const title = typeof payload.title === 'string' && payload.title.trim()
       ? payload.title.trim().slice(0, 80)
-      : '입금 확인'
-    const body = typeof payload.body === 'string' ? payload.body.slice(0, 240) : '새 입금이 확인됐습니다.'
+      : 'Mono 알림'
+    const body = typeof payload.body === 'string' ? payload.body.slice(0, 240) : '새 거래가 확인됐습니다.'
     const icon = safeNotificationIcon(payload.icon)
     await self.registration.showNotification(title, {
       body,
       icon,
-      tag: typeof payload.tag === 'string' ? payload.tag.slice(0, 120) : 'deposit',
+      tag: typeof payload.tag === 'string' ? payload.tag.slice(0, 120) : 'activity',
       data: { url: safeNotificationUrl(payload.url) },
     })
   })())

@@ -1,0 +1,91 @@
+/**
+ * 첫 로딩 화면(스플래시) — 정적 셸과 핸드오프.
+ *
+ * 스플래시는 스크립트 없이 그려져야 첫 페인트가 비지 않고, 앱이 준비되면
+ * 한 번만 사라져야 한다. 여기서는 그 두 가지를 소스와 DOM 없이 확인한다.
+ */
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import { REPO_ROOT, readRepoFile } from './helpers'
+import { hideAppSplash, splashRemainingDelay } from '../../../src/lib/splash'
+
+const SPLASH_ASSET = 'public/assets/splash/mono-alien.webp'
+
+test('index.html paints the mascot splash before any script runs', () => {
+  const html = readRepoFile('index.html')
+  assert.match(html, /<div id="app-splash"/)
+  assert.match(html, /assets\/splash\/mono-alien\.webp/)
+  assert.ok(
+    html.indexOf('id="app-splash"') < html.indexOf('<script type="module"'),
+    'the splash must be in the markup before the module script',
+  )
+  // A splash that needs JS cannot cover the blank first frame.
+  assert.ok(!/getElementById\('app-splash'\)\s*\)?\.innerHTML/.test(html))
+})
+
+test('the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot', () => {
+  const html = readRepoFile('index.html')
+  assert.match(html, /@media \(prefers-color-scheme: dark\)/)
+  assert.match(html, /html\[data-theme='dark'\] #app-splash/)
+  assert.match(html, /html\[data-theme='light'\] #app-splash/)
+  assert.match(html, /drop-shadow/)
+  assert.match(html, /prefers-reduced-motion: reduce/)
+})
+
+test('the mascot asset is a small transparent WebP, not a megabyte PNG', () => {
+  const absolute = path.join(REPO_ROOT, SPLASH_ASSET)
+  assert.ok(fs.existsSync(absolute), `${SPLASH_ASSET} must exist`)
+  const bytes = fs.readFileSync(absolute)
+  assert.equal(bytes.subarray(0, 4).toString('ascii'), 'RIFF')
+  assert.equal(bytes.subarray(8, 12).toString('ascii'), 'WEBP')
+  assert.ok(bytes.length < 60 * 1024, `splash art is ${bytes.length} bytes; keep the first paint light`)
+})
+
+test('the splash is held long enough to be seen, then never replayed', () => {
+  assert.equal(splashRemainingDelay(0), 420)
+  assert.equal(splashRemainingDelay(200), 220)
+  assert.equal(splashRemainingDelay(420), 0)
+  assert.equal(splashRemainingDelay(5000), 0)
+  assert.equal(splashRemainingDelay(Number.NaN), 420)
+
+  const g = globalThis as unknown as {
+    window?: unknown
+    document?: unknown
+  }
+  const timers: Array<{ fn: () => void; ms: number }> = []
+  const removed: string[] = []
+  const splash = {
+    dataset: {} as Record<string, string>,
+    remove: () => removed.push('removed'),
+  }
+  g.window = {
+    setTimeout: (fn: () => void, ms: number) => {
+      timers.push({ fn, ms })
+      return timers.length
+    },
+  }
+  g.document = { getElementById: (id: string) => (id === 'app-splash' ? splash : null) }
+
+  hideAppSplash()
+  assert.equal(timers.length, 1, 'one delay before the fade starts')
+  timers[0].fn()
+  assert.equal(splash.dataset.state, 'leaving')
+  assert.equal(timers.length, 2, 'a timer removes the node even if transitionend never fires')
+  timers[1].fn()
+  assert.deepEqual(removed, ['removed'])
+
+  // A second call (App ready, then the safety timeout) must not schedule again.
+  hideAppSplash()
+  assert.equal(timers.length, 2)
+
+  delete g.window
+  delete g.document
+})
+
+test('the service worker cache moved past the previous build', () => {
+  const sw = readRepoFile('public/sw.js')
+  const version = Number(sw.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1])
+  assert.ok(Number.isFinite(version) && version >= 13, `service worker cache version is ${version}`)
+})

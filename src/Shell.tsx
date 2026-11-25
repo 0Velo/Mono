@@ -18,10 +18,14 @@ import { buildAssets } from './lib/assets'
 import type { NetworkId } from './lib/rpc'
 import { cx } from './lib/format'
 import {
-  disableDepositNotifications,
-  enableDepositNotifications,
-  isDepositNotificationsEnabled,
-} from './lib/depositNotifications'
+  ACTIVITY_NOTIFICATION_SETTING_EVENT,
+  disableActivityNotifications,
+  enableActivityNotifications,
+  isActivityNotificationsEnabled,
+  needsHomeScreenInstall,
+  notificationPermission,
+  type NotificationPermissionState,
+} from './lib/activityNotifications'
 import {
   disableRemotePush,
   enableRemotePush,
@@ -66,11 +70,24 @@ function TabFallback() {
   )
 }
 
+interface ActivityAlertState {
+  enabled: boolean
+  permission: NotificationPermissionState
+}
+
+/** 토글의 실제 상태는 저장된 선호 + 브라우저 권한 둘 다에서 나온다. */
+function readActivityAlerts(): ActivityAlertState {
+  return {
+    enabled: isActivityNotificationsEnabled(),
+    permission: notificationPermission(),
+  }
+}
+
 export default function Shell() {
   const { meta, keypair, activeAccount, lock, updateMeta, resetWallet } = useWallet()
   const [tab, setTab] = useState<Tab>('wallet')
   const [sheet, setSheet] = useState<SheetState>(null)
-  const [depositNotificationsEnabled, setDepositNotificationsEnabled] = useState(isDepositNotificationsEnabled)
+  const [activityAlerts, setActivityAlerts] = useState(() => readActivityAlerts())
   const [pushUiState, setPushUiState] = useState<PushUiState>(getPushUiState)
   const [pushIdentityRef] = useState(() => ({ address: '', network: 'mainnet' as NetworkId, generation: 0 }))
   // Which token the swap screen should start from when opened from detail.
@@ -91,6 +108,18 @@ export default function Shell() {
 
   pushIdentityRef.address = meta?.address ?? ''
   pushIdentityRef.network = network
+
+  useEffect(() => {
+    const sync = () => setActivityAlerts(readActivityAlerts())
+    window.addEventListener(ACTIVITY_NOTIFICATION_SETTING_EVENT, sync)
+    window.addEventListener('focus', sync)
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      window.removeEventListener(ACTIVITY_NOTIFICATION_SETTING_EVENT, sync)
+      window.removeEventListener('focus', sync)
+      document.removeEventListener('visibilitychange', sync)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -147,17 +176,21 @@ export default function Shell() {
     setTab('swap')
   }
 
-  const toggleDepositNotifications = async () => {
-    if (depositNotificationsEnabled) {
-      disableDepositNotifications()
-      setDepositNotificationsEnabled(false)
-      showToast('입금 알림을 껐습니다')
+  const toggleActivityAlerts = async () => {
+    if (activityAlerts.enabled) {
+      disableActivityNotifications()
+      setActivityAlerts(readActivityAlerts())
+      showToast('입출금 알림을 껐습니다')
       return
     }
-    const enabled = await enableDepositNotifications()
-    setDepositNotificationsEnabled(enabled)
-    if (enabled) showToast('입금 알림을 켰습니다')
-    else if (!('Notification' in window)) showToast('이 브라우저는 웹 알림을 지원하지 않습니다')
+    if (needsHomeScreenInstall()) {
+      showToast('홈 화면에 추가한 앱에서 알림을 켤 수 있습니다')
+      return
+    }
+    const result = await enableActivityNotifications()
+    setActivityAlerts(readActivityAlerts())
+    if (result === 'enabled') showToast('입출금 알림을 켰습니다')
+    else if (result === 'unsupported') showToast('이 브라우저는 웹 알림을 지원하지 않습니다')
     else showToast('브라우저 알림 권한을 허용해 주세요')
   }
 
@@ -273,8 +306,9 @@ export default function Shell() {
               onLock={lock}
               onAddressBook={() => setSheet({ type: 'addressBook' })}
               onAccounts={() => setSheet({ type: 'accounts' })}
-              depositNotificationsEnabled={depositNotificationsEnabled}
-              onToggleDepositNotifications={toggleDepositNotifications}
+              activityNotificationsEnabled={activityAlerts.enabled}
+              notificationPermission={activityAlerts.permission}
+              onToggleActivityNotifications={toggleActivityAlerts}
               pushUiState={pushUiState}
               onToggleRemotePush={toggleRemotePush}
             />

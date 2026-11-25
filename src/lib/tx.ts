@@ -588,6 +588,8 @@ export interface HistoryItem {
   detailed: boolean
   solDelta: number
   tokenDeltas: TokenDelta[]
+  /** Network fee in lamports, so an outgoing SOL amount can exclude it. */
+  feeLamports?: number
   memo?: string
 }
 
@@ -677,6 +679,7 @@ function applyTransaction(item: HistoryItem, tx: any, ownerAddress: string): voi
     const pre = tx.meta.preBalances?.[ownerIndex] ?? 0
     const post = tx.meta.postBalances?.[ownerIndex] ?? 0
     item.solDelta = post - pre
+    if (Number.isSafeInteger(tx.meta.fee) && tx.meta.fee >= 0) item.feeLamports = tx.meta.fee
   }
 
   const preBalances = new Map<string, bigint>()
