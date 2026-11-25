@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/v1/config", "destination": "/api/v1/config" },
+    { "source": "/v1/subscriptions", "destination": "/api/v1/subscriptions" },
+    { "source": "/v1/subscriptions/([a-f0-9]{64})", "destination": "/api/v1/subscriptions/$1" }
+  ],
+  "crons": [
+    { "path": "/api/cron/scan", "schedule": "0 1 * * *" }
+  ]
+}
