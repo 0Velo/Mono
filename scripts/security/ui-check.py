@@ -597,6 +597,93 @@ def main():
         page.get_by_role("button", name="지갑", exact=True).first.click()
         page.wait_for_timeout(400)
 
+        # --- the splash lands on the lock screen's own mark --------------------
+        # A wallet exists now, so opening the app must not end the splash with
+        # the saucer flying off: it carries the alien up to the MonoMark slot
+        # above the keypad, sets it down at that mark's size and leaves, and the
+        # real mark takes the spot. Measured on a fresh load of the built app.
+        def landing_snapshot() -> dict:
+            return page.evaluate(
+                """() => {
+                    const splash = document.getElementById('app-splash');
+                    const stage = splash && splash.querySelector('.splash-stage');
+                    const target = document.querySelector('[data-mono-landing-target]');
+                    const mark = document.querySelector('.mono-land-mark');
+                    const rect = (el) => (el ? el.getBoundingClientRect() : null);
+                    const size = (el) => (el ? [Math.round(rect(el).width), Math.round(rect(el).height)] : null);
+                    return {
+                        mounted: Boolean(splash),
+                        mode: splash ? splash.dataset.mode || '' : '',
+                        state: splash ? splash.dataset.state || '' : '',
+                        dx: splash ? parseFloat(splash.style.getPropertyValue('--land-dx')) : null,
+                        dy: splash ? parseFloat(splash.style.getPropertyValue('--land-dy')) : null,
+                        scale: splash ? parseFloat(splash.style.getPropertyValue('--land-s')) : null,
+                        targetSize: size(target),
+                        stageSize: size(stage),
+                        markOpacity: mark ? Number(getComputedStyle(mark).opacity) : null,
+                        landingClass: document.documentElement.classList.contains('mono-landing'),
+                    };
+                }"""
+            )
+
+        page.goto(base, wait_until="commit")
+        try:
+            page.wait_for_function(
+                "() => { const s = document.getElementById('app-splash');"
+                " return Boolean(s && s.dataset.mode === 'land'); }",
+                timeout=8000,
+            )
+            landing_started = True
+        except Exception:
+            landing_started = False
+        landing = landing_snapshot()
+        page.wait_for_timeout(3400)
+        settled = landing_snapshot()
+        landing_ok = (
+            landing_started
+            and landing["mode"] == "land"
+            and landing["landingClass"]
+            and landing["targetSize"] == [92, 92]
+            and landing["dy"] is not None
+            and landing["dy"] < -60
+            and abs(landing["dx"] or 0) < 40
+            and 0.15 < (landing["scale"] or 0) < 0.6
+            and not settled["mounted"]
+            and settled["markOpacity"] == 1
+            and not settled["landingClass"]
+        )
+        record(
+            "UI-28",
+            "The lock screen path lands the splash mascot on the MonoMark slot and hands the spot over",
+            "PASS" if landing_ok else "FAIL",
+            json.dumps({"landing": landing, "settled": settled}, ensure_ascii=False),
+        )
+
+        # Motion sickness settings skip the flight entirely: the splash stays a
+        # static picture and the lock screen is simply there behind it.
+        page.emulate_media(reduced_motion="reduce")
+        page.goto(base, wait_until="commit")
+        page.wait_for_timeout(1200)
+        reduced = landing_snapshot()
+        page.emulate_media(reduced_motion="no-preference")
+        reduced_ok = (
+            reduced["mounted"]
+            and reduced["mode"] == ""
+            and not reduced["landingClass"]
+            and reduced["markOpacity"] == 1
+            and reduced["stageSize"] is not None
+        )
+        record(
+            "UI-29",
+            "Reduced motion keeps a static splash and reveals the lock screen without the landing flight",
+            "PASS" if reduced_ok else "FAIL",
+            json.dumps(reduced, ensure_ascii=False),
+        )
+        page.goto(base, wait_until="domcontentloaded")
+        page.wait_for_selector("text=지갑 잠김", timeout=15000)
+        type_pin(page, "123456")
+        page.wait_for_selector("text=보내기", timeout=25000)
+
         record(
             "UI-14",
             "No uncaught page errors while driving the app",

@@ -146,7 +146,8 @@ src/
 │  ├─ prefs.ts        hidden tokens, watchlist
 │  ├─ addressBook.ts  saved recipients
 │  ├─ theme.ts        light/dark/system, CSS-variable switching
-│  ├─ splash.ts       static splash hand-off (minimum on-screen time, one-shot fade)
+│  ├─ splash.ts       static splash hand-off (minimum on-screen time, one-shot fade, lock-screen landing)
+│  ├─ splashLanding.ts  where the saucer sets the alien down: mark coordinates, shrink ratio, beat timings
 │  ├─ activityNotifications.ts  transaction → 입금/출금/스왑 classification, seen-signature baseline, permission + delivery
 │  ├─ tokens.ts       balances, SPL accounts, on-chain metadata
 │  └─ prices.ts       keyless price sources

@@ -4,7 +4,7 @@ import { Onboarding } from './screens/Onboarding'
 import { LockScreen } from './screens/LockScreen'
 import { ShellSkeleton } from './screens/ShellSkeleton'
 import { prefetchKeys } from './lib/keys'
-import { hideAppSplash } from './lib/splash'
+import { beginSplashLanding, hideAppSplash } from './lib/splash'
 import { fetchDeployedBuild, isNewerBuild } from './lib/update'
 import {
   ACTIVITY_NOTIFICATION_SETTING_EVENT,
@@ -81,7 +81,13 @@ export default function App() {
   // runs. It only leaves once the vault is read, so the app is never revealed
   // half-built.
   useEffect(() => {
-    if (ready) hideAppSplash()
+    if (!ready) return
+    // 지갑이 있어 잠금 화면으로 들어가면, 스플래시는 그냥 사라지지 않는다:
+    // 우주선이 외계인을 키패드 위 마스코트 자리로 내려놓고 떠나고, 잠금
+    // 화면의 진짜 `MonoMark`가 그 자리를 이어받는다. 온보딩 첫 방문(지갑 없음)
+    // 이거나 모션을 줄여 달라고 한 경우에는 기존 마무리(발진 + 워드마크) 그대로.
+    if (vaultExists && !unlocked) beginSplashLanding()
+    hideAppSplash()
   }, [ready])
 
   // Warm the heavy chunks while the person is still on the lock screen or
