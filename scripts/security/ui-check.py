@@ -72,14 +72,14 @@ def account_snapshot(page):
     return page.evaluate(
         """() => {
             const dialog = document.querySelector('[role="dialog"]');
-            const labels = dialog
-                ? [...dialog.querySelectorAll('button')]
-                    .map(button => button.innerText.trim().split('\\n')[0].trim())
-                    .filter(label => label === '메인' || /^계정 \\d+$/.test(label))
-                : [];
+            const rows = dialog ? [...dialog.querySelectorAll('[data-account-index]')] : [];
+            const labels = rows
+                .map(row => row.innerText.split(String.fromCharCode(10))[0].trim())
+                .filter(Boolean);
+            const addresses = rows.map(row => row.dataset.accountAddress || '');
             let meta = null;
             try { meta = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null'); } catch {}
-            return { labels, meta };
+            return { labels, addresses, meta };
         }"""
     )
 
@@ -402,7 +402,7 @@ def main():
             add_switched = True
         except Exception:
             add_switched = False
-        page.locator('button[aria-label="계정 전환"]').click()
+        # The sheet stays open after adding, so the new row is visible at once.
         page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
         added_accounts = account_snapshot(page)
         second_meta = added_accounts.get("meta") or {}
@@ -484,6 +484,102 @@ def main():
             "PASS" if persisted_ok else "FAIL",
             json.dumps({"locked": second_reload_locked, "unlocked": second_reload_unlocked, "accounts": persisted_accounts}, ensure_ascii=False),
         )
+
+
+        # --- more than three accounts (report: "계정이 계속 3 개로 고정이야") -----
+        if page.get_by_role("dialog").count() == 0:
+            page.locator('button[aria-label="계정 전환"]').click()
+            page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+        grew = True
+        add_error = ""
+        for expected_total in range(3, 7):
+            page.get_by_role("button", name="계정 추가").click()
+            try:
+                page.wait_for_function(
+                    "count => { const m = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null');"
+                    " return Boolean(m) && Array.isArray(m.accountIndices) && m.accountIndices.length === count - 1; }",
+                    arg=expected_total,
+                    timeout=15000,
+                )
+            except Exception as error:
+                grew = False
+                add_error = str(error)[:200]
+                break
+        multi = account_snapshot(page)
+        multi_meta = multi.get("meta") or {}
+        addresses = [address for address in multi.get("addresses", []) if address]
+        distinct_ok = (
+            len(multi["labels"]) >= 6
+            and len(set(multi["labels"])) == len(multi["labels"])
+            and len(set(addresses)) == len(addresses)
+            and len(addresses) == len(multi["labels"])
+        )
+        record(
+            "UI-23",
+            "Accounts keep being added past three: six separate derived accounts in the registry",
+            "PASS" if grew and distinct_ok and multi_meta.get("activeIndex") == 5 and (multi_meta.get("accountIndices") or []) == [1, 2, 3, 4, 5] else "FAIL",
+            json.dumps({"labels": multi["labels"], "activeIndex": multi_meta.get("activeIndex"), "accountIndices": multi_meta.get("accountIndices"), "error": add_error}, ensure_ascii=False),
+        )
+
+        # --- rename and delete -------------------------------------------------
+        renamed = False
+        try:
+            page.get_by_role("dialog").locator('button[aria-label="이름 바꾸기"]').nth(2).click()
+            page.get_by_role("dialog").locator("input").last.fill("투빗")
+            page.get_by_role("dialog").locator('button[aria-label="이름 저장"]').first.click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.accountNames?.['2'] === '투빗'",
+                timeout=10000,
+            )
+            renamed = page.get_by_role("dialog").get_by_text("투빗", exact=True).count() > 0
+        except Exception:
+            renamed = False
+        record(
+            "UI-24",
+            "An account above the third can be renamed and the name is written to metadata",
+            "PASS" if renamed else "FAIL",
+            json.dumps(account_snapshot(page).get("meta", {}).get("accountNames"), ensure_ascii=False),
+        )
+
+        deleted = False
+        try:
+            page.get_by_role("dialog").locator('button[aria-label="계정 삭제"]').nth(5).click()
+            page.get_by_role("button", name=re.compile(r"^삭제$")).click()
+            page.wait_for_function(
+                "() => { const m = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null');"
+                " return Boolean(m) && Array.isArray(m.accountIndices) && m.accountIndices.length === 4; }",
+                timeout=10000,
+            )
+            after_delete = account_snapshot(page)
+            deleted = len(after_delete["labels"]) == 5 and (after_delete["meta"] or {}).get("activeIndex") == 0
+        except Exception:
+            after_delete = account_snapshot(page)
+        record(
+            "UI-25",
+            "An account can be deleted from the list; the wallet falls back to a remaining account",
+            "PASS" if deleted else "FAIL",
+            json.dumps({"labels": after_delete.get("labels"), "activeIndex": (after_delete.get("meta") or {}).get("activeIndex")}, ensure_ascii=False),
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        try:
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            third_reload_locked = True
+            type_pin(page, "123456")
+            page.wait_for_selector("text=보내기", timeout=25000)
+        except Exception:
+            third_reload_locked = False
+        page.locator('button[aria-label="계정 전환"]').click()
+        page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+        persisted_multi = account_snapshot(page)
+        record(
+            "UI-26",
+            "The six-to-five account list, the rename and the remaining active account survive a reload",
+            "PASS" if third_reload_locked and persisted_multi["labels"] == ["메인", "계정 2", "투빗", "계정 4", "계정 5"] else "FAIL",
+            json.dumps({"locked": third_reload_locked, "labels": persisted_multi["labels"], "meta": persisted_multi.get("meta")}, ensure_ascii=False),
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
 
         record(
             "UI-14",

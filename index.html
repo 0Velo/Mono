@@ -58,16 +58,27 @@
         gap: 26px;
         background: #ffffff;
         opacity: 1;
-        transition: opacity 340ms ease;
+        transition: opacity 380ms ease;
         will-change: opacity;
+      }
+      /* Two layers so the float and the entrance never fight over transform:
+         the wrapper drifts, the mascot itself scales in and breathes. */
+      #app-splash .splash-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: splash-float 4.8s cubic-bezier(0.45, 0, 0.55, 1) 900ms infinite;
+        will-change: transform;
       }
       #app-splash img {
         display: block;
         width: clamp(148px, 44vw, 208px);
         height: auto;
         opacity: 0;
-        transform: translateY(7px) scale(0.985);
-        animation: splash-enter 620ms cubic-bezier(0.22, 1, 0.36, 1) 40ms forwards;
+        transform: translateY(10px) scale(0.94);
+        animation:
+          splash-enter 760ms cubic-bezier(0.22, 1, 0.36, 1) 90ms forwards,
+          splash-breathe 5.4s cubic-bezier(0.45, 0, 0.55, 1) 1000ms infinite;
         -webkit-user-select: none;
         user-select: none;
       }
@@ -82,7 +93,8 @@
         text-transform: uppercase;
         color: #8b95a1;
         opacity: 0;
-        animation: splash-word 520ms ease 200ms forwards;
+        transform: translateY(5px);
+        animation: splash-word 620ms cubic-bezier(0.22, 1, 0.36, 1) 420ms forwards;
       }
       #app-splash[data-state='leaving'] {
         opacity: 0;
@@ -94,9 +106,28 @@
           transform: none;
         }
       }
+      @keyframes splash-float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-7px);
+        }
+      }
+      @keyframes splash-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.018);
+        }
+      }
       @keyframes splash-word {
         to {
           opacity: 1;
+          transform: none;
         }
       }
 
@@ -151,6 +182,9 @@
         #app-splash {
           transition-duration: 1ms;
         }
+        #app-splash .splash-mark {
+          animation: none;
+        }
         #app-splash img,
         #app-splash .splash-word {
           animation-duration: 1ms;
@@ -161,15 +195,17 @@
   </head>
   <body>
     <div id="app-splash" aria-hidden="true">
-      <img
-        src="./assets/splash/mono-alien.webp"
-        width="356"
-        height="512"
-        alt=""
-        decoding="async"
-        fetchpriority="high"
-        draggable="false"
-      />
+      <div class="splash-mark">
+        <img
+          src="./assets/splash/mono-alien.webp"
+          width="356"
+          height="512"
+          alt=""
+          decoding="async"
+          fetchpriority="high"
+          draggable="false"
+        />
+      </div>
       <div class="splash-word">Mono</div>
     </div>
     <div id="root"></div>

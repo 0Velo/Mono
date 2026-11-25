@@ -6,8 +6,9 @@
  */
 
 const SPLASH_ID = 'app-splash'
-const MIN_VISIBLE_MS = 420
-const FADE_MS = 340
+/** 마스코트가 들어오고 숨 쉴 시간을 주는 최소 노출 시간. */
+const MIN_VISIBLE_MS = 1150
+const FADE_MS = 380
 let requested = false
 
 /**

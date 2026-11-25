@@ -21,6 +21,7 @@ import { isValidAddress } from '../lib/wallet'
 import { useAddressBook, removeEntry, saveEntry } from '../lib/addressBook'
 import {
   BASE_FEE_LAMPORTS,
+  TX_TIMEOUTS,
   assessSend,
   estimateFee,
   inspectTransaction,
@@ -55,6 +56,10 @@ interface SendSheetProps {
 }
 
 type Step = 'form' | 'preparing' | 'confirm' | 'sending' | 'tracking' | 'done'
+
+/** Sum of the transaction layer's own deadlines plus a small margin. */
+const SUBMIT_DEADLINE_MS =
+  TX_TIMEOUTS.stepMs + TX_TIMEOUTS.confirmMs + TX_TIMEOUTS.statusMs * 3
 
 function signedAmount(raw: string, decimals: number): string {
   const amount = BigInt(raw)
@@ -91,6 +96,7 @@ export function SendSheet({
   const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null)
   const [resolution, setResolution] = useState<TransactionResolution | null>(null)
   const [checking, setChecking] = useState(false)
+  const [sendingSeconds, setSendingSeconds] = useState(0)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [saveOpen, setSaveOpen] = useState(false)
   const [saveLabel, setSaveLabel] = useState('')
@@ -219,6 +225,20 @@ export function SendSheet({
       setChecking(false)
     }
   }, [connection, network, onSent, pendingTx])
+
+  // The "sending" screen must visibly move: an elapsed counter proves the app
+  // is alive while an RPC is slow, instead of looking like a frozen spinner.
+  useEffect(() => {
+    if (step !== 'sending') {
+      setSendingSeconds(0)
+      return
+    }
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      setSendingSeconds(Math.max(0, Math.round((Date.now() - startedAt) / 1000)))
+    }, 500)
+    return () => window.clearInterval(timer)
+  }, [step])
 
   useEffect(() => {
     if (!open || step !== 'tracking' || !pendingTx || !connection) return
@@ -448,11 +468,34 @@ export function SendSheet({
             setResolution('pending')
             setStep('tracking')
           },
+          // The RPC accepted the bytes: stop the "sending" spinner now and let
+          // the tracking screen own the confirmation wait.
+          onSubmitted: () => {
+            setResolution('pending')
+            setStep('tracking')
+          },
           onTerminal: () => clearPendingTransaction(activeOwner, network, persistedSignature),
         }
+        // Backstop above the sum of every inner deadline (12s + 30s + reads):
+        // even a browser API that never settles ends here with a signature.
+        let deadlineTimer: number | undefined
+        const overallDeadline = new Promise<never>((_, reject) => {
+          deadlineTimer = window.setTimeout(() => {
+            reject(
+              new TxOutcomeError(
+                'unknown',
+                persistedSignature ?? '',
+                '네트워크 응답이 예상보다 오래 걸립니다. 같은 송금을 다시 보내지 말고 이 화면에서 서명 상태를 확인하세요.',
+              ),
+            )
+          }, SUBMIT_DEADLINE_MS)
+        })
         try {
           let sig: string
-          sig = await signPreparedSend(connection, prepared, keypair, hooks)
+          sig = await Promise.race([
+            signPreparedSend(connection, prepared, keypair, hooks),
+            overallDeadline,
+          ])
           setSignature(sig)
           setResolution('confirmed')
           setPendingTx(null)
@@ -464,7 +507,12 @@ export function SendSheet({
           }
         } catch (cause) {
           const message = cause instanceof Error ? cause.message : String(cause ?? '')
-          if (cause instanceof TxOutcomeError) {
+          if (cause instanceof TxOutcomeError && !signedRef.current) {
+            // Nothing was ever broadcast, so there is no signature to track.
+            discardPrepared()
+            setError(message || '전송이 시작되지 않았습니다. 잠시 후 다시 시도하세요.')
+            setStep('form')
+          } else if (cause instanceof TxOutcomeError) {
             setSignature(cause.signature)
             setResolution(cause.outcome)
             try {
@@ -896,9 +944,12 @@ export function SendSheet({
         <div className="flex h-full flex-col items-center justify-center pb-16">
           <Spinner size={28} className="text-ink" />
           <div className="mt-4 text-[14.5px] font-semibold text-ink">전송 중</div>
-          <div className="mt-1.5 text-center text-[12.5px] text-muted">
-            서명 상태를 안전하게 저장한 뒤 네트워크에 전송을 시작합니다.
+          <div className="mt-1.5 text-center text-[12.5px] leading-relaxed text-muted">
+            서명을 저장한 뒤 네트워크로 보내고 있습니다.
+            <br />
+            응답이 늦으면 서명 상태 확인 화면으로 넘어갑니다.
           </div>
+          <div className="tnum mt-3 text-[12px] text-faint">{sendingSeconds}초</div>
         </div>
       )}
 

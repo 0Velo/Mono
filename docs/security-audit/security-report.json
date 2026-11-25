@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T12:14:53.011Z",
+  "startedAt": "2026-11-25T12:55:05.787Z",
   "node": "v22.11.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T12:14:53.823Z",
+      "generatedAt": "2026-11-25T12:55:06.497Z",
       "checks": [
         {
           "id": "SS-01",
@@ -63,7 +63,7 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=13"
+          "detail": "cacheVersion=14"
         },
         {
           "id": "SS-11",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T12:14:59.940Z",
+      "generatedAt": "2026-11-25T12:55:12.884Z",
       "scanned": {
-        "trackedFiles": 142,
-        "commits": 35
+        "trackedFiles": 147,
+        "commits": 38
       },
       "workingTree": {
         "findings": [],
@@ -710,6 +710,11 @@
           "file": null
         },
         {
+          "name": "the mascot enters, floats and breathes instead of just appearing",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "the service worker cache moved past the previous build",
           "status": "PASS",
           "file": null
@@ -1040,6 +1045,41 @@
           "file": null
         },
         {
+          "name": "the RPC-accepted hook fires once, right after broadcast and before confirmation",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that never confirms ends as pending inside the confirmation window",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an RPC whose status calls never answer still ends as unknown, not as a hang",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a status call that never answers still leaves the confirmation loop and reports unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a broadcast that never answers is bounded by the step timeout and keeps the signed signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a failed or erroring status read inside the window reports unknown without inventing success",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "production timeouts keep the whole send flow under a minute",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable",
           "status": "PASS",
           "file": null
@@ -1178,13 +1218,218 @@
           "name": "initialization retains legacy auth and wallet data; clear remains user-invoked only",
           "status": "PASS",
           "file": null
+        },
+        {
+          "name": "a wallet can register far more than the three accounts older builds showed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "adding reuses the lowest free index after a delete, and the space can fill",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "twelve accounts survive a metadata reload and keep their active index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "metadata written before the registry keeps exactly the accounts that build showed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the registry rejects non-derivable indices instead of storing them",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "account management exposes add and delete and never a fixed three-account base",
+          "status": "PASS",
+          "file": null
         }
       ],
-      "pass": 171,
+      "pass": 185,
       "fail": 0,
       "compileErrors": []
+    },
+    "ui": {
+      "status": "PASS",
+      "checks": [
+        {
+          "id": "UI-17",
+          "title": "A disposable browser context starts without pre-existing wallet material",
+          "status": "PASS",
+          "detail": "{\"presentLocalKeys\": [], \"presentSessionKeys\": [], \"hasIdbVault\": false, \"idbError\": \"\"}"
+        },
+        {
+          "id": "UI-01",
+          "title": "The production build renders the onboarding screen",
+          "status": "PASS",
+          "detail": "Mono"
+        },
+        {
+          "id": "UI-02",
+          "title": "The CSP meta tag is served and carries the required directives",
+          "status": "PASS",
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+        },
+        {
+          "id": "UI-03",
+          "title": "An injected inline script and eval() are blocked by the CSP",
+          "status": "PASS",
+          "detail": "inline_ran=0 eval=NOT_RUN"
+        },
+        {
+          "id": "UI-04",
+          "title": "Every script is same-origin",
+          "status": "PASS",
+          "detail": "http://127.0.0.1:51297/assets/index-ceW9ceDM.js"
+        },
+        {
+          "id": "UI-05",
+          "title": "A new wallet shows a 12-word phrase",
+          "status": "PASS",
+          "detail": "12 words"
+        },
+        {
+          "id": "UI-06",
+          "title": "The wallet unlocks after setting a PIN",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-07",
+          "title": "No seed word sequence is written to localStorage/sessionStorage/IndexedDB",
+          "status": "PASS",
+          "detail": "leaked_words=[] ordered_3word_runs=0"
+        },
+        {
+          "id": "UI-08",
+          "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
+          "status": "PASS",
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"xwNfiUVtGB0uNYfX\", \"salt\": \"6/03pw+EIzSJmaHH1C8OFw==\"}"
+        },
+        {
+          "id": "UI-09",
+          "title": "Biometric unlock UI and persisted state are absent",
+          "status": "PASS",
+          "detail": "ui_present=False storage_keys=[]"
+        },
+        {
+          "id": "UI-10",
+          "title": "pagehide locks the wallet and drops the decrypted key",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-11",
+          "title": "A wrong PIN is rejected",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-12",
+          "title": "A script-shaped recipient is treated as an invalid address and never executes",
+          "status": "PASS",
+          "detail": "executed=False invalid_warning=1"
+        },
+        {
+          "id": "UI-13",
+          "title": "An address-book label is stored and rendered as inert text",
+          "status": "PASS",
+          "detail": "executed=False label_saved=True"
+        },
+        {
+          "id": "UI-18",
+          "title": "Reload locks the persisted wallet and the correct PIN restores its original address",
+          "status": "PASS",
+          "detail": "locked=True unlocked=True original_address_restored=True"
+        },
+        {
+          "id": "UI-19",
+          "title": "A freshly created mnemonic wallet presents exactly one account",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795611335903, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\"}}"
+        },
+        {
+          "id": "UI-20",
+          "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
+          "status": "PASS",
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\", \"AzREViwc73ZPcw542oPNZE9U8cSyQRFkdkwKW7aWQVt5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795611335903, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"AzREViwc73ZPcw542oPNZE9U8cSyQRFkdkwKW7aWQVt5\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+        },
+        {
+          "id": "UI-21",
+          "title": "Explicitly switching back selects the original account without removing account 2",
+          "status": "PASS",
+          "detail": "switched_back=True activeIndex=0 original_address_restored=True accountIndices=[1]"
+        },
+        {
+          "id": "UI-22",
+          "title": "The second account and selected main account persist through reload and unlock",
+          "status": "PASS",
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\", \"AzREViwc73ZPcw542oPNZE9U8cSyQRFkdkwKW7aWQVt5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795611335903, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\", \"accountIndices\": [1]}}}"
+        },
+        {
+          "id": "UI-23",
+          "title": "Accounts keep being added past three: six separate derived accounts in the registry",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\", \"계정 2\", \"계정 3\", \"계정 4\", \"계정 5\", \"계정 6\"], \"activeIndex\": 5, \"accountIndices\": [1, 2, 3, 4, 5], \"error\": \"\"}"
+        },
+        {
+          "id": "UI-24",
+          "title": "An account above the third can be renamed and the name is written to metadata",
+          "status": "PASS",
+          "detail": "{\"2\": \"투빗\"}"
+        },
+        {
+          "id": "UI-25",
+          "title": "An account can be deleted from the list; the wallet falls back to a remaining account",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"activeIndex\": 0}"
+        },
+        {
+          "id": "UI-26",
+          "title": "The six-to-five account list, the rename and the remaining active account survive a reload",
+          "status": "PASS",
+          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795611335903, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"CizfbienH5Aa7P2MzXdMU434AcdiFqmHact8Dcu4cY4d\", \"accountIndices\": [1, 2, 3, 4]}}"
+        },
+        {
+          "id": "UI-14",
+          "title": "No uncaught page errors while driving the app",
+          "status": "PASS",
+          "detail": "[]"
+        },
+        {
+          "id": "UI-15",
+          "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
+          "status": "REVIEW",
+          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\"]"
+        },
+        {
+          "id": "UI-16",
+          "title": "External origins contacted by the page",
+          "status": "INFO",
+          "detail": "127.0.0.1:51297, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com, solana.drpc.org"
+        }
+      ],
+      "counts": {
+        "PASS": 24,
+        "FAIL": 0,
+        "REVIEW": 1,
+        "INFO": 1
+      },
+      "requests": [
+        "127.0.0.1:51297",
+        "api.coingecko.com",
+        "api.mainnet-beta.solana.com",
+        "solana-rpc.publicnode.com",
+        "solana.drpc.org"
+      ],
+      "generatedAt": "2026-11-25T21:55:51+0900"
     }
   },
-  "durationSeconds": 26.2,
+  "durationSeconds": 45.49,
   "blockingFailures": []
 }

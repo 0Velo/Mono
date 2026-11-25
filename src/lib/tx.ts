@@ -58,6 +58,12 @@ export class TxOutcomeError extends Error {
 export interface TransactionHooks {
   /** Called after signing and before any bytes are sent to an RPC. */
   onSigned?: (attempt: SignedTransactionAttempt) => void
+  /**
+   * Called the moment the RPC has accepted the signed bytes. From here the
+   * transfer can land even if confirmation is slow, so the UI must stop
+   * showing a "sending" spinner and switch to an explicit tracking state.
+   */
+  onSubmitted?: (attempt: SignedTransactionAttempt) => void
   /** Called only after the RPC confirms a terminal result or expiry. */
   onTerminal?: () => void
 }
@@ -68,7 +74,7 @@ export async function resolveTokenProgram(
 ): Promise<PublicKey> {
   const info = await withTimeout(
     connection.getAccountInfo(mint),
-    STEP_TIMEOUT_MS,
+    TX_TIMEOUTS.stepMs,
     '토큰 발행 계정을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
   )
   if (!info) throw new Error('토큰 발행 계정을 찾지 못했습니다.')
@@ -91,7 +97,7 @@ export async function estimateFee(
     const ata = getAssociatedTokenAddressSync(mintKey, new PublicKey(recipient), false, programId)
     const info = await withTimeout(
       connection.getAccountInfo(ata),
-      STEP_TIMEOUT_MS,
+      TX_TIMEOUTS.stepMs,
       '받는 토큰 계정 확인이 시간 초과되었습니다. 수수료를 확인하기 전에는 진행할 수 없습니다.',
     )
     createsAta = !info
@@ -106,9 +112,22 @@ export async function estimateFee(
   }
 }
 
-const STEP_TIMEOUT_MS = 20_000
-const CONFIRM_TIMEOUT_MS = 90_000
-const CONFIRM_POLL_MS = 1_500
+/**
+ * Every network step is bounded. A phone that loses its socket, an RPC that
+ * accepts the connection and never answers, or a Devnet validator that stops
+ * producing blocks must all end in a visible state instead of a spinner that
+ * never stops. Mutable so the test suite can prove each deadline in milliseconds.
+ */
+export const TX_TIMEOUTS = {
+  /** One RPC request: blockhash, height, simulate, broadcast. */
+  stepMs: 12_000,
+  /** One status/height read inside the confirmation loop. */
+  statusMs: 8_000,
+  /** Total confirmation polling window before the outcome is reported. */
+  confirmMs: 30_000,
+  /** Gap between status polls. */
+  pollMs: 1_200,
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -140,7 +159,7 @@ export async function inspectTransaction(
   try {
     const response = await withTimeout(
       connection.getSignatureStatuses([signature], { searchTransactionHistory: true }),
-      10_000,
+      TX_TIMEOUTS.statusMs,
       'timeout',
     )
     const status = response.value[0] ?? null
@@ -150,7 +169,11 @@ export async function inspectTransaction(
       }
       return 'pending'
     }
-    const height = await withTimeout(connection.getBlockHeight('confirmed'), 10_000, 'timeout')
+    const height = await withTimeout(
+      connection.getBlockHeight('confirmed'),
+      TX_TIMEOUTS.statusMs,
+      'timeout',
+    )
     // A missing status after expiry proves the blockhash is no longer usable,
     // not that the signature was never included (RPC history can be incomplete).
     return height > lastValidBlockHeight ? 'expired' : 'pending'
@@ -167,6 +190,14 @@ function notifyTerminal(hooks?: TransactionHooks): void {
   }
 }
 
+function notifySubmitted(hooks: TransactionHooks | undefined, attempt: SignedTransactionAttempt): void {
+  try {
+    hooks?.onSubmitted?.(attempt)
+  } catch {
+    // The bytes are already with the RPC; a UI callback must not change the outcome.
+  }
+}
+
 /** Polls HTTPS signature status, which also works when iOS drops WebSockets. */
 async function confirm(
   connection: Connection,
@@ -176,7 +207,7 @@ async function confirm(
 ): Promise<void> {
   const startedAt = Date.now()
   let lastResolution: TransactionResolution = 'unknown'
-  while (Date.now() - startedAt < CONFIRM_TIMEOUT_MS) {
+  while (Date.now() - startedAt < TX_TIMEOUTS.confirmMs) {
     const outcome = await inspectTransaction(connection, signature, lastValidBlockHeight)
     lastResolution = outcome
     if (outcome === 'confirmed') {
@@ -190,7 +221,7 @@ async function confirm(
     if (outcome === 'expired') {
       throw new TxOutcomeError('expired', signature, '블록해시는 만료됐지만 조회 기록만으로 미포함을 단정할 수 없습니다. 결과 확인 전 재전송하지 마세요.')
     }
-    await sleep(CONFIRM_POLL_MS)
+    await sleep(TX_TIMEOUTS.pollMs)
   }
   if (lastResolution === 'pending') {
     throw new TxOutcomeError('pending', signature, '같은 서명이 아직 확정되지 않았습니다. 완료 여부를 계속 확인하세요.')
@@ -233,7 +264,7 @@ async function prepareSendMessage(
 ): Promise<PreparedSend> {
   const { blockhash, lastValidBlockHeight } = await withTimeout(
     connection.getLatestBlockhash('confirmed'),
-    STEP_TIMEOUT_MS,
+    TX_TIMEOUTS.stepMs,
     'RPC에서 응답이 없습니다. 네트워크나 RPC 설정을 확인하세요.',
   )
   if (!blockhash || !Number.isSafeInteger(lastValidBlockHeight)) {
@@ -351,7 +382,7 @@ export async function prepareSplSend(
   const instructions: TransactionInstruction[] = []
   const destinationInfo = await withTimeout(
     connection.getAccountInfo(destinationAta),
-    STEP_TIMEOUT_MS,
+    TX_TIMEOUTS.stepMs,
     '받는 토큰 계정을 확인하지 못했습니다. 네트워크를 확인하세요.',
   )
   const createsAta = !destinationInfo
@@ -406,7 +437,7 @@ async function submitPrepared(
   }
   const currentHeight = await withTimeout(
     connection.getBlockHeight('confirmed'),
-    STEP_TIMEOUT_MS,
+    TX_TIMEOUTS.stepMs,
     '블록 높이를 확인하지 못했습니다. 서명하지 않았습니다.',
   )
   if (currentHeight > prepared.lastValidBlockHeight) {
@@ -428,7 +459,7 @@ async function submitPrepared(
   try {
     rpcSignature = await withTimeout(
       connection.sendRawTransaction(prepared.transaction.serialize(), maxRetriesOptions()),
-      STEP_TIMEOUT_MS,
+      TX_TIMEOUTS.stepMs,
       'RPC 응답 시간이 초과되었습니다.',
     )
   } catch {
@@ -453,6 +484,12 @@ async function submitPrepared(
       'RPC 응답이 끊겨 전송 결과가 불명확합니다. 같은 전송을 다시 시도하지 말고 동일 서명을 확인하세요.',
     )
   }
+
+  notifySubmitted(hooks, {
+    signature: localSignature,
+    blockhash: prepared.blockhash,
+    lastValidBlockHeight: prepared.lastValidBlockHeight,
+  })
 
   if (rpcSignature !== localSignature) {
     const outcome = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
@@ -520,7 +557,7 @@ export async function maxTransferableSol(
 ): Promise<bigint> {
   const balance = BigInt(await withTimeout(
     connection.getBalance(owner),
-    STEP_TIMEOUT_MS,
+    TX_TIMEOUTS.stepMs,
     'SOL 잔액 조회가 시간 초과되었습니다.',
   ))
   const fee = BASE_FEE_LAMPORTS
