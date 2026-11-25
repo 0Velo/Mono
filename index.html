@@ -39,9 +39,10 @@
          OS until the saved theme is applied, and follow it afterwards through
          the data-theme attribute that lives on <html>.
 
-         One 2.5 s beat, in clay: the mascot rises and waits, a matte saucer
-         drops in over it, a light opens and lifts it aboard, and the saucer
-         carries it off to the upper right while the whole splash fades. No
+         One ~2.8 s beat, in clay: the mascot rises and waits, a matte saucer
+         drops in over it, a light opens and lifts it aboard, the saucer
+         whooshes off to the upper right, and only then does the Mono wordmark
+         rise out of the space it left, hold, and fade with the splash. No
          script and no outside image is involved — the saucer is inline SVG
          painted with the same two colours as the mascot. */
       html,
@@ -121,7 +122,7 @@
         align-items: center;
         justify-content: center;
         transform-origin: 55% 45%;
-        animation: splash-launch 400ms cubic-bezier(0.2, 0.5, 0.35, 1) 1860ms forwards;
+        animation: splash-launch 420ms cubic-bezier(0.2, 0.5, 0.35, 1) 1820ms forwards;
         will-change: transform, opacity;
       }
 
@@ -202,22 +203,32 @@
       }
       #app-splash .ufo-flame {
         opacity: 0;
-        animation: splash-flame 420ms ease-out 1830ms forwards;
+        animation: splash-flame 420ms ease-out 1790ms forwards;
       }
 
+      /* The wordmark is the payoff, not the opening act: it stays invisible
+         under the mascot and the saucer, then rises into the empty space the
+         saucer leaves behind at lift-off and is still legible before the
+         splash fades. It is placed over the mascot's own spot rather than
+         under it, so the eye stays where the alien was. */
       #app-splash .splash-word {
+        position: absolute;
+        left: 50%;
+        top: 50%;
         font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
           'Helvetica Neue', system-ui, sans-serif;
-        font-size: 12px;
+        font-size: 15px;
         font-weight: 600;
         line-height: 1;
-        letter-spacing: 0.42em;
-        text-indent: 0.42em;
+        letter-spacing: 0.4em;
+        text-indent: 0.4em;
         text-transform: uppercase;
-        color: #8b95a1;
+        color: #3d4652;
         opacity: 0;
-        transform: translateY(5px);
-        animation: splash-word 620ms cubic-bezier(0.22, 1, 0.36, 1) 420ms forwards;
+        transform: translate(-50%, calc(-50% + 14px));
+        filter: blur(6px);
+        animation: splash-word 480ms cubic-bezier(0.16, 1, 0.3, 1) 1860ms forwards;
+        will-change: opacity, transform, filter;
       }
       #app-splash[data-state='leaving'] {
         opacity: 0;
@@ -247,10 +258,21 @@
           transform: scale(1.018);
         }
       }
+      /* Revealed from below, out of focus, and settling sharp: the splash of
+         air the saucer just left. */
       @keyframes splash-word {
-        to {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, calc(-50% + 14px));
+          filter: blur(6px);
+        }
+        55% {
           opacity: 1;
-          transform: none;
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+          filter: blur(0);
         }
       }
       /* The saucer settles in from above, once the mascot has had its moment. */
@@ -372,7 +394,7 @@
           --splash-star: #7e8793;
         }
         html:not([data-theme='light']) #app-splash .splash-word {
-          color: #6c7480;
+          color: #c8d0da;
         }
         /* A matte black mascot on a near-black plate needs a little light
            around its silhouette, the same rim the dark mark is cut with. */
@@ -408,7 +430,7 @@
         --splash-star: #7e8793;
       }
       html[data-theme='dark'] #app-splash .splash-word {
-        color: #6c7480;
+        color: #c8d0da;
       }
       html[data-theme='dark'] #app-splash img {
         filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.11));
@@ -421,7 +443,7 @@
         background: #ffffff;
       }
       html[data-theme='light'] #app-splash .splash-word {
-        color: #8b95a1;
+        color: #3d4652;
       }
       html[data-theme='light'] #app-splash img {
         filter: none;
@@ -433,10 +455,18 @@
         #app-splash .splash-mark {
           animation: none;
         }
-        #app-splash img,
-        #app-splash .splash-word {
+        #app-splash img {
           animation-duration: 1ms;
           animation-delay: 0ms;
+        }
+        /* No saucer means nothing to make room for: the wordmark simply sits
+           under the mascot from the first frame, sharp and readable. */
+        #app-splash .splash-word {
+          position: static;
+          animation: none;
+          opacity: 1;
+          filter: none;
+          transform: none;
         }
         /* No flight, no beam, no twinkle: the mascot simply waits, and the
            splash still leaves on the same clock. */

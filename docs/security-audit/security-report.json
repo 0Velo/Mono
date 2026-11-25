@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T14:39:17.787Z",
-  "node": "v22.20.0",
+  "startedAt": "2026-11-25T14:57:53.822Z",
+  "node": "v22.11.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T14:39:18.505Z",
+      "generatedAt": "2026-11-25T14:57:54.521Z",
       "checks": [
         {
           "id": "SS-01",
@@ -63,7 +63,7 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=16"
+          "detail": "cacheVersion=17"
         },
         {
           "id": "SS-11",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T14:39:29.358Z",
+      "generatedAt": "2026-11-25T14:58:07.943Z",
       "scanned": {
         "trackedFiles": 169,
-        "commits": 57
+        "commits": 66
       },
       "workingTree": {
         "findings": [],
@@ -735,7 +735,12 @@
           "file": null
         },
         {
-          "name": "a clay saucer lands, lifts the mascot aboard and carries it off in ~2.5 s",
+          "name": "a clay saucer lands, lifts the mascot aboard and carries it off in ~2.8 s",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the wordmark stays hidden until lift-off, then rises and is read before the fade",
           "status": "PASS",
           "file": null
         },
@@ -1275,7 +1280,7 @@
           "file": null
         }
       ],
-      "pass": 190,
+      "pass": 191,
       "fail": 0,
       "compileErrors": []
     },
@@ -1310,7 +1315,7 @@
           "id": "UI-04",
           "title": "Every script is same-origin",
           "status": "PASS",
-          "detail": "http://127.0.0.1:42761/assets/index-BE-Por2v.js"
+          "detail": "http://127.0.0.1:53705/assets/index-DdVBZmK4.js"
         },
         {
           "id": "UI-05",
@@ -1334,7 +1339,7 @@
           "id": "UI-08",
           "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
           "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"cOPwi7nMaWO7JTCs\", \"salt\": \"gGFyCJ8O1zsGmUjeyEVJrA==\"}"
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"9Ks9HL4G6dvqBLhV\", \"salt\": \"EbGfzbrWIbY1BaaguM604g==\"}"
         },
         {
           "id": "UI-09",
@@ -1376,13 +1381,13 @@
           "id": "UI-19",
           "title": "A freshly created mnemonic wallet presents exactly one account",
           "status": "PASS",
-          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617592448, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\"}}"
+          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\"}}"
         },
         {
           "id": "UI-20",
           "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
           "status": "PASS",
-          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\", \"DmNZeKumjnqLQnuA2kWpb5D21tWGJPQLb7TknqJYSqX1\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617592448, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"DmNZeKumjnqLQnuA2kWpb5D21tWGJPQLb7TknqJYSqX1\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
         },
         {
           "id": "UI-21",
@@ -1394,7 +1399,7 @@
           "id": "UI-22",
           "title": "The second account and selected main account persist through reload and unlock",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\", \"DmNZeKumjnqLQnuA2kWpb5D21tWGJPQLb7TknqJYSqX1\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617592448, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\", \"accountIndices\": [1]}}}"
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"9dxqATrzTgcVKyKzVF6bTMRLej7jSQP7KRbEuSHmr4HZ\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"accountIndices\": [1]}}}"
         },
         {
           "id": "UI-23",
@@ -1418,7 +1423,7 @@
           "id": "UI-26",
           "title": "The six-to-five account list, the rename and the remaining active account survive a reload",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617592448, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"4TPCyFvkG8X4ssUp7PVsemXinwxhMVawoK6S3ArVw71Q\", \"accountIndices\": [1, 2, 3, 4]}}"
+          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795618713370, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"HnEvjePjDUrkxhs1FZmKjMmCUuzkVpUggAayz4tdQ4Du\", \"accountIndices\": [1, 2, 3, 4]}}"
         },
         {
           "id": "UI-27",
@@ -1436,13 +1441,13 @@
           "id": "UI-15",
           "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
           "status": "REVIEW",
-          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:42761' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:42761' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\"]"
+          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:53705' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:53705' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\"]"
         },
         {
           "id": "UI-16",
           "title": "External origins contacted by the page",
           "status": "INFO",
-          "detail": "127.0.0.1:42761, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
+          "detail": "127.0.0.1:53705, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
         }
       ],
       "counts": {
@@ -1452,16 +1457,16 @@
         "INFO": 1
       },
       "requests": [
-        "127.0.0.1:42761",
+        "127.0.0.1:53705",
         "api.coingecko.com",
         "api.mainnet-beta.solana.com",
         "mono-push-server.vercel.app",
         "solana-rpc.publicnode.com",
         "solana.drpc.org"
       ],
-      "generatedAt": "2026-11-25T23:40:11+0900"
+      "generatedAt": "2026-11-25T23:58:52+0900"
     }
   },
-  "durationSeconds": 53.5,
+  "durationSeconds": 58.77,
   "blockingFailures": []
 }
