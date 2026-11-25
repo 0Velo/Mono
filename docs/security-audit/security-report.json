@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T13:33:11.476Z",
-  "node": "v22.11.0",
+  "startedAt": "2026-11-25T14:31:47.080Z",
+  "node": "v22.20.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T13:33:12.225Z",
+      "generatedAt": "2026-11-25T14:31:47.790Z",
       "checks": [
         {
           "id": "SS-01",
@@ -63,7 +63,7 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=14"
+          "detail": "cacheVersion=16"
         },
         {
           "id": "SS-11",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T13:33:19.697Z",
+      "generatedAt": "2026-11-25T14:31:57.570Z",
       "scanned": {
-        "trackedFiles": 162,
-        "commits": 43
+        "trackedFiles": 166,
+        "commits": 51
       },
       "workingTree": {
         "findings": [],
@@ -325,6 +325,316 @@
     "unit": {
       "tests": [
         {
+          "name": "a native SOL transfer in reads as an incoming deposit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an outgoing SOL transfer reports the amount without the network fee",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a fee-only transaction is not announced",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an SPL transfer in and out use the token symbol and decimals",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token-to-token swap is one \"스왑 완료\" event, not a deposit plus a withdrawal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a swap that spends SOL for a token is still a swap",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unknown mint falls back to a short uppercase tag, never a full address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "failed and not-yet-detailed transactions are never announced",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the first read only records a baseline and announces nothing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "after the baseline, only a new signature is announced and it is announced once",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "several new transactions are announced oldest first",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction whose details are not loaded yet is retried instead of being swallowed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the seen list stays bounded so localStorage cannot grow without limit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "iPhone user agents are recognised so the UI can ask for a Home Screen install",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an exported backup file contains no seed words, key material or PIN",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "export → parse → decrypt reproduces the original secret payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "optional account metadata survives backup parsing without exposing secret material",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wrong PIN cannot restore a backup file",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered backup ciphertext is rejected on restore",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a backup whose iteration count was lowered to speed up brute force still fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "non-backup files are rejected with a readable message",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the backup file name is date-stamped and .json",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement preserves little- and big-endian conversions",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "ESM and CommonJS entry points produce the same results",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement rejects non-Buffer inputs before conversion",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement safely converts large valid buffers without native code",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement rejects invalid widths, negative values, and overflow",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "derived addresses match the independent Python oracle for 12 and 24 words",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the well-known BIP39 test phrase derives the published Phantom address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "accountPath hardens both the 501 and the account index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "deriveAccounts derives exactly what keypairForAccount derives, per index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "parseDerivationPath rejects non-numeric and out-of-range segments",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "ed25519 derivation refuses non-hardened segments (SLIP-0010 has no public derivation)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "secretPayloadFromMnemonic stores the hardened Phantom path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate passes a clean dependency audit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks a direct high advisory even when its ID is listed as accepted",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks transitive high advisories as well as direct advisories",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks audit evidence whose reported high count disagrees with its records",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks an expired exception",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks missing or malformed audit evidence",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks when built-app UI evidence is missing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "database upgrade preserves old authentication records and read aborts reject",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "pending transaction records round-trip by owner and network",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "corrupt pending JSON blocks a new transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "unavailable storage blocks reads and writes rather than allowing a broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a failed marker deletion is surfaced so the next send remains blocked",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an existing uncertain signature cannot be overwritten by a later attempt",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a stale terminal check cannot delete a newer signature marker",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the same owner/network lock excludes concurrent send and swap workflows",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a pending signature is returned without running another operation",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an error after signature persistence releases the lock but preserves the blocking signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "browsers without Web Locks fail closed instead of starting a send",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "tampered owner, network, or missing validity height is rejected",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "push API accepts one HTTPS base and rejects insecure or credential-bearing URLs",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "subscription serializer accepts only an HTTPS endpoint and the two required keys",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "association canonicalization hashes endpoint and management token and subscription ID hashes endpoint",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "Ed25519 association signature verifies against the synthetic wallet public key only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "association sync posts only contract fields and persists the association after success",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "client registration payloads for both networks are accepted by the Worker contract",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "stale wallet/network sync stops after signing and never posts",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "activity monitor and token detail hold data to their current scopes and show unknown while loading",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "deployed server answers the client config probe with a 65-byte VAPID key",
           "status": "PASS",
           "file": null
@@ -343,13 +653,815 @@
           "name": "a server without its database fails closed instead of accepting registrations",
           "status": "PASS",
           "file": null
+        },
+        {
+          "name": "looksLikeRpc accepts https endpoints",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "looksLikeRpc refuses plain http (the RPC URL is typed in and can be remote)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "looksLikeRpc refuses non-http schemes and junk",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an empty custom RPC falls back to the official default per network",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "explorer links are always https and keep the query for devnet only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL: a send is affordable only if the amount plus the fee fits",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL: more than the balance is the asset shortfall, not the fee",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a zero or negative amount is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL: sending the whole token balance needs SOL for the fee and the new token account",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL: a token amount above the balance is rejected before the fee is considered",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the source uses the shared affordability check, not an inline balance compare",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "index.html paints the mascot splash before any script runs",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the mascot asset is a small transparent WebP, not a megabyte PNG",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash is held long enough to be seen, then never replayed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the mascot enters, floats and breathes instead of just appearing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a clay saucer lands, lifts the mascot aboard and carries it off in ~2.5 s",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker cache moved past the previous build",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no HTML injection sinks",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no code-evaluation sinks",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no console logging (keys must never reach a log)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "source contains no plaintext http:// endpoint outside localhost",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the document CSP denies frames, forms, plugins and base-uri override",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "index.html loads only same-origin scripts, with no inline handler attributes",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker is same-origin only and drops old caches on activate",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker displays Web Push immediately and validates notification links",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the shipped build carries no source maps and no /src/ path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "derivation path literals in the app are hardened",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the onboarding screen names the shared standard path instead of a literal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "custom RPC input is validated as https-only in the settings screen",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a normal Jupiter swap passes the structural guard",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction paid for by another key is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that requires a second signature is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that does not need this wallet signature is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unknown program is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL transfer to a stranger hidden in the swap is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL transfer to the wallet own wSOL account is allowed (wrap)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unexpected System instruction (assign/allocate) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token approve (delegate to a third party) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token setAuthority (hand over account ownership) is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "closing a token account into another wallet is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token transfer authorized by someone else is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that matches the quote passes",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation error blocks the swap",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that takes more SOL than the quoted input is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation that pays less than the minimum received is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a simulation without balance data fails closed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an SPL input that is over-drawn is refused",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a swap that spends an unrelated user token is refused even when its quoted input and output are valid",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the SOL fee tolerance is small enough to be a real bound",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap runs guard → simulate → sign → send → confirm and returns the signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts a draining transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts when the simulation fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap never broadcasts when the simulation moves more than quoted",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap rejects a payload that is not a transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap will not broadcast if persisting the local signature fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap keeps an RPC-loss attempt pending and does not clear its record",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap refuses to sign when Jupiter omits the real last valid block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "prepared swap byte guard refuses a changed transaction before signing or broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "swap preview fails closed when simulation accounts or invocation logs are missing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "swap preview is bound to the same wallet and quote and expires by age or block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "portfolio keeps zero-balance token account addresses for history lookup",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "token account discovery remembers seen addresses locally and isolates network",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "maxTransferableSol always leaves the network fee behind",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "estimateFee charges rent only when the recipient token account must be created",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a SOL send to your own address and a zero amount are refused before any RPC call",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an invalid recipient address never reaches signing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a signed SOL send is persisted before RPC broadcast and confirmed with the same signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a pending-record write failure prevents any RPC broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a lost RPC response with an unconfirmed signature stays pending and is not reported failed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "processed failures are not treated as final; confirmed failures are terminal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "expired blockhash with no history is reported as unresolved expiry, not proof of non-inclusion",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "RPC status lookup failure stays unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "recent history merges and sorts signatures from the owner and token accounts",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL preparation displays simulated ATA rent rather than relying on a fixed estimate",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "simulation errors or missing result data fail before any signature or broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a changed message is rejected before sign or send",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "send preview is bound to the same wallet and expires by age or block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "history detail lookup failures preserve signature rows and successful details parse balances",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the RPC-accepted hook fires once, right after broadcast and before confirmation",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction that never confirms ends as pending inside the confirmation window",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an RPC whose status calls never answer still ends as unknown, not as a hang",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a status call that never answers still leaves the confirmation loop and reports unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a broadcast that never answers is bounded by the step timeout and keeps the signed signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a failed or erroring status read inside the window reports unknown without inventing success",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "production timeouts keep the whole send flow under a minute",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "fallback write failure is returned to the caller",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "corrupt stored data is not treated as an empty wallet",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "clear failure is returned and the fallback copy remains untouched",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "vault declares PBKDF2-SHA256 with 210,000 iterations, 16-byte salt, 12-byte IV",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "encrypt → decrypt round-trips the exact payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wrong PIN is rejected with InvalidPinError and yields no payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered authentication tag (last ciphertext byte) throws instead of returning data",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered ciphertext body throws",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered IV throws (GCM must not open with the wrong nonce)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a tampered salt throws (key derivation must not silently succeed)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a downgraded or excessive iteration count is rejected before expensive derivation",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a truncated ciphertext throws instead of returning a partial payload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "IV and salt are fresh for every vault (no key/nonce reuse)",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the vault never contains the mnemonic in clear text",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "isVaultShape accepts a real vault and rejects malformed records",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "validateMnemonic accepts 12 and 24 valid words and rejects everything else",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "normalizeMnemonic folds case, newlines and full-width spaces",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a 64-byte Base58 secret key imports and round-trips its address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a 32-byte Base58 seed imports as a valid keypair",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "wrong-length and non-Base58 keys are rejected with a readable error",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "isValidAddress accepts real addresses and rejects malformed input",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a mnemonic-derived payload always reports the same address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "account list includes the base and user-registered indices only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "registered account indices and active account survive a metadata reload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "metadata write failure is reported and does not update saved metadata",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "blocked metadata reads throw instead of appearing to be an empty install",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "initialization retains legacy auth and wallet data; clear remains user-invoked only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a wallet can register far more than the three accounts older builds showed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "adding reuses the lowest free index after a delete, and the space can fill",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "twelve accounts survive a metadata reload and keep their active index",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "metadata written before the registry keeps exactly the accounts that build showed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the registry rejects non-derivable indices instead of storing them",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "account management exposes add and delete and never a fixed three-account base",
+          "status": "PASS",
+          "file": null
         }
       ],
-      "pass": 4,
+      "pass": 190,
       "fail": 0,
       "compileErrors": []
+    },
+    "ui": {
+      "status": "PASS",
+      "checks": [
+        {
+          "id": "UI-17",
+          "title": "A disposable browser context starts without pre-existing wallet material",
+          "status": "PASS",
+          "detail": "{\"presentLocalKeys\": [], \"presentSessionKeys\": [], \"hasIdbVault\": false, \"idbError\": \"\"}"
+        },
+        {
+          "id": "UI-01",
+          "title": "The production build renders the onboarding screen",
+          "status": "PASS",
+          "detail": "Mono"
+        },
+        {
+          "id": "UI-02",
+          "title": "The CSP meta tag is served and carries the required directives",
+          "status": "PASS",
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+        },
+        {
+          "id": "UI-03",
+          "title": "An injected inline script and eval() are blocked by the CSP",
+          "status": "PASS",
+          "detail": "inline_ran=0 eval=NOT_RUN"
+        },
+        {
+          "id": "UI-04",
+          "title": "Every script is same-origin",
+          "status": "PASS",
+          "detail": "http://127.0.0.1:51561/assets/index-Snl_nFHH.js"
+        },
+        {
+          "id": "UI-05",
+          "title": "A new wallet shows a 12-word phrase",
+          "status": "PASS",
+          "detail": "12 words"
+        },
+        {
+          "id": "UI-06",
+          "title": "The wallet unlocks after setting a PIN",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-07",
+          "title": "No seed word sequence is written to localStorage/sessionStorage/IndexedDB",
+          "status": "PASS",
+          "detail": "leaked_words=[] ordered_3word_runs=0"
+        },
+        {
+          "id": "UI-08",
+          "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
+          "status": "PASS",
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"vKzYtg2mam+2lZoJ\", \"salt\": \"HN5xAK/7ZHSBMov8a9NQCg==\"}"
+        },
+        {
+          "id": "UI-09",
+          "title": "Biometric unlock UI and persisted state are absent",
+          "status": "PASS",
+          "detail": "ui_present=False storage_keys=[]"
+        },
+        {
+          "id": "UI-10",
+          "title": "pagehide locks the wallet and drops the decrypted key",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-11",
+          "title": "A wrong PIN is rejected",
+          "status": "PASS",
+          "detail": ""
+        },
+        {
+          "id": "UI-12",
+          "title": "A script-shaped recipient is treated as an invalid address and never executes",
+          "status": "PASS",
+          "detail": "executed=False invalid_warning=1"
+        },
+        {
+          "id": "UI-13",
+          "title": "An address-book label is stored and rendered as inert text",
+          "status": "PASS",
+          "detail": "executed=False label_saved=True"
+        },
+        {
+          "id": "UI-18",
+          "title": "Reload locks the persisted wallet and the correct PIN restores its original address",
+          "status": "PASS",
+          "detail": "locked=True unlocked=True original_address_restored=True"
+        },
+        {
+          "id": "UI-19",
+          "title": "A freshly created mnemonic wallet presents exactly one account",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617140872, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\"}}"
+        },
+        {
+          "id": "UI-20",
+          "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
+          "status": "PASS",
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\", \"FzpjAsJL3rj1GZ3VyRakVP4FtuTrA1ZbGb1Hc1rSkaTH\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617140872, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"FzpjAsJL3rj1GZ3VyRakVP4FtuTrA1ZbGb1Hc1rSkaTH\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+        },
+        {
+          "id": "UI-21",
+          "title": "Explicitly switching back selects the original account without removing account 2",
+          "status": "PASS",
+          "detail": "switched_back=True activeIndex=0 original_address_restored=True accountIndices=[1]"
+        },
+        {
+          "id": "UI-22",
+          "title": "The second account and selected main account persist through reload and unlock",
+          "status": "PASS",
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\", \"FzpjAsJL3rj1GZ3VyRakVP4FtuTrA1ZbGb1Hc1rSkaTH\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617140872, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\", \"accountIndices\": [1]}}}"
+        },
+        {
+          "id": "UI-23",
+          "title": "Accounts keep being added past three: six separate derived accounts in the registry",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\", \"계정 2\", \"계정 3\", \"계정 4\", \"계정 5\", \"계정 6\"], \"activeIndex\": 5, \"accountIndices\": [1, 2, 3, 4, 5], \"error\": \"\"}"
+        },
+        {
+          "id": "UI-24",
+          "title": "An account above the third can be renamed and the name is written to metadata",
+          "status": "PASS",
+          "detail": "{\"2\": \"투빗\"}"
+        },
+        {
+          "id": "UI-25",
+          "title": "An account can be deleted from the list; the wallet falls back to a remaining account",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"activeIndex\": 0}"
+        },
+        {
+          "id": "UI-26",
+          "title": "The six-to-five account list, the rename and the remaining active account survive a reload",
+          "status": "PASS",
+          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795617140872, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"HY4mN15AKm2GcYDBFqrs3G6x8HqpPLeyVWPZL88NTdhu\", \"accountIndices\": [1, 2, 3, 4]}}"
+        },
+        {
+          "id": "UI-27",
+          "title": "The built app points at the background push server and offers the opt-in",
+          "status": "PASS",
+          "detail": "{\"state\": \"끔\", \"actionable\": true}"
+        },
+        {
+          "id": "UI-14",
+          "title": "No uncaught page errors while driving the app",
+          "status": "PASS",
+          "detail": "[]"
+        },
+        {
+          "id": "UI-15",
+          "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
+          "status": "REVIEW",
+          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:51561' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:51561' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\"]"
+        },
+        {
+          "id": "UI-16",
+          "title": "External origins contacted by the page",
+          "status": "INFO",
+          "detail": "127.0.0.1:51561, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
+        }
+      ],
+      "counts": {
+        "PASS": 25,
+        "FAIL": 0,
+        "REVIEW": 1,
+        "INFO": 1
+      },
+      "requests": [
+        "127.0.0.1:51561",
+        "api.coingecko.com",
+        "api.mainnet-beta.solana.com",
+        "mono-push-server.vercel.app",
+        "solana-rpc.publicnode.com",
+        "solana.drpc.org"
+      ],
+      "generatedAt": "2026-11-25T23:32:39+0900"
     }
   },
-  "durationSeconds": 14.19,
+  "durationSeconds": 52.7,
   "blockingFailures": []
 }

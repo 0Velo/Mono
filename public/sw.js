@@ -5,12 +5,14 @@
  * v14 (Mono): 계정 목록 개수 제한 수정, 송금 확인 시간 제한, 스플래시 애니메이션.
  * v15 (Mono): 원격 Web Push 서버 연결(VITE_PUSH_API_URL). 앱을 닫아 둔 동안의
  * 입금 알림을 위해 서버에 기기를 등록할 수 있다.
+ * v16 (Mono): 스플래시를 2.5초로 늘리고, 외계인이 우주선을 타고 날아가는
+ * 장면으로 바꿨다(index.html의 CSS 키프레임 + 인라인 SVG).
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v15`
+const CACHE = `${CACHE_PREFIX}v16`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

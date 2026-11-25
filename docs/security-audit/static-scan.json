@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-25T13:33:12.225Z",
+  "generatedAt": "2026-11-25T14:31:47.790Z",
   "checks": [
     {
       "id": "SS-01",
@@ -59,7 +59,7 @@
       "id": "SS-10",
       "title": "Service worker caches same-origin assets only and prunes old caches",
       "status": "PASS",
-      "detail": "cacheVersion=14"
+      "detail": "cacheVersion=16"
     },
     {
       "id": "SS-11",
