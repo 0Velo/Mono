@@ -581,6 +581,22 @@ def main():
         page.keyboard.press("Escape")
         page.wait_for_timeout(400)
 
+        # --- background Web Push state comes from the build-time server URL ---
+        page.get_by_role("button", name="설정", exact=True).first.click()
+        page.wait_for_selector("text=백그라운드 Web Push", timeout=15000)
+        push_row = page.locator("button", has_text="백그라운드 Web Push").first
+        push_row_text = push_row.inner_text()
+        push_state = push_row_text.replace("백그라운드 Web Push", "").strip()
+        push_actionable = push_row.is_enabled()
+        record(
+            "UI-27",
+            "The built app points at the background push server and offers the opt-in",
+            "PASS" if push_state in {"끔", "켜짐", "홈 화면 설치 필요"} and push_actionable else "FAIL",
+            json.dumps({"state": push_state, "actionable": push_actionable}, ensure_ascii=False),
+        )
+        page.get_by_role("button", name="지갑", exact=True).first.click()
+        page.wait_for_timeout(400)
+
         record(
             "UI-14",
             "No uncaught page errors while driving the app",
