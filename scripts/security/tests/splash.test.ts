@@ -56,9 +56,12 @@ test('the splash is held long enough to be seen, then never replayed', () => {
   }
   const timers: Array<{ fn: () => void; ms: number }> = []
   const removed: string[] = []
+  // The splash has been on screen for a second already when the app is ready.
+  const paintedAt = performance.now() - 1000
   const splash = {
     dataset: {} as Record<string, string>,
     remove: () => removed.push('removed'),
+    getAnimations: () => [{ startTime: paintedAt }],
   }
   g.window = {
     setTimeout: (fn: () => void, ms: number) => {
@@ -70,6 +73,10 @@ test('the splash is held long enough to be seen, then never replayed', () => {
 
   hideAppSplash()
   assert.equal(timers.length, 1, 'one delay before the fade starts')
+  // The hold is counted from the splash's own paint clock, not from navigation
+  // start: on a slow load the CSS animation starts hundreds of ms later, and the
+  // saucer's flight must not be cut off by the fade.
+  assert.ok(timers[0].ms > 1000 && timers[0].ms <= 1150, `hold from paint was ${timers[0].ms}ms`)
   timers[0].fn()
   assert.equal(splash.dataset.state, 'leaving')
   assert.equal(timers.length, 2, 'a timer removes the node even if transitionend never fires')
