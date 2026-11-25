@@ -272,6 +272,46 @@ textarea {
   }
 }
 
+/*
+ * 스플래시 착륙의 잠금 화면 쪽 반쪽.
+ *
+ * 스플래시(index.html)가 외계인을 마스코트 자리로 데려오는 동안, 잠금 화면은
+ * 흰 막이 걷히는 만큼 글자와 키패드가 떠오르고(`mono-lock-content`), 마스코트
+ * 자리는 비어 있다가(`mono-land-mark`) 우주선이 외계인을 내려놓는 순간 같은
+ * 크기로 나타난다. 두 시계는 `html.mono-landing`과 `--mono-land-*` 속성으로
+ * 한 번에 시작하므로 어긋나지 않는다. 지갑이 없는 첫 방문이나 모션 감소
+ * 설정에서는 클래스가 붙지 않아 그대로 바로 보인다.
+ */
+@keyframes mono-land-arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mono-land-content-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html.mono-landing .mono-lock-content {
+    opacity: 0;
+    animation: mono-land-content-in 460ms var(--ease-out-soft) var(--mono-land-content-in, 200ms)
+      forwards;
+  }
+  html.mono-landing .mono-land-mark {
+    opacity: 0;
+    animation: mono-land-arrive 80ms linear var(--mono-land-handoff, 1650ms) forwards;
+  }
+}
+
 .animate-sheet {
   animation: sheet-up 380ms var(--ease-ios);
 }

@@ -9,12 +9,15 @@
  * 장면으로 바꿨다(index.html의 CSS 키프레임 + 인라인 SVG).
  * v17 (Mono): SOL 코인 아이콘을 AI 생성 이미지에서 공식 솔라나 로고(정식 벡터
  * SVG, 검은 원형 배지)로 교체하고 아트 쿼리스트링을 v5로 올렸다.
+ * v18 (Mono): 지갑이 있어 잠금 화면으로 들어갈 때, 스플래시가 우주선 발진 대신
+ * 외계인을 키패드 위 `MonoMark` 자리로 작아지며 내려놓고 떠나는 착륙 연출로
+ * 끝난다(index.html의 data-mode="land" 키프레임 + splashLanding.ts의 좌표·시계).
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v17`
+const CACHE = `${CACHE_PREFIX}v18`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

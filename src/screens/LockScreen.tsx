@@ -37,10 +37,14 @@ export function LockScreen() {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-base">
       <div className="safe-top" />
-      <div className="flex flex-1 flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+18px)]">
+      <div className="mono-lock-content flex flex-1 flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+18px)]">
         <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="relative flex h-[92px] w-[92px] items-center justify-center">
-            <MonoMark size={92} />
+          {/* The splash lands the alien exactly here; the mark then takes over. */}
+          <div
+            className="relative flex h-[92px] w-[92px] items-center justify-center"
+            data-mono-landing-target
+          >
+            <MonoMark size={92} className="mono-land-mark" />
           </div>
           <h1 className="mt-4 text-[19px] font-bold tracking-[-0.03em] text-ink">지갑 잠김</h1>
           <p className="mt-1.5 text-[12.5px] text-muted tnum">
