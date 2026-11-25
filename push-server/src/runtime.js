@@ -12,7 +12,13 @@ export function runtimeEnv() {
     VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
     VAPID_SUBJECT: process.env.VAPID_SUBJECT || "",
-    CRON_SECRET: process.env.CRON_SECRET || ""
+    CRON_SECRET: process.env.CRON_SECRET || "",
+    // Helius real-time webhooks (optional: without these the 15-minute scan is the only path).
+    HELIUS_API_KEY: process.env.HELIUS_API_KEY || "",
+    HELIUS_WEBHOOK_AUTH: process.env.HELIUS_WEBHOOK_AUTH || "",
+    HELIUS_WEBHOOK_ID: process.env.HELIUS_WEBHOOK_ID || "",
+    HELIUS_WEBHOOK_ID_DEVNET: process.env.HELIUS_WEBHOOK_ID_DEVNET || "",
+    HELIUS_WEBHOOK_URL: process.env.HELIUS_WEBHOOK_URL || ""
   };
 }
 

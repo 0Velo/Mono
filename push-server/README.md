@@ -7,7 +7,8 @@ Vercel 프로젝트로 올립니다(Root Directory: `push-server`). 정적 사�
 
 - 런타임: Vercel **Edge Functions** (`api/`)
 - 저장소: **Neon Postgres** (Vercel Storage에서 프로비저닝한 `mono-push-db`, 무료 플랜)
-- 감시: Solana 공개 RPC만 사용(유료 API 키 없음), Vercel Schedule 15분 + Cron 하루 1회
+- 실시간: **Helius Webhook**(네트워크별 2개) → 입금 즉시 Web Push, 15분 스캔은 누락 방지 백스톱
+- 감시: Helius 웹훅 + Solana 공개 RPC, Vercel Schedule 15분 + Cron 하루 1회
 - 지갑 키·시드는 절대 받지 않습니다. 계정 연결 증명은 잠금 해제 중에 지갑이 만든 Ed25519 서명 한 번뿐입니다.
 
 ## 공개 API (브라우저가 호출)
@@ -64,6 +65,37 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
 
 ## 감시 경로
 
+### 실시간 — Helius Webhook
+
+`POST /api/webhooks/helius?network=mainnet-beta` (별칭 `/v1/webhooks/helius`)
+
+- Helius가 트랜잭션을 파싱해 POST하면, `Authorization` 헤더가 `HELIUS_WEBHOOK_AUTH`와
+  정확히 일치하는지 상수 시간 비교로 확인합니다. 값이 설정돼 있지 않으면 **실패 폐쇄**
+  (`503`)라서 잘못 배포된 서버가 아무 요청이나 받아들이지 않습니다.
+- payload(배열)의 이벤트에서 지갑·추적 중인 토큰 계정이 **받는 쪽**인 경우만 알림
+  대상입니다(입금, 스왑의 수령분). 순수 출금은 알림을 만들지 않습니다.
+- 활성 구독과 매칭되면 기존 VAPID 발송 경로(`sendWebPush`)로 **즉시** 보냅니다. 한 번의
+  배달에서 같은 구독에 여러 건이 걸려도 푸시는 한 번만 갑니다.
+- 중복 방지: 알림을 보낸 서명은 `seen/{id}`(최근 40개)에 먼저 기록되고, 15분 스캔도 같은
+  목록을 확인합니다. 따라서 웹훅과 스캔이 같은 입금을 두 번 알리지 않습니다.
+- 알림 payload는 스캔과 동일하며(`Deposit detected`, 금액 없음), 탭하면 해당 트랜잭션의
+  Solscan 페이지(`url`)가 열립니다(devnet은 `?cluster=devnet`).
+
+#### 주소 자동 동기화
+
+구독이 추가·해지될 때(`POST`/`DELETE /v1/subscriptions`)와 15분 스캔 때마다, 활성 구독의
+지갑 주소와 스캔이 학습한 토큰 계정을 모아 Helius 웹훅의 `accountAddresses`를
+`PUT /v0/webhooks/{id}`로 맞춥니다. SPL 입금은 소유자 지갑이 아니라 토큰 계정으로
+들어오기 때문에 토큰 계정까지 포함합니다.
+
+- Helius는 웹훅 수정 1회에 **100 크레딧**을 받으므로, 정렬된 주소 목록이 지난 동기화와
+  같으면 호출하지 않습니다(`control/helius-{network}`에 마지막 상태 저장).
+- 웹훅 ID는 `HELIUS_WEBHOOK_ID`(mainnet) / `HELIUS_WEBHOOK_ID_DEVNET`(devnet)에서 읽고,
+  없으면 웹훅 목록에서 URL·타입이 일치하는 것을 찾아 쓰고, 그래도 없으면 만듭니다.
+- 동기화 실패는 구독 등록·해지를 실패시키지 않습니다(다음 스캔이 다시 시도).
+
+### 백스톱 — 15분 스캔
+
 `GET|POST /api/cron/scan` — `Authorization: Bearer $CRON_SECRET` 필요.
 
 - **Vercel Schedule**(`vercel.json`의 `schedules`)이 **15분마다** 호출합니다.
@@ -85,6 +117,11 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
 | `VAPID_PRIVATE_KEY` | ✅ | base64url PKCS#8 DER. **서버에만** 저장 |
 | `VAPID_SUBJECT` | ✅ | `mailto:` 또는 `https://` 연락처 |
 | `CRON_SECRET` | ✅ | 스캔 엔드포인트 인증 값(32바이트 이상 권장) |
+| `HELIUS_API_KEY` | ⬜ | Helius 프로젝트 API 키. 없으면 실시간 웹훅만 비활성(스캔은 동작) |
+| `HELIUS_WEBHOOK_AUTH` | ⬜ | Helius 웹훅 `authHeader`와 같은 값. 비어 있으면 웹훅 엔드포인트는 `503` |
+| `HELIUS_WEBHOOK_ID` | ⬜ | mainnet `enhanced` 웹훅 ID. 없으면 목록에서 찾거나 새로 만듭니다 |
+| `HELIUS_WEBHOOK_ID_DEVNET` | ⬜ | devnet `enhancedDevnet` 웹훅 ID |
+| `HELIUS_WEBHOOK_URL` | ⬜ | 웹훅 수신 URL 재정의(기본: 요청 origin + `/api/webhooks/helius`) |
 | `DATABASE_URL` | 자동 | Neon 저장소를 프로젝트에 연결하면 주입됩니다 |
 
 `DATABASE_URL`(또는 `POSTGRES_URL`)이 없으면 서버는 **실패 폐쇄**로 `503`을 돌려줍니다.
@@ -95,7 +132,9 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
 
 - `sub/{id}` — 구독 레코드(endpoint, p256dh, auth, address, network, tokenDigest)
 - `state/{id}` — 감시 커서(기준선 포함)
+- `seen/{id}` — 이미 알린 서명(최근 40개, 웹훅·스캔 공유)
 - `control/rotation` — 다음에 볼 구독 순번
+- `control/helius-{network}` — Helius 웹훅 ID와 마지막으로 동기화한 주소 목록
 - `control/daily-{YYYY-MM-DD}` — 일일 API 조작 소프트 상한(250)
 
 테이블과 인덱스는 첫 요청 때 `CREATE TABLE IF NOT EXISTS`로 한 번만 만듭니다. 초기화가
@@ -106,7 +145,7 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
 ```sh
 cd push-server
 npm install
-npm test        # 20개: 계약·CORS·서명검증·감시 기준선·저장소·경로 복원 (외부 호출 없음)
+npm test        # 32개: 계약·CORS·서명검증·감시 기준선·저장소·경로 복원·Helius 웹훅·주소 동기화 (외부 호출 없음)
 npm run check   # 문법 검사 + 위 테스트
 ```
 
@@ -119,5 +158,9 @@ npm run check   # 문법 검사 + 위 테스트
 - 잔액 증가는 외부 입금의 완전한 의미 증명이 아닙니다(렌트 환급·계정 폐쇄 등도 증가로 보임).
 - 푸시 전달 보장은 없습니다(중복·지연·누락 가능). 벤더가 404/410을 주면 해당 구독을
   수동으로 해지해야 합니다.
-- Vercel Schedules는 현재 Beta이고 Hobby는 지터 15분이 붙습니다. 즉 알림은 입금 후
-  대략 15~30분 안에 도착합니다.
+- Vercel Schedules는 현재 Beta이고 Hobby는 지터 15분이 붙습니다. 웹훅이 도착하지 않으면
+  알림은 입금 후 대략 15~30분 안에 도착합니다.
+- Helius 웹훅은 `accountAddresses` 기준으로 매칭하므로, 스캔이 아직 학습하지 못한 세 번째
+  이후 토큰 계정의 SPL 입금은 다음 스캔이 잡습니다(웹훅만으로는 누락 가능).
+- 웹훅 주소 동기화는 KV 읽기-수정-쓰기라 동시 변경에서 마지막 쓰기가 이깁니다. 주소 목록이
+  실제와 달라지면 다음 스캔의 동기화가 15분 안에 교정합니다.
