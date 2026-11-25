@@ -294,6 +294,7 @@ export default function Shell() {
           {tab === 'settings' && (
             <Settings
               meta={meta}
+              connection={connection}
               onChangeNetwork={(next) => {
                 updateMeta({ network: next })
               }}
@@ -306,6 +307,7 @@ export default function Shell() {
               onLock={lock}
               onAddressBook={() => setSheet({ type: 'addressBook' })}
               onAccounts={() => setSheet({ type: 'accounts' })}
+              onRefreshPortfolio={() => void portfolio.refresh()}
               activityNotificationsEnabled={activityAlerts.enabled}
               notificationPermission={activityAlerts.permission}
               onToggleActivityNotifications={toggleActivityAlerts}

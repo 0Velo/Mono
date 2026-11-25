@@ -1,6 +1,7 @@
 /**
  * Small device-local preferences that are not secrets: which tokens are hidden
- * from the home list and which are on the watchlist.
+ * from the home list, which are on the watchlist, and whether the total balance
+ * is masked on the home screen.
  *
  * Kept as an external store so a star toggled in Token Detail updates the Home
  * list behind the sheet without threading props through the whole tree.
@@ -14,9 +15,11 @@ export interface Prefs {
   hidden: string[]
   /** Mints starred into the Watchlist section. */
   watch: string[]
+  /** Total balance shown as •••• on the home screen (privacy mode). */
+  hideBalance: boolean
 }
 
-const EMPTY: Prefs = { hidden: [], watch: [] }
+const EMPTY: Prefs = { hidden: [], watch: [], hideBalance: false }
 
 let state: Prefs | null = null
 const listeners = new Set<() => void>()
@@ -25,7 +28,7 @@ function normalize(value: unknown): Prefs {
   const raw = (value ?? {}) as Partial<Prefs>
   const clean = (list: unknown): string[] =>
     Array.isArray(list) ? Array.from(new Set(list.filter((item) => typeof item === 'string'))) : []
-  return { hidden: clean(raw.hidden), watch: clean(raw.watch) }
+  return { hidden: clean(raw.hidden), watch: clean(raw.watch), hideBalance: raw.hideBalance === true }
 }
 
 function read(): Prefs {
@@ -82,6 +85,17 @@ export function toggleWatch(mint: string): boolean {
 
 export function clearHidden(): void {
   write({ ...read(), hidden: [] })
+}
+
+/** Privacy mode: mask the home total until tapped again. Persisted per device. */
+export function setHideBalance(hide: boolean): void {
+  write({ ...read(), hideBalance: hide })
+}
+
+export function toggleHideBalance(): boolean {
+  const next = !read().hideBalance
+  setHideBalance(next)
+  return next
 }
 
 export function usePrefs(): Prefs {

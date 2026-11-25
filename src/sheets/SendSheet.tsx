@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Connection, Keypair } from '@solana/web3.js'
-import { Bookmark, Check, ChevronDown, ClipboardPaste, ExternalLink, X } from 'lucide-react'
+import { Bookmark, Check, ChevronDown, ClipboardPaste, ExternalLink, QrCode, X } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Spinner } from '../components/Spinner'
+import { QrScanner } from '../components/QrScanner'
 import { TokenIcon } from '../components/ui'
 import {
   cx,
@@ -19,6 +20,9 @@ import { buildAssets, type Asset } from '../lib/assets'
 import type { Portfolio } from '../lib/tokens'
 import { isValidAddress } from '../lib/wallet'
 import { useAddressBook, removeEntry, saveEntry } from '../lib/addressBook'
+import { useWallet } from '../state/WalletProvider'
+import { MEMO_PROGRAM_ID, parseRecipientInput, sanitizeMemo } from '../lib/solanaPay'
+import { describeRecipient, remainingSolAfterSend, remainingSolWarning } from '../lib/sendSafety'
 import {
   BASE_FEE_LAMPORTS,
   TX_TIMEOUTS,
@@ -67,11 +71,19 @@ function signedAmount(raw: string, decimals: number): string {
   return `${amount >= 0n ? '+' : '−'}${formatTxAmount(abs, decimals)}`
 }
 
+/** A QR amount carries up to 18 decimals; keep only what this asset can hold. */
+function clampAmount(value: string, decimals: number): string {
+  const [intPart, fracPart = ''] = value.split('.')
+  const frac = fracPart.slice(0, decimals).replace(/0+$/, '')
+  return frac ? `${intPart}.${frac}` : intPart
+}
+
 function programLabel(program: string): string {
   if (program === '11111111111111111111111111111111') return 'System Program'
   if (program === 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA') return 'SPL Token'
   if (program === 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb') return 'Token-2022'
   if (program === 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL') return 'Associated Token Account'
+  if (program === MEMO_PROGRAM_ID) return 'Memo'
   return '프로그램'
 }
 
@@ -89,6 +101,8 @@ export function SendSheet({
   const [mint, setMint] = useState<string>('SOL')
   const [recipient, setRecipient] = useState('')
   const [amount, setAmount] = useState('')
+  const [memo, setMemo] = useState('')
+  const [scanOpen, setScanOpen] = useState(false)
   const [fee, setFee] = useState<FeeEstimate | null>(null)
   const [preview, setPreview] = useState<TransactionPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -109,6 +123,7 @@ export function SendSheet({
   const reportedSignatureRef = useRef<string | null>(null)
 
   const book = useAddressBook()
+  const { accounts } = useWallet()
   const owner = keypair?.publicKey.toBase58() ?? ''
 
   useEffect(() => {
@@ -116,6 +131,8 @@ export function SendSheet({
     setMint(initialMint ?? 'SOL')
     setRecipient('')
     setAmount('')
+    setMemo('')
+    setScanOpen(false)
     setFee(null)
     setPreview(null)
     preparedRef.current = null
@@ -182,6 +199,50 @@ export function SendSheet({
   const recipientValid = isValidAddress(recipient)
   const amountValid = baseUnits > 0n && !insufficient
   const canContinue = recipientValid && amountValid
+
+  const normalizedMemo = sanitizeMemo(memo) || null
+  // Who this address is, in one word: an own account, a saved recipient, or a
+  // caution chip for somewhere this device has never sent to.
+  const recipientBadge = recipientValid
+    ? describeRecipient(recipient, { owner, accounts, book })
+    : null
+  const remainingSol = remainingSolAfterSend({
+    kind: asset?.isSol ? 'sol' : 'spl',
+    amount: baseUnits,
+    solBalance,
+    feeLamports: feeLamportsForCheck,
+    rentLamports: rentLamportsForCheck,
+  })
+  const remainingWarning = amountValid ? remainingSolWarning(remainingSol) : null
+
+  const applyRecipientInput = (raw: string) => {
+    const parsed = parseRecipientInput(raw)
+    if (!parsed.ok) {
+      showToast(
+        parsed.reason === 'invalid-amount'
+          ? 'QR의 송금 금액 형식이 올바르지 않습니다'
+          : parsed.reason === 'invalid-token'
+            ? 'QR의 토큰 주소가 올바르지 않습니다'
+            : 'Solana 주소나 송금 QR이 아닙니다',
+      )
+      return
+    }
+    setError(null)
+    setRecipient(parsed.address)
+    setFee(null)
+    if (parsed.memo) setMemo(parsed.memo)
+    let decimals = asset?.decimals ?? 9
+    if (parsed.splToken) {
+      const target = assets.find((item) => item.mint === parsed.splToken)
+      if (target) {
+        setMint(target.key)
+        decimals = target.decimals
+      } else {
+        showToast('이 지갑에 없는 토큰 요청입니다')
+      }
+    }
+    if (parsed.amount) setAmount(clampAmount(parsed.amount, decimals))
+  }
 
   const checkPending = useCallback(async (record?: PendingTransaction) => {
     const target = record ?? pendingTx
@@ -303,10 +364,7 @@ export function SendSheet({
   const paste = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      if (text) {
-        setRecipient(text.trim())
-        setError(null)
-      }
+      if (text) applyRecipientInput(text)
     } catch {
       showToast('클립보드를 읽을 수 없습니다')
     }
@@ -371,7 +429,7 @@ export function SendSheet({
         return
       }
       const prepared = asset.isSol
-        ? await prepareSolSend(connection, keypair, recipient.trim(), baseUnits)
+        ? await prepareSolSend(connection, keypair, recipient.trim(), baseUnits, normalizedMemo)
         : await prepareSplSend(
             connection,
             keypair,
@@ -379,6 +437,7 @@ export function SendSheet({
             recipient.trim(),
             baseUnits,
             asset.decimals,
+            normalizedMemo,
           )
       const exactFee = BigInt(prepared.preview.feeLamports)
       const exactAffordability = assessSend({
@@ -431,6 +490,7 @@ export function SendSheet({
       preparedConnectionRef.current !== connection ||
       prepared.recipient !== recipient.trim() ||
       prepared.amount !== baseUnits ||
+      prepared.memo !== normalizedMemo ||
       prepared.kind !== (asset.isSol ? 'sol' : 'spl') ||
       prepared.mint !== (asset.isSol ? null : asset.mint)
     ) {
@@ -603,12 +663,13 @@ export function SendSheet({
     ) : undefined
 
   return (
-    <Sheet
-      open={open}
-      onClose={handleClose}
-      title={step === 'done' ? undefined : step === 'tracking' ? '전송 상태' : step === 'confirm' ? '전송 확인' : step === 'preparing' ? '시뮬레이션 확인' : '보내기'}
-      footer={footer}
-    >
+    <>
+      <Sheet
+        open={open}
+        onClose={handleClose}
+        title={step === 'done' ? undefined : step === 'tracking' ? '전송 상태' : step === 'confirm' ? '전송 확인' : step === 'preparing' ? '시뮬레이션 확인' : '보내기'}
+        footer={footer}
+      >
       {step === 'form' && asset && (
         <div className="flex flex-col">
           {network === 'devnet' && (
@@ -692,25 +753,72 @@ export function SendSheet({
                 </button>
               </div>
             </div>
-            <input
-              value={recipient}
-              onChange={(event) => {
-                setRecipient(event.target.value.trim())
-                setFee(null)
-                setError(null)
-              }}
-              placeholder="Solana 주소"
-              spellCheck={false}
-              autoCapitalize="none"
-              autoCorrect="off"
-              id="recipient-input"
-              className={cx(
-                'mt-2 w-full rounded-[14px] bg-surface px-3.5 py-3.5 font-mono text-[11.5px] text-ink outline-none placeholder:font-sans placeholder:text-faint',
-                recipient && !recipientValid && 'text-danger',
-              )}
-            />
+            <div className="mt-2 flex items-stretch gap-2">
+              <input
+                value={recipient}
+                onChange={(event) => {
+                  const next = event.target.value
+                  if (/^solana:/i.test(next.trim())) {
+                    applyRecipientInput(next)
+                    return
+                  }
+                  setRecipient(next.trim())
+                  setFee(null)
+                  setError(null)
+                }}
+                placeholder="Solana 주소"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                id="recipient-input"
+                className={cx(
+                  'min-w-0 flex-1 rounded-[14px] bg-surface px-3.5 py-3.5 font-mono text-[11.5px] text-ink outline-none placeholder:font-sans placeholder:text-faint',
+                  recipient && !recipientValid && 'text-danger',
+                )}
+              />
+              <button
+                onClick={() => setScanOpen(true)}
+                aria-label="QR 스캔"
+                className="press flex w-[46px] shrink-0 items-center justify-center rounded-[14px] bg-surface text-ink active:bg-press"
+              >
+                <QrCode size={17} strokeWidth={1.9} />
+              </button>
+            </div>
             {recipient && !recipientValid && (
               <div className="mt-1.5 px-1 text-[11.5px] text-danger">주소 형식을 확인하세요.</div>
+            )}
+
+            {(recipientBadge || memo) && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 px-1">
+                {recipientBadge && (
+                  <span
+                    data-recipient-badge={recipientBadge.kind}
+                    className={cx(
+                      'rounded-full px-2 py-[3px] text-[10.5px] font-semibold',
+                      recipientBadge.caution
+                        ? 'bg-warn/10 text-warn'
+                        : 'bg-surface text-ink',
+                    )}
+                  >
+                    {recipientBadge.label}
+                  </span>
+                )}
+                {memo && (
+                  <span
+                    data-memo-chip="true"
+                    className="flex max-w-full items-center gap-1 rounded-full bg-surface py-[3px] pl-2 pr-1 text-[10.5px] font-medium text-muted"
+                  >
+                    <span className="truncate">메모 · {normalizedMemo ?? memo}</span>
+                    <button
+                      onClick={() => setMemo('')}
+                      aria-label="메모 지우기"
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-faint active:opacity-60"
+                    >
+                      <X size={9} strokeWidth={2.4} />
+                    </button>
+                  </span>
+                )}
+              </div>
             )}
 
             {book.length > 0 && (
@@ -809,6 +917,17 @@ export function SendSheet({
                 잔액 {balanceUi}
               </button>
             </div>
+            {amountValid && (
+              <div className="mt-1.5 flex items-center justify-between px-1 text-[11.5px]">
+                <span className="text-muted">보낸 뒤 잔액</span>
+                <span className="tnum font-medium text-ink" data-remaining-sol="true">
+                  {formatTxAmount(remainingSol, 9)} SOL
+                </span>
+              </div>
+            )}
+            {remainingWarning && (
+              <div className="mt-1 px-1 text-[11px] leading-snug text-warn">{remainingWarning}</div>
+            )}
           </div>
 
           <div className="mt-5 text-[11.5px] leading-relaxed text-faint">
@@ -873,6 +992,14 @@ export function SendSheet({
                 <span className="text-[12.5px] text-muted">토큰 계정 생성</span>
                 <span className="text-[12.5px] tnum text-ink">
                   {formatTxAmount(rentLamports, 9)} SOL
+                </span>
+              </div>
+            )}
+            {preview && normalizedMemo && (
+              <div className="flex items-start justify-between gap-4">
+                <span className="shrink-0 text-[12.5px] text-muted">메모</span>
+                <span className="break-all text-right text-[12.5px] text-ink" data-confirm-memo="true">
+                  {normalizedMemo}
                 </span>
               </div>
             )}
@@ -1030,6 +1157,15 @@ export function SendSheet({
           </div>
         </div>
       )}
-    </Sheet>
+      </Sheet>
+      <QrScanner
+        open={scanOpen && open}
+        onClose={() => setScanOpen(false)}
+        onPayload={(text) => {
+          setScanOpen(false)
+          applyRecipientInput(text)
+        }}
+      />
+    </>
   )
 }

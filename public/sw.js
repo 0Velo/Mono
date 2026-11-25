@@ -12,12 +12,15 @@
  * v18 (Mono): 지갑이 있어 잠금 화면으로 들어갈 때, 스플래시가 우주선 발진 대신
  * 외계인을 키패드 위 `MonoMark` 자리로 작아지며 내려놓고 떠나는 착륙 연출로
  * 끝난다(index.html의 data-mode="land" 키프레임 + splashLanding.ts의 좌표·시계).
+ * v19 (Mono): 송금 화면에 카메라 QR 스캔(`jsqr` 번들 디코더, 외부 스크립트 없음),
+ * 받는 주소 별명·`처음 보내는 주소` 칩과 `보낸 뒤 잔액`, 홈 총 잔액 탭해서
+ * 가리기(프라이버시 모드), 설정의 빈 토큰 계정 정리(SOL rent 회수).
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v18`
+const CACHE = `${CACHE_PREFIX}v19`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

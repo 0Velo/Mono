@@ -3,7 +3,7 @@ import { Check, ChevronRight, Copy, EyeOff, RefreshCw, Settings2, Star } from 'l
 import { Sparkline, SolMark, TokenIcon } from '../components/ui'
 import { TxRow, type TokenSymbolMap } from '../components/TxRow'
 import { showToast } from '../components/Toast'
-import { usePrefs } from '../lib/prefs'
+import { usePrefs, toggleHideBalance } from '../lib/prefs'
 import { buildAssets } from '../lib/assets'
 import {
   formatAmount,
@@ -152,6 +152,13 @@ export function Home({
         <div className="flex items-center gap-2">
           <span className="text-[12.5px] font-medium text-muted">총 자산</span>
           <button
+            onClick={() => setCurrency((value) => (value === 'usd' ? 'krw' : 'usd'))}
+            aria-label="표시 통화 전환"
+            className="rounded-full bg-surface px-2 py-[3px] text-[10.5px] font-medium text-muted active:bg-press"
+          >
+            {currency === 'usd' ? 'USD' : 'KRW'}
+          </button>
+          <button
             onClick={copyAddress}
             className="flex items-center gap-1 rounded-full bg-surface px-2 py-[3px] text-[10.5px] font-medium text-muted active:bg-press"
             aria-label="주소 복사"
@@ -162,17 +169,18 @@ export function Home({
         </div>
         {portfolio || !loading ? (
           <button
-            onClick={() => setCurrency((value) => (value === 'usd' ? 'krw' : 'usd'))}
+            onClick={() => toggleHideBalance()}
             className="mt-2 block max-w-full text-left"
-            aria-label="표시 통화 전환"
+            aria-label={prefs.hideBalance ? '총 잔액 보이기' : '총 잔액 숨기기'}
           >
             <span
               className={cx(
                 'tnum block text-[42px] font-bold leading-[1.06] tracking-[-0.04em]',
                 totalUsd === null ? 'text-faint2' : 'text-ink',
               )}
+              data-balance-hidden={prefs.hideBalance ? 'true' : 'false'}
             >
-              {heroValue}
+              {prefs.hideBalance ? '••••' : heroValue}
             </span>
           </button>
         ) : (
@@ -181,7 +189,11 @@ export function Home({
 
         <div className="mt-2.5 flex items-center gap-2 text-[12.5px]">
           <span className="tnum font-medium text-muted">
-            {solUi !== null ? `${formatAmount(BigInt(portfolio!.solLamports), 9, 4)} SOL` : '—'}
+            {solUi === null
+              ? '—'
+              : prefs.hideBalance
+                ? '•••• SOL'
+                : `${formatAmount(BigInt(portfolio!.solLamports), 9, 4)} SOL`}
           </span>
           {change !== null && (
             <>

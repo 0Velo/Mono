@@ -207,6 +207,9 @@ test('the splash waits for the landing before it fades out', () => {
 test('the service worker cache moved past the landed build', () => {
   const sw = readRepoFile('public/sw.js')
   const version = Number(sw.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1])
-  assert.equal(version, 18, `service worker cache version is ${version}`)
+  assert.ok(Number.isFinite(version) && version >= 19, `service worker cache version is ${version}`)
+  // Each shipped feature set keeps its own line in the service worker history;
+  // the landing build (v18) must still be described, and so must this one.
   assert.match(sw, /v18 \(Mono\)/)
+  assert.match(sw, /v19 \(Mono\)/)
 })

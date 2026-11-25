@@ -16,6 +16,7 @@ import {
 } from '@solana/spl-token'
 import bs58 from 'bs58'
 import { fromBaseUnits } from './format'
+import { MEMO_PROGRAM_ID, sanitizeMemo } from './solanaPay'
 import {
   PREVIEW_TTL_MS,
   assertMessageMatches,
@@ -243,11 +244,27 @@ export interface PreparedSend {
   mint: string | null
   amount: bigint
   decimals: number
+  memo: string | null
   blockhash: string
   lastValidBlockHeight: number
   rentLamports: bigint
   createsAta: boolean
   createdAt: number
+}
+
+/**
+ * A Solana Pay memo travels as one account-less instruction of the Memo
+ * program: it writes text next to the transfer, moves no funds and adds no
+ * signer, so the simulated lamport/token deltas stay exactly the transfer's.
+ */
+export function buildMemoInstruction(memo: string | null): TransactionInstruction | null {
+  const text = sanitizeMemo(memo)
+  if (!text) return null
+  return new TransactionInstruction({
+    programId: new PublicKey(MEMO_PROGRAM_ID),
+    keys: [],
+    data: Buffer.from(text, 'utf8'),
+  })
 }
 
 async function prepareSendMessage(
@@ -261,23 +278,28 @@ async function prepareSendMessage(
   instructions: TransactionInstruction[],
   addresses: PublicKey[],
   createsAta: boolean,
+  memo: string | null = null,
 ): Promise<PreparedSend> {
-  const { blockhash, lastValidBlockHeight } = await withTimeout(
+  const blockhashResponse = await withTimeout(
     connection.getLatestBlockhash('confirmed'),
     TX_TIMEOUTS.stepMs,
     'RPC에서 응답이 없습니다. 네트워크나 RPC 설정을 확인하세요.',
   )
+  const { blockhash, lastValidBlockHeight } = blockhashResponse
   if (!blockhash || !Number.isSafeInteger(lastValidBlockHeight)) {
     throw new Error('유효한 블록해시를 받지 못해 서명하지 않았습니다.')
   }
+  const memoText = sanitizeMemo(memo)
+  const memoIx = buildMemoInstruction(memoText || null)
+  const allInstructions = memoIx ? [...instructions, memoIx] : instructions
   const transaction = new VersionedTransaction(
     new TransactionMessage({
       payerKey: signer.publicKey,
       recentBlockhash: blockhash,
-      instructions,
+      instructions: allInstructions,
     }).compileToV0Message(),
   )
-  const programs = Array.from(new Set(instructions.map((instruction) => instruction.programId.toBase58())))
+  const programs = Array.from(new Set(allInstructions.map((instruction) => instruction.programId.toBase58())))
   const snapshot = await simulateAndCapture(connection, transaction, addresses, programs)
   const owner = signer.publicKey.toBase58()
   const recipientAddress = recipient.toBase58()
@@ -332,6 +354,7 @@ async function prepareSendMessage(
     mint: mint?.toBase58() ?? null,
     amount,
     decimals,
+    memo: memoText || null,
     blockhash,
     lastValidBlockHeight,
     rentLamports,
@@ -345,6 +368,7 @@ export async function prepareSolSend(
   signer: Keypair,
   recipient: string,
   lamports: bigint,
+  memo: string | null = null,
 ): Promise<PreparedSend> {
   if (lamports <= 0n) throw new Error('보낼 수량을 입력하세요.')
   const to = new PublicKey(recipient)
@@ -361,6 +385,7 @@ export async function prepareSolSend(
     [instruction],
     [signer.publicKey, to],
     false,
+    memo,
   )
 }
 
@@ -371,6 +396,7 @@ export async function prepareSplSend(
   recipient: string,
   amount: bigint,
   decimals: number,
+  memo: string | null = null,
 ): Promise<PreparedSend> {
   if (amount <= 0n) throw new Error('보낼 수량을 입력하세요.')
   const mint = new PublicKey(mintAddress)
@@ -420,6 +446,7 @@ export async function prepareSplSend(
     instructions,
     [signer.publicKey, sourceAta, destinationAta],
     createsAta,
+    memo,
   )
 }
 
