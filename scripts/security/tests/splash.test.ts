@@ -44,11 +44,11 @@ test('the mascot asset is a small transparent WebP, not a megabyte PNG', () => {
 })
 
 test('the splash is held long enough to be seen, then never replayed', () => {
-  assert.equal(splashRemainingDelay(0), 2150)
-  assert.equal(splashRemainingDelay(200), 1950)
-  assert.equal(splashRemainingDelay(2150), 0)
+  assert.equal(splashRemainingDelay(0), 2450)
+  assert.equal(splashRemainingDelay(200), 2250)
+  assert.equal(splashRemainingDelay(2450), 0)
   assert.equal(splashRemainingDelay(5000), 0)
-  assert.equal(splashRemainingDelay(Number.NaN), 2150)
+  assert.equal(splashRemainingDelay(Number.NaN), 2450)
 
   const g = globalThis as unknown as {
     window?: unknown
@@ -76,7 +76,7 @@ test('the splash is held long enough to be seen, then never replayed', () => {
   // The hold is counted from the splash's own paint clock, not from navigation
   // start: on a slow load the CSS animation starts hundreds of ms later, and the
   // saucer's flight must not be cut off by the fade.
-  assert.ok(timers[0].ms > 1000 && timers[0].ms <= 1150, `hold from paint was ${timers[0].ms}ms`)
+  assert.ok(timers[0].ms > 1000 && timers[0].ms <= 1450, `hold from paint was ${timers[0].ms}ms`)
   timers[0].fn()
   assert.equal(splash.dataset.state, 'leaving')
   assert.equal(timers.length, 2, 'a timer removes the node even if transitionend never fires')
@@ -107,12 +107,13 @@ test('the mascot enters, floats and breathes instead of just appearing', () => {
   assert.match(reduce, /#app-splash \.splash-mark \{\s*animation: none;/)
 })
 
-test('a clay saucer lands, lifts the mascot aboard and carries it off in ~2.5 s', () => {
+test('a clay saucer lands, lifts the mascot aboard and carries it off in ~2.8 s', () => {
   const html = readRepoFile('index.html')
   const splash = readRepoFile('src/lib/splash.ts')
 
-  // Hold plus fade is the whole beat the brief asks for: about 2.5 seconds.
-  assert.match(splash, /const MIN_VISIBLE_MS = 2150/)
+  // Hold plus fade is the whole beat the brief asks for: launch, then the
+  // wordmark, then a fade that still leaves time to read it.
+  assert.match(splash, /const MIN_VISIBLE_MS = 2450/)
   assert.match(splash, /const FADE_MS = 350/)
 
   // The ship is drawn in the document itself: no extra file, no script.
@@ -139,8 +140,55 @@ test('a clay saucer lands, lifts the mascot aboard and carries it off in ~2.5 s'
   assert.match(reduce, /#app-splash \.splash-ship,[\s\S]*\{\s*display: none;/)
 })
 
+test('the wordmark stays hidden until lift-off, then rises and is read before the fade', () => {
+  const html = readRepoFile('index.html')
+  const splash = readRepoFile('src/lib/splash.ts')
+
+  // It is in the document from the first paint, but unreadable: transparent and
+  // out of focus until its own animation starts.
+  const wordStart = html.indexOf('#app-splash .splash-word {')
+  const wordRule = html.slice(wordStart, html.indexOf('}', wordStart))
+  assert.match(wordRule, /opacity: 0;/)
+  assert.match(wordRule, /filter: blur\(6px\);/)
+
+  const delayOf = (rule: string, name: string) => {
+    const match = rule.match(new RegExp(`animation:\\s*${name}\\s+(\\d+)ms[^;]*?(\\d+)ms\\s+forwards`))
+    assert.ok(match, `${name} must run a fixed-length animation with a delay and forwards fill`)
+    return { duration: Number(match[1]), delay: Number(match[2]) }
+  }
+  const word = delayOf(wordRule, 'splash-word')
+  const stageStart = html.indexOf('#app-splash .splash-stage {')
+  const launch = delayOf(html.slice(stageStart, html.indexOf('}', stageStart)), 'splash-launch')
+
+  // The saucer has the stage first: the word waits for lift-off, not before it.
+  assert.ok(launch.delay >= 1750 && launch.delay <= 1900, `lift-off starts at ${launch.delay}ms`)
+  assert.ok(word.delay >= launch.delay, `the word starts at ${word.delay}ms, before lift-off at ${launch.delay}ms`)
+  assert.ok(word.delay - launch.delay <= 80, 'the word follows the saucer straight away')
+
+  // The reveal ends before the splash starts fading, and the whole splash still
+  // fits the ~2.6-2.8 s beat: it is read, held a beat, then gone.
+  const hold = Number(splash.match(/const MIN_VISIBLE_MS = (\d+)/)?.[1])
+  const fade = Number(splash.match(/const FADE_MS = (\d+)/)?.[1])
+  const revealEnd = word.delay + word.duration
+  assert.ok(revealEnd <= hold, `the word finishes at ${revealEnd}ms, after the fade starts at ${hold}ms`)
+  assert.ok(hold - revealEnd >= 80, 'the word holds on screen for a beat')
+  assert.ok(hold + fade >= 2600 && hold + fade <= 2800, `splash total is ${hold + fade}ms`)
+
+  // Motion sickness: the wordmark is simply there, under the mascot, with no
+  // rise, no blur and no fade-in to wait for.
+  const reduce = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))
+  assert.match(
+    reduce,
+    /#app-splash \.splash-word \{\s*position: static;\s*animation: none;\s*opacity: 1;\s*filter: none;\s*transform: none;/,
+  )
+  // ...and its end state is the legible one.
+  const keyframes = html.slice(html.indexOf('@keyframes splash-word {'))
+  assert.match(keyframes.slice(0, keyframes.indexOf('}') + 1), /0% \{\s*opacity: 0;/)
+  assert.match(keyframes, /100% \{\s*opacity: 1;/)
+})
+
 test('the service worker cache moved past the previous build', () => {
   const sw = readRepoFile('public/sw.js')
   const version = Number(sw.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1])
-  assert.ok(Number.isFinite(version) && version >= 14, `service worker cache version is ${version}`)
+  assert.ok(Number.isFinite(version) && version >= 17, `service worker cache version is ${version}`)
 })

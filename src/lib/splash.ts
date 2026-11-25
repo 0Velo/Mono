@@ -8,9 +8,11 @@
 const SPLASH_ID = 'app-splash'
 /**
  * 스플래시가 그려진 뒤 유지할 시간. 마스코트가 떠오르고, 우주선이 내려와 태우고,
- * 대각선으로 날아가는 한 장면(약 2.1초)이 끝까지 보이도록 잡은 값이다.
+ * 대각선으로 날아가고, 그 자리에 `Mono` 워드마크가 떠올라 읽히는 한 장면
+ * (발진 1.82초 → 워드마크 1.86~2.34초)이 끝까지 보이도록 잡은 값이다.
+ * 페이드(350ms)까지 합치면 약 2.8초.
  */
-const MIN_VISIBLE_MS = 2150
+const MIN_VISIBLE_MS = 2450
 /** 페이드아웃 시간. index.html의 #app-splash transition과 같아야 한다. */
 const FADE_MS = 350
 let requested = false
