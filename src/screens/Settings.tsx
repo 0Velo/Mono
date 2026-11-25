@@ -17,6 +17,7 @@ import {
 import { MonoMark, Segmented } from '../components/ui'
 import { Spinner } from '../components/Spinner'
 import { showToast } from '../components/Toast'
+import { BUILD_ID } from '../lib/update'
 import {
   DEFAULT_RPC,
   RPC_EXAMPLE,
@@ -527,7 +528,7 @@ export function Settings({
       <div className="mt-6 flex flex-col items-center gap-1 pb-2 text-[11px] text-faint">
         <span>Mono 2.0.0</span>
         <span className="tnum">
-          Mono · v10 · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
+          Mono · {BUILD_ID} · {meta.network === 'mainnet' ? 'Mainnet' : 'Devnet'}
         </span>
       </div>
     </div>

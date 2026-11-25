@@ -44,11 +44,11 @@ test('the mascot asset is a small transparent WebP, not a megabyte PNG', () => {
 })
 
 test('the splash is held long enough to be seen, then never replayed', () => {
-  assert.equal(splashRemainingDelay(0), 420)
-  assert.equal(splashRemainingDelay(200), 220)
-  assert.equal(splashRemainingDelay(420), 0)
+  assert.equal(splashRemainingDelay(0), 1150)
+  assert.equal(splashRemainingDelay(200), 950)
+  assert.equal(splashRemainingDelay(1150), 0)
   assert.equal(splashRemainingDelay(5000), 0)
-  assert.equal(splashRemainingDelay(Number.NaN), 420)
+  assert.equal(splashRemainingDelay(Number.NaN), 1150)
 
   const g = globalThis as unknown as {
     window?: unknown
@@ -84,8 +84,24 @@ test('the splash is held long enough to be seen, then never replayed', () => {
   delete g.document
 })
 
+test('the mascot enters, floats and breathes instead of just appearing', () => {
+  const html = readRepoFile('index.html')
+  // The wrapper drifts; the mascot scales in and breathes. Separate layers so
+  // the two transform animations never overwrite each other.
+  assert.match(html, /class="splash-mark"/)
+  assert.match(html, /@keyframes splash-float/)
+  assert.match(html, /@keyframes splash-breathe/)
+  assert.match(html, /animation:\s*splash-float[^;]*infinite/)
+  assert.match(html, /splash-breathe[^;]*infinite/)
+  assert.match(html, /@keyframes splash-enter/)
+  assert.match(html, /transition: opacity 380ms ease/)
+  // Motion sickness settings still win: no float, no breathing.
+  const reduce = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))
+  assert.match(reduce, /#app-splash \.splash-mark \{\s*animation: none;/)
+})
+
 test('the service worker cache moved past the previous build', () => {
   const sw = readRepoFile('public/sw.js')
   const version = Number(sw.match(/CACHE = `\$\{CACHE_PREFIX\}v(\d+)`/)?.[1])
-  assert.ok(Number.isFinite(version) && version >= 13, `service worker cache version is ${version}`)
+  assert.ok(Number.isFinite(version) && version >= 14, `service worker cache version is ${version}`)
 })

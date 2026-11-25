@@ -43,6 +43,52 @@ export interface WalletAccount {
   name: string
 }
 
+/**
+ * How many derived accounts a mnemonic wallet may hold. The path segment is
+ * `m/44'/501'/index'/0'`, and 100 distinct indices is the standard space every
+ * wallet app agrees on — far above the handful anyone uses, and far below the
+ * point where unlock derivation becomes slow.
+ */
+export const MAX_ACCOUNTS = 100
+
+/** Every registered index in the 0..99 derivation space, de-duplicated. */
+export function sanitizeAccountIndices(values: readonly unknown[]): number[] {
+  return Array.from(
+    new Set(
+      values
+        .map(Number)
+        .filter((index) => Number.isInteger(index) && index >= 0 && index < MAX_ACCOUNTS),
+    ),
+  ).sort((a, b) => a - b)
+}
+
+/**
+ * Metadata written before the account registry existed carried no
+ * `accountIndices`: those builds always derived and showed the base accounts
+ * 0, 1 and 2. Rebuild exactly the contiguous list such a wallet was using
+ * (through its active account and any renamed one) so an update never makes
+ * accounts the person could see disappear.
+ */
+export function legacyAccountIndices(
+  activeIndex: number,
+  names?: Record<string, string>,
+): number[] {
+  const renamed = Object.keys(names ?? {})
+    .map(Number)
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < MAX_ACCOUNTS)
+  const top = Math.max(0, activeIndex, ...renamed)
+  return top > 0 ? Array.from({ length: Math.min(top, MAX_ACCOUNTS - 1) }, (_, position) => position + 1) : []
+}
+
+/** Lowest free index above the base account, or null when the space is full. */
+export function nextAccountIndex(registered: readonly number[]): number | null {
+  const used = new Set(registered)
+  for (let index = 1; index < MAX_ACCOUNTS; index += 1) {
+    if (!used.has(index)) return index
+  }
+  return null
+}
+
 const DEFAULT_META: Omit<WalletMeta, 'address'> = {
   name: 'Mono',
   network: 'mainnet',
@@ -80,6 +126,10 @@ interface WalletContextValue {
   activeIndex: number
   activeAccount: WalletAccount | null
   switchAccount: (index: number) => Promise<void>
+  /** Derives and registers the next free account, returning its index. */
+  addAccount: () => Promise<number>
+  /** Removes an account from the registry. The seed phrase is never touched. */
+  removeAccount: (index: number) => Promise<void>
   renameAccount: (index: number, name: string) => void
 
 }
@@ -93,22 +143,24 @@ export function readMeta(): WalletMeta | null {
     const parsed = JSON.parse(raw) as Partial<WalletMeta>
     if (typeof parsed?.address !== 'string' || !parsed.address) return null
     const active = Number(parsed.activeIndex)
-    const activeIndex = Number.isInteger(active) && active >= 0 && active < 100 ? active : 0
-    const accountIndices = Array.isArray(parsed.accountIndices)
-      ? Array.from(
-          new Set(
-            parsed.accountIndices
-              .map(Number)
-              .filter((index) => Number.isInteger(index) && index > 0 && index < 100),
-          ),
-        )
-      : []
+    const activeIndex = Number.isInteger(active) && active >= 0 && active < MAX_ACCOUNTS ? active : 0
     const accountNames = Object.fromEntries(
       Object.entries(parsed.accountNames ?? {})
-        .filter(([index, name]) => /^\d+$/.test(index) && Number(index) < 100 && typeof name === 'string')
+        .filter(
+          ([index, name]) =>
+            /^\d+$/.test(index) && Number(index) < MAX_ACCOUNTS && typeof name === 'string',
+        )
         .map(([index, name]) => [index, (name as string).trim().slice(0, 14)])
         .filter(([, name]) => Boolean(name)),
     )
+    // `undefined` means a build from before the registry (it always showed
+    // 0, 1, 2); an explicit list — even an empty one — is authoritative.
+    const accountIndices =
+      parsed.accountIndices === undefined
+        ? legacyAccountIndices(activeIndex, accountNames)
+        : sanitizeAccountIndices(
+            Array.isArray(parsed.accountIndices) ? parsed.accountIndices : [],
+          ).filter((index) => index > 0)
     return {
       ...DEFAULT_META,
       ...parsed,
@@ -148,10 +200,14 @@ function wipeKeypair(keypair: Keypair | null): void {
 
 /** Derive only the base account and indices the user has registered. */
 export function accountIndices(activeIndex: number, names?: Record<string, string>, saved?: number[]): number[] {
-  const set = new Set<number>([0, Math.max(0, activeIndex), ...(saved ?? [])])
+  const set = new Set<number>([
+    0,
+    Math.max(0, Math.min(activeIndex, MAX_ACCOUNTS - 1)),
+    ...sanitizeAccountIndices(saved ?? []),
+  ])
   Object.keys(names ?? {}).forEach((key) => {
     const index = Number(key)
-    if (Number.isInteger(index) && index >= 0 && index < 100) set.add(index)
+    if (Number.isInteger(index) && index >= 0 && index < MAX_ACCOUNTS) set.add(index)
   })
   return Array.from(set).sort((a, b) => a - b)
 }
@@ -448,8 +504,13 @@ useEffect(() => {
   const switchAccount = useCallback(
     async (index: number) => {
       const payload = payloadRef.current
-      if (!payload || payload.kind !== 'mnemonic') return
-      if (!Number.isInteger(index) || index < 0 || index >= 100) throw new Error('계정 번호가 올바르지 않습니다.')
+      if (!payload) throw new Error('지갑 잠금을 먼저 풀어 주세요.')
+      if (payload.kind !== 'mnemonic') {
+        throw new Error('개인키로 만든 지갑에는 계정을 추가할 수 없습니다.')
+      }
+      if (!Number.isInteger(index) || index < 0 || index >= MAX_ACCOUNTS) {
+        throw new Error('계정 번호가 올바르지 않습니다.')
+      }
       if (index === activeIndex) return
       const { keypairForAccount, keypairFromPayload } = await loadKeys()
       const next = index === 0 ? keypairFromPayload(payload) : keypairForAccount(payload.mnemonic, index)
@@ -458,6 +519,8 @@ useEffect(() => {
       const ids = Array.from(
         new Set([...(base.accountIndices ?? []), ...(index > 0 ? [index] : [])]),
       )
+        .filter((value) => Number.isInteger(value) && value > 0 && value < MAX_ACCOUNTS)
+        .sort((a, b) => a - b)
       try {
         persistMeta({ ...base, address, activeIndex: index, accountIndices: ids })
       } catch (error) {
@@ -473,6 +536,106 @@ useEffect(() => {
           (a, b) => a.index - b.index,
         )
       })
+    },
+    [activeIndex, meta, persistMeta, setKeypair],
+  )
+
+  /**
+   * Adds the next free derived account and makes it active. The registry in
+   * metadata is the source of truth, so adding works the same whether the list
+   * came from a fresh wallet, an older build, or a restored backup.
+   */
+  const addAccount = useCallback(async (): Promise<number> => {
+    const payload = payloadRef.current
+    if (!payload) throw new Error('지갑 잠금을 먼저 풀어 주세요.')
+    if (payload.kind !== 'mnemonic') {
+      throw new Error('개인키로 만든 지갑에는 계정을 추가할 수 없습니다.')
+    }
+    const base = meta ?? readMeta()
+    const registered = accountIndices(activeIndex, base?.accountNames, base?.accountIndices)
+    const index = nextAccountIndex(registered)
+    if (index === null) {
+      throw new Error(`계정은 최대 ${MAX_ACCOUNTS}개까지 만들 수 있습니다.`)
+    }
+    const { keypairForAccount } = await loadKeys()
+    const next = keypairForAccount(payload.mnemonic, index)
+    const address = next.publicKey.toBase58()
+    const current = base ?? { ...DEFAULT_META, address, createdAt: Date.now() }
+    const ids = Array.from(new Set([...(current.accountIndices ?? []), index]))
+      .filter((value) => Number.isInteger(value) && value > 0 && value < MAX_ACCOUNTS)
+      .sort((a, b) => a - b)
+    try {
+      persistMeta({ ...current, address, activeIndex: index, accountIndices: ids })
+    } catch (error) {
+      wipeKeypair(next)
+      throw error
+    }
+    wipeKeypair(keypairRef.current)
+    setKeypair(next)
+    setActiveIndex(index)
+    setAccounts((list) => {
+      if (list.some((account) => account.index === index)) return list
+      return [...list, { index, address, name: accountLabel(current, index) }].sort(
+        (a, b) => a.index - b.index,
+      )
+    })
+    return index
+  }, [activeIndex, meta, persistMeta, setKeypair])
+
+  /**
+   * Removes one derived account from the registry. Nothing in the vault is
+   * rewritten: the seed phrase still derives that address, so re-adding the
+   * same index brings back the same account with its funds.
+   */
+  const removeAccount = useCallback(
+    async (index: number) => {
+      const payload = payloadRef.current
+      if (!payload) throw new Error('지갑 잠금을 먼저 풀어 주세요.')
+      const base = meta ?? readMeta()
+      if (!base) throw new Error('지갑 설정을 읽지 못했습니다. 기존 데이터는 유지했습니다.')
+      const registered = accountIndices(activeIndex, base.accountNames, base.accountIndices)
+      if (!registered.includes(index)) throw new Error('목록에 없는 계정입니다.')
+      const remaining = registered.filter((value) => value !== index)
+      if (remaining.length === 0) throw new Error('계정이 하나뿐일 때는 삭제할 수 없습니다.')
+
+      // Deleting the account in use means the wallet has to show another one;
+      // derive it first so a failure leaves the current state untouched.
+      const nextActive = index === activeIndex ? remaining[0] : activeIndex
+      let nextKeypair: Keypair | null = null
+      if (index === activeIndex) {
+        if (payload.kind !== 'mnemonic') throw new Error('개인키 지갑의 계정은 삭제할 수 없습니다.')
+        const { keypairForAccount, keypairFromPayload } = await loadKeys()
+        nextKeypair =
+          nextActive === 0 ? keypairFromPayload(payload) : keypairForAccount(payload.mnemonic, nextActive)
+      }
+      const address = nextKeypair
+        ? nextKeypair.publicKey.toBase58()
+        : base.address
+      const names = { ...base.accountNames }
+      delete names[String(index)]
+      const ids = remaining.filter((value) => value > 0 && value < MAX_ACCOUNTS).sort((a, b) => a - b)
+
+      try {
+        persistMeta({ ...base, address, activeIndex: nextActive, accountIndices: ids, accountNames: names })
+      } catch (error) {
+        wipeKeypair(nextKeypair)
+        throw error
+      }
+
+      if (nextKeypair) {
+        wipeKeypair(keypairRef.current)
+        setKeypair(nextKeypair)
+      }
+      setActiveIndex(nextActive)
+      setAccounts((list) =>
+        list
+          .filter((account) => account.index !== index)
+          .map((account) =>
+            account.index === nextActive
+              ? { ...account, name: accountLabel({ ...base, accountNames: names }, account.index) }
+              : account,
+          ),
+      )
     },
     [activeIndex, meta, persistMeta, setKeypair],
   )
@@ -588,6 +751,8 @@ useEffect(() => {
       activeIndex,
       activeAccount,
       switchAccount,
+      addAccount,
+      removeAccount,
       renameAccount,
     }),
     [
@@ -607,6 +772,8 @@ useEffect(() => {
       activeIndex,
       activeAccount,
       switchAccount,
+      addAccount,
+      removeAccount,
       renameAccount,
     ],
   )

@@ -18,6 +18,7 @@ import {
 import {
   ATA_RENT_LAMPORTS,
   BASE_FEE_LAMPORTS,
+  TX_TIMEOUTS,
   estimateFee,
   fetchHistory,
   inspectTransaction,
@@ -498,4 +499,133 @@ test('history detail lookup failures preserve signature rows and successful deta
   assert.equal(history[1].detailed, true)
   assert.equal(history[1].solDelta, 25_000)
   assert.deepEqual(history[1].tokenDeltas, [{ mint: USDC, amount: '1250000', decimals: 6, uiAmount: 1.25 }])
+})
+
+/* ---------------------------------------------------- confirmation deadlines */
+
+/** Runs `body` with millisecond deadlines so the real timeout code is proven. */
+async function withFastTimeouts(body: () => Promise<void>) {
+  const saved = { ...TX_TIMEOUTS }
+  try {
+    TX_TIMEOUTS.stepMs = 120
+    TX_TIMEOUTS.statusMs = 60
+    TX_TIMEOUTS.confirmMs = 300
+    TX_TIMEOUTS.pollMs = 20
+    await body()
+  } finally {
+    Object.assign(TX_TIMEOUTS, saved)
+  }
+}
+
+test('the RPC-accepted hook fires once, right after broadcast and before confirmation', async () => {
+  const signer = Keypair.generate()
+  const fake = broadcastConnection({ status: { err: null, confirmationStatus: 'confirmed' } })
+  const events: string[] = []
+  const originalSend = fake.connection.sendRawTransaction
+  fake.connection.sendRawTransaction = async (raw: Uint8Array) => {
+    const signature = await originalSend(raw)
+    events.push(`send:${signature.slice(0, 4)}`)
+    return signature
+  }
+  const signature = await sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n, {
+    onSubmitted: (attempt) => events.push(`submitted:${attempt.signature.slice(0, 4)}`),
+    onTerminal: () => events.push('terminal'),
+  })
+  assert.deepEqual(events, [`send:${signature.slice(0, 4)}`, `submitted:${signature.slice(0, 4)}`, 'terminal'])
+})
+
+test('a transaction that never confirms ends as pending inside the confirmation window', async () => {
+  const signer = Keypair.generate()
+  await withFastTimeouts(async () => {
+    const fake = broadcastConnection({ status: null, height: 10 })
+    const startedAt = Date.now()
+    await assert.rejects(
+      () => sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n),
+      (error: unknown) => error instanceof TxOutcomeError && error.outcome === 'pending' && Boolean(error.signature),
+    )
+    const elapsed = Date.now() - startedAt
+    // The loop must exit on its own deadline, not spin forever.
+    assert.ok(elapsed < 2_000, `confirmation took ${elapsed}ms`)
+  })
+})
+
+test('an RPC whose status calls never answer still ends as unknown, not as a hang', async () => {
+  const signer = Keypair.generate()
+  await withFastTimeouts(async () => {
+    const fake = broadcastConnection({ status: null, height: 10 })
+    // The pre-sign height check still answers; every confirmation read hangs.
+    fake.connection.getSignatureStatuses = () => new Promise(() => {})
+    fake.connection.getBlockHeight = () => new Promise(() => {})
+    const startedAt = Date.now()
+    await assert.rejects(
+      () => sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n),
+      (error: unknown) => Boolean(error) && /블록 높이를 확인하지 못했습니다/.test((error as Error).message),
+    )
+    assert.ok(Date.now() - startedAt < 2_000)
+  })
+})
+
+test('a status call that never answers still leaves the confirmation loop and reports unknown', async () => {
+  const signer = Keypair.generate()
+  await withFastTimeouts(async () => {
+    const fake = broadcastConnection({ status: null, height: 10 })
+    const originalHeight = fake.connection.getBlockHeight
+    let heightCalls = 0
+    fake.connection.getBlockHeight = async () => {
+      heightCalls += 1
+      // First call is the pre-sign height guard; later ones are confirmation.
+      return heightCalls === 1 ? originalHeight() : new Promise(() => {})
+    }
+    fake.connection.getSignatureStatuses = () => new Promise(() => {})
+    const startedAt = Date.now()
+    await assert.rejects(
+      () => sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n),
+      (error: unknown) => error instanceof TxOutcomeError && error.outcome === 'unknown',
+    )
+    assert.ok(Date.now() - startedAt < 2_000)
+  })
+})
+
+test('a broadcast that never answers is bounded by the step timeout and keeps the signed signature', async () => {
+  const signer = Keypair.generate()
+  await withFastTimeouts(async () => {
+    const fake = broadcastConnection({ status: null, height: 10 })
+    let signedSignature = ''
+    fake.connection.sendRawTransaction = (raw: Uint8Array) => {
+      signedSignature = bs58.encode(VersionedTransaction.deserialize(raw).signatures[0])
+      return new Promise(() => {})
+    }
+    let submitted = 0
+    await assert.rejects(
+      () =>
+        sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n, {
+          onSigned: (attempt) => {
+            assert.equal(attempt.signature, signedSignature || attempt.signature)
+          },
+          onSubmitted: () => {
+            submitted += 1
+          },
+        }),
+      (error: unknown) =>
+        error instanceof TxOutcomeError && error.outcome === 'pending' && error.signature === signedSignature,
+    )
+    assert.equal(submitted, 0, 'a broadcast that never answered was never confirmed as accepted')
+  })
+})
+
+test('a failed or erroring status read inside the window reports unknown without inventing success', async () => {
+  const signer = Keypair.generate()
+  await withFastTimeouts(async () => {
+    const fake = broadcastConnection({ failStatus: true, height: 10 })
+    await assert.rejects(
+      () => sendSol(fake.connection, signer, Keypair.generate().publicKey.toBase58(), 25_000n),
+      (error: unknown) => error instanceof TxOutcomeError && error.outcome === 'unknown',
+    )
+  })
+})
+
+test('production timeouts keep the whole send flow under a minute', () => {
+  assert.ok(TX_TIMEOUTS.stepMs <= 15_000, `step timeout ${TX_TIMEOUTS.stepMs}ms`)
+  assert.ok(TX_TIMEOUTS.confirmMs >= 20_000 && TX_TIMEOUTS.confirmMs <= 35_000, `confirm window ${TX_TIMEOUTS.confirmMs}ms`)
+  assert.ok(TX_TIMEOUTS.confirmMs < 60_000)
 })

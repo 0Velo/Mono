@@ -11,7 +11,8 @@
     "test:security": "node scripts/security/run.mjs",
     "test:security:ui": "node scripts/security/run.mjs --ui",
     "test:security:live": "node scripts/security/run.mjs --live",
-    "security:gate": "node scripts/security/gate.mjs"
+    "security:gate": "node scripts/security/gate.mjs",
+    "test:send": "node scripts/security/send/prepare.mjs && python3 scripts/security/send/send-e2e.py"
   },
   "dependencies": {
     "@noble/hashes": "^1.7.1",

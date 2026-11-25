@@ -5,6 +5,7 @@ import { LockScreen } from './screens/LockScreen'
 import { ShellSkeleton } from './screens/ShellSkeleton'
 import { prefetchKeys } from './lib/keys'
 import { hideAppSplash } from './lib/splash'
+import { fetchDeployedBuild, isNewerBuild } from './lib/update'
 import {
   ACTIVITY_NOTIFICATION_SETTING_EVENT,
   isActivityNotificationsEnabled,
@@ -38,6 +39,33 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { ready, initializationError, vaultExists, unlocked, meta } = useWallet()
   const [monitorEnabled, setMonitorEnabled] = useState(isActivityNotificationsEnabled)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+
+  // A home-screen app can resume from a page iOS kept suspended for days, still
+  // running the JavaScript it loaded back then. Check the deployed build id on
+  // launch and whenever the app comes back to the foreground, and offer a
+  // deliberate re-open instead of silently showing stale code.
+  useEffect(() => {
+    let cancelled = false
+    let lastCheck = 0
+    const check = async () => {
+      if (Date.now() - lastCheck < 60_000) return
+      lastCheck = Date.now()
+      const deployed = await fetchDeployedBuild()
+      if (!cancelled && isNewerBuild(deployed)) setUpdateAvailable(true)
+    }
+    void check()
+    const onForeground = () => {
+      if (document.visibilityState === 'visible') void check()
+    }
+    document.addEventListener('visibilitychange', onForeground)
+    window.addEventListener('online', onForeground)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onForeground)
+      window.removeEventListener('online', onForeground)
+    }
+  }, [])
 
   useEffect(() => {
     const syncPreference = () => setMonitorEnabled(isActivityNotificationsEnabled())
@@ -107,6 +135,14 @@ export default function App() {
         <Suspense fallback={<ShellSkeleton />}>
           <Shell />
         </Suspense>
+      )}
+      {updateAvailable && vaultExists && !unlocked && (
+        <button
+          onClick={() => window.location.reload()}
+          className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+10px)] z-[60] mx-auto w-max rounded-full bg-ink px-4 py-2 text-[12px] font-semibold text-onInk shadow-[0_10px_28px_rgba(0,0,0,0.2)]"
+        >
+          새 버전이 있어요 · 탭해서 새로 열기
+        </button>
       )}
       {vaultExists && meta?.address && monitorEnabled && (
         <Suspense fallback={null}>

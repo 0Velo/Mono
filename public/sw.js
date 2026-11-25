@@ -2,13 +2,13 @@
  * Scope-aware, so it also works when the app is served from a sub path
  * (GitHub Pages: https://0velo.github.io/Mono/).
  *
- * v13 (Mono): 입출금 알림 UI와 스플래시 화면. Same caching rules as v12;
- * hashed asset names change with every deploy, so a
+ * v14 (Mono): 계정 목록 개수 제한 수정, 송금 확인 시간 제한, 스플래시 애니메이션.
+ * Same caching rules as v13; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v13`
+const CACHE = `${CACHE_PREFIX}v14`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

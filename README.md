@@ -19,14 +19,14 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 ### 주요 기능
 
 - **지갑** — SOL · SPL 잔액과 평가금액, 24시간 변동, 실시간 시세(CoinGecko → Binance → DexScreener 폴백)
-- **보내기 / 받기** — 주소·수량 확인 단계, 토큰 계정 생성 수수료 미리 표시, Solscan 링크, QR 받기
+- **보내기 / 받기** — 주소·수량 확인 단계, 토큰 계정 생성 수수료 미리 표시, Solscan 링크, QR 받기. 전송은 RPC가 서명을 받아들이는 즉시 결과 화면으로 넘어가고, 확정 확인은 HTTPS 조회로 최대 30초만 기다린 뒤 서명 해시와 함께 명확한 상태를 남깁니다
 - **주소록** — "투빗 입금", "내 팬텀" 같은 이름으로 저장하고 보내기 화면에서 한 번에 선택
-- **계정 전환** — 같은 시드 문구에서 `m/44'/501'/n'/0'` 파생. 이름을 붙여 여러 계정을 오가며 사용
+- **계정** — 같은 시드 문구에서 `m/44'/501'/n'/0'` 파생. 최대 100개까지 추가·전환·이름 변경·삭제할 수 있고, 삭제한 번호를 다시 추가하면 같은 주소가 돌아옵니다
 - **스왑** — Jupiter 애그리게이터 견적·실행, 슬리피지(0.5 / 1 / 3%), 가격 영향·최소 수령·경로 표시
 - **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장)
 - **숨긴 토큰** — 에어드랍 스팸을 목록에서 숨기고 필요할 때만 다시 보기
 - **다크 모드** — 라이트 / 다크 / 시스템, 설정에 저장되고 첫 페인트 전에 적용
-- **첫 화면** — 앱을 열면 블랙 클레이 마스코트가 곧바로 뜨고, 금고를 읽는 동안 흰 화면이 보이지 않습니다. 준비가 끝나면 짧게 사라지고, 라이트·다크 모두에서 대비를 맞춥니다
+- **첫 화면** — 앱을 열면 블랙 클레이 마스코트가 곧바로 뜨고, 금고를 읽는 동안 흰 화면이 보이지 않습니다. 마스코트는 살짝 떠오르며 나타나 천천히 떠다니고, 최소 1.15초 노출된 뒤 0.38초에 걸쳐 사라집니다(동작 줄이기 설정에서는 애니메이션 없이 바로 표시)
 - **입출금 알림** — 설정에서 켜면 입금·출금·스왑을 OS 알림과 화면 안 토스트로 알립니다. 서버가 없어 기기가 20초마다 직접 조회하므로 **앱이 열려 있을 때만** 동작합니다(닫힌 앱 원격 푸시는 없음). iPhone은 홈 화면에 추가한 앱에서만 웹 알림 권한을 줄 수 있습니다
 
 ### 보안 구조
@@ -48,7 +48,8 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 
 ```bash
 npm run test:security        # 정적 검사 + 비밀키 스캔 + npm audit + crypto/tx 단위 테스트
-npm run test:security:ui     # 빌드된 앱을 Chromium에서 실제로 구동 (CSP·저장소·pagehide·XSS)
+npm run test:security:ui     # 빌드된 앱을 Chromium에서 실제로 구동 (CSP·저장소·pagehide·XSS·계정 6개 추가/이름/삭제)
+npm run test:send            # 모의 Devnet RPC로 송금 확인·타임아웃·RPC 오류·실패 경로를 브라우저에서 확인
 npm run security:gate        # 배포 차단 게이트 (Critical/High)
 ```
 
@@ -97,12 +98,12 @@ happens client-side. There is no server component and no analytics.
 - **Portfolio** — SOL + SPL balances, USD/KRW value, 24h change, keyless price fallbacks
 - **Send / Receive** — confirmation step, ATA rent disclosure, QR receive sheet, Solscan links
 - **Address book** — label recurring recipients and pick them with one tap in the send sheet
-- **Accounts** — explicitly added accounts from one seed (`m/44'/501'/n'/0'`) with custom nicknames
+- **Accounts** — up to 100 accounts from one seed (`m/44'/501'/n'/0'`), each addable, renamable and removable; a removed index comes back with the same address
 - **Swap** — Jupiter quote/execute, slippage presets, price impact, minimum received, route
 - **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions)
 - **Spam control** — hide any SPL token from the wallet list
 - **Theme** — light / dark / system, persisted and applied before first paint
-- **Splash** — the black clay mascot paints from plain HTML before any script runs, then fades once the vault is read (light and dark)
+- **Splash** — the black clay mascot paints from plain HTML before any script runs, floats in and breathes for at least 1.15s, then fades over 0.38s once the vault is read (motion respects `prefers-reduced-motion`)
 - **Activity alerts** — optional deposit / withdrawal / swap notices as OS notifications plus in-app toasts. No backend: the device polls its own RPC every 20 seconds, so alerts exist only while the app is open. iPhone grants web notification permission only to the Home Screen app
 
 ### Security model
