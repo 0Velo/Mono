@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import { showToast } from './Toast'
 import {
   QR_FAILURE_MESSAGE,
   startQrScanner,
@@ -53,6 +54,9 @@ export function QrScanner({ open, onClose, onPayload }: QrScannerProps) {
         if (cancelled) return
         setFailure(reason)
         setStarting(false)
+        // The viewfinder says it in place; the toast is the same sentence for
+        // anyone who looked away from the panel while the camera opened.
+        showToast(QR_FAILURE_MESSAGE[reason])
       },
     }).then((release) => {
       if (cancelled) release()
