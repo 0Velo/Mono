@@ -242,13 +242,15 @@ function sameAddresses(cached, next) {
 }
 
 function plainWebhookUrl(env, origin, network) {
+  // The deployment's own origin — never the app's Origin header. A subscription's
+  // CORS origin (the GitHub Pages app) must not become the webhook target.
   const configured = typeof env.HELIUS_WEBHOOK_URL === "string" && env.HELIUS_WEBHOOK_URL
     ? env.HELIUS_WEBHOOK_URL
     : (origin ? `${origin}/api/webhooks/helius` : "");
   if (!configured) return "";
   try {
     const url = new URL(configured);
-    if (url.protocol !== "https:" || url.username || url.password || url.hash) return "";
+    if (url.protocol !== "https:" || url.username || url.password || url.hash || !url.hostname) return "";
     url.searchParams.set("network", network);
     return url.toString();
   } catch { return ""; }
@@ -329,12 +331,12 @@ export async function syncHeliusWebhooks(env, kv, { origin = "", now = new Date(
             continue;
           }
           webhookId = created.data.webhookID;
-          await kv.put(cacheKey, JSON.stringify({ version: 1, webhookId, addresses, syncedAt: now.toISOString() }));
+          await kv.put(cacheKey, JSON.stringify({ version: 1, webhookId, webhookURL, addresses, syncedAt: now.toISOString() }));
           synced.push({ network, status: "created" });
           continue;
         }
       }
-      if (cached?.webhookId === webhookId && sameAddresses(cached.addresses, addresses)) {
+      if (cached?.webhookId === webhookId && cached.webhookURL === webhookURL && sameAddresses(cached.addresses, addresses)) {
         synced.push({ network, status: "unchanged" });
         continue;
       }
@@ -356,7 +358,7 @@ export async function syncHeliusWebhooks(env, kv, { origin = "", now = new Date(
         }
       }
       if (updated.status !== 200) { synced.push({ network, status: `update-failed:${updated.status}` }); continue; }
-      await kv.put(cacheKey, JSON.stringify({ version: 1, webhookId, addresses, syncedAt: now.toISOString() }));
+      await kv.put(cacheKey, JSON.stringify({ version: 1, webhookId, webhookURL, addresses, syncedAt: now.toISOString() }));
       synced.push({ network, status: "updated" });
     } catch {
       synced.push({ network, status: "error" });

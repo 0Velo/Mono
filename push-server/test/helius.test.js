@@ -373,6 +373,35 @@ test("webhook address sync discovers an existing webhook before creating one", a
   assert.equal(JSON.parse(kv.data.get("control/helius-mainnet-beta")).webhookId, "11111111-1111-1111-1111-111111111111");
 });
 
+test("a drifted webhook URL is repaired even when the address list is unchanged", async () => {
+  const record = await makeSubscription();
+  const kv = new FakeKV([
+    [`sub/${record.id}`, JSON.stringify(record)],
+    ["control/helius-mainnet-beta", JSON.stringify({
+      version: 1,
+      webhookId: "00000000-0000-0000-0000-000000000001",
+      webhookURL: "https://0velo.github.io/api/webhooks/helius?network=mainnet-beta",
+      addresses: [record.address]
+    })]
+  ]);
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ url: String(input), init });
+    return new Response(null, { status: 200 });
+  };
+  const result = await syncHeliusWebhooks({
+    SUBSCRIPTIONS: kv,
+    FETCH: fetcher,
+    HELIUS_API_KEY: "test-key",
+    HELIUS_WEBHOOK_AUTH: WEBHOOK_SECRET,
+    HELIUS_WEBHOOK_ID: "00000000-0000-0000-0000-000000000001"
+  }, kv, { origin: "https://push.example" });
+  assert.deepEqual(result.synced, [{ network: "mainnet-beta", status: "updated" }, { network: "devnet", status: "no-subscriptions" }]);
+  assert.equal(calls.length, 1);
+  assert.equal(JSON.parse(calls[0].init.body).webhookURL, "https://push.example/api/webhooks/helius?network=mainnet-beta");
+  assert.equal(JSON.parse(kv.data.get("control/helius-mainnet-beta")).webhookURL, "https://push.example/api/webhooks/helius?network=mainnet-beta");
+});
+
 test("subscribe and revoke keep the Helius webhook address list in step", async () => {
   const wallet = await makeWallet();
   const pushKeys = await makePushKeys();
@@ -406,7 +435,9 @@ test("subscribe and revoke keep the Helius webhook address list in step", async 
   const puts = calls.filter(call => call.init.method === "PUT");
   assert.equal(puts.length, 1);
   assert.deepEqual(JSON.parse(puts[0].init.body).accountAddresses, [wallet.address]);
-  assert.equal(JSON.parse(puts[0].init.body).webhookURL, "https://app.example.test/api/webhooks/helius?network=mainnet-beta");
+  // The deployment's own origin is the callback target — never the app's Origin header.
+  assert.equal(JSON.parse(puts[0].init.body).webhookURL, "https://push.example/api/webhooks/helius?network=mainnet-beta");
+  assert.notEqual(JSON.parse(puts[0].init.body).webhookURL.includes("app.example.test"), true);
 
   const id = await sha256hex(subscription.endpoint);
   const revoked = await fetchHandler(new Request(`https://push.example/v1/subscriptions/${id}`, {
