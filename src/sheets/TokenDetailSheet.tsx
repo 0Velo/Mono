@@ -5,6 +5,7 @@ import {
   EyeOff,
   Eye,
   Loader2,
+  RefreshCw,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -17,9 +18,11 @@ import { showToast } from '../components/Toast'
 import { cx, formatAmount, formatPrice, formatUsd, shortAddress } from '../lib/format'
 import type { Asset } from '../lib/assets'
 import type { NetworkId } from '../lib/rpc'
+import type { HistoryItem } from '../lib/tx'
 import { fetchPriceSeries, type PriceSeries } from '../lib/chart'
 import { SECURITY_DISCLAIMER, fetchTokenSecurity, type TokenSecurity } from '../lib/security'
 import { isHidden, isWatched, setHidden, toggleWatch, usePrefs } from '../lib/prefs'
+import { TxRow, type TokenSymbolMap } from '../components/TxRow'
 
 interface TokenDetailSheetProps {
   open: boolean
@@ -27,6 +30,11 @@ interface TokenDetailSheetProps {
   assets: Asset[]
   connection: Connection | null
   network: NetworkId
+  historyItems: HistoryItem[]
+  historyLoading: boolean
+  historyError: string | null
+  tokenSymbols: TokenSymbolMap
+  onRefreshHistory: () => void
   onClose: () => void
   onSend: (mint: string) => void
   onSwap: (mint: string) => void
@@ -108,6 +116,11 @@ export default function TokenDetailSheet({
   assets,
   connection,
   network,
+  historyItems,
+  historyLoading,
+  historyError,
+  tokenSymbols,
+  onRefreshHistory,
   onClose,
   onSend,
   onSwap,
@@ -274,6 +287,48 @@ export default function TokenDetailSheet({
         <span>{series?.source === 'binance' ? 'Binance' : series ? 'CoinGecko' : ''}</span>
         <span>{range === 1 ? '최근 24시간' : '최근 7일'}</span>
       </div>
+
+      {asset.isSol && (
+        <section className="mt-5">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[13px] font-semibold text-ink">최근 지갑 거래</h3>
+            <button
+              onClick={onRefreshHistory}
+              disabled={historyLoading}
+              aria-label="거래내역 새로고침"
+              className="press flex h-7 w-7 items-center justify-center rounded-full bg-surface text-muted disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={cx(historyLoading && 'animate-spin-slow')} />
+            </button>
+          </div>
+          {historyError && (
+            <div className="mt-2 rounded-[14px] bg-surface px-3.5 py-2.5 text-[11px] leading-relaxed text-muted">
+              {historyError} RPC가 거래내역을 제한할 수 있습니다.
+            </div>
+          )}
+          {historyLoading && historyItems.length === 0 ? (
+            <div className="flex items-center justify-center py-6 text-muted" aria-label="거래내역 불러오는 중">
+              <Loader2 size={17} className="animate-spin-slow" />
+            </div>
+          ) : historyItems.length > 0 ? (
+            <div className="-mx-6 mt-2">
+              {historyItems.slice(0, 5).map((item, index) => (
+                <TxRow
+                  key={item.signature}
+                  item={item}
+                  tokenSymbols={tokenSymbols}
+                  network={network}
+                  showBorder={index > 0}
+                />
+              ))}
+            </div>
+          ) : historyError ? null : (
+            <p className="mt-2 rounded-[14px] bg-surface px-3.5 py-3 text-center text-[11.5px] text-muted">
+              아직 표시할 거래내역이 없습니다.
+            </p>
+          )}
+        </section>
+      )}
 
       {!asset.isSol && (
         <section className="mt-5 rounded-[18px] bg-surface p-4">

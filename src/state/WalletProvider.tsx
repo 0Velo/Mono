@@ -86,10 +86,10 @@ interface WalletContextValue {
 
 const WalletContext = createContext<WalletContextValue | null>(null)
 
-function readMeta(): WalletMeta | null {
+export function readMeta(): WalletMeta | null {
+  const raw = localStorage.getItem(META_KEY) ?? localStorage.getItem(LEGACY_META_KEY)
+  if (!raw) return null
   try {
-    const raw = localStorage.getItem(META_KEY) ?? localStorage.getItem(LEGACY_META_KEY)
-    if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<WalletMeta>
     if (typeof parsed?.address !== 'string' || !parsed.address) return null
     const active = Number(parsed.activeIndex)
@@ -118,16 +118,21 @@ function readMeta(): WalletMeta | null {
       accountIndices,
       activeIndex,
     }
-  } catch {
-    return null
+  } catch (error) {
+    if (error instanceof SyntaxError) return null
+    throw error
   }
 }
 
-function hasStoredMeta(): boolean {
+export function hasStoredMeta(): boolean {
+  return Boolean(localStorage.getItem(META_KEY) || localStorage.getItem(LEGACY_META_KEY))
+}
+
+export function writeMeta(meta: WalletMeta): void {
   try {
-    return Boolean(localStorage.getItem(META_KEY) || localStorage.getItem(LEGACY_META_KEY))
+    localStorage.setItem(META_KEY, JSON.stringify(meta))
   } catch {
-    return false
+    throw new Error('지갑 설정을 저장하지 못했습니다. 기존 지갑 데이터를 유지했습니다.')
   }
 }
 
@@ -141,8 +146,8 @@ function wipeKeypair(keypair: Keypair | null): void {
   }
 }
 
-/** The seed indices worth deriving: the base three, plus anything renamed. */
-function accountIndices(activeIndex: number, names?: Record<string, string>, saved?: number[]): number[] {
+/** Derive only the base account and indices the user has registered. */
+export function accountIndices(activeIndex: number, names?: Record<string, string>, saved?: number[]): number[] {
   const set = new Set<number>([0, Math.max(0, activeIndex), ...(saved ?? [])])
   Object.keys(names ?? {}).forEach((key) => {
     const index = Number(key)
@@ -174,12 +179,6 @@ useEffect(() => {
 
   const initialize = async () => {
     try {
-      try {
-        localStorage.removeItem('mono.faceid.v2')
-        localStorage.removeItem('solwallet.faceid.v1')
-      } catch {
-        // Obsolete device-auth metadata is inert; wallet data remains usable.
-      }
       const stored = await loadVault()
       if (cancelled) return
 
@@ -210,13 +209,13 @@ useEffect(() => {
 
 
   const persistMeta = useCallback((next: WalletMeta) => {
-    setMeta(next)
     try {
-      localStorage.setItem(META_KEY, JSON.stringify(next))
-      localStorage.removeItem(LEGACY_META_KEY)
-    } catch {
-      /* storage full / private mode */
+      writeMeta(next)
+    } catch (error) {
+      setInitializationError(error instanceof Error ? error.message : '지갑 설정을 저장하지 못했습니다. 기존 지갑 데이터를 유지했습니다.')
+      throw error
     }
+    setMeta(next)
   }, [])
 
   /**
@@ -227,7 +226,6 @@ useEffect(() => {
   const applyPayload = useCallback(
     async (payload: SecretPayload) => {
       const stored = readMeta()
-      payloadRef.current = payload
 
       if (payload.kind === 'mnemonic') {
         const { deriveAccounts } = await loadKeys()
@@ -247,24 +245,36 @@ useEffect(() => {
         })
         const address = active.publicKey.toBase58()
         const nextMeta: WalletMeta = stored ?? { ...DEFAULT_META, address, createdAt: Date.now() }
+        if (!stored || stored.address !== address) {
+          try {
+            persistMeta({ ...nextMeta, address, activeIndex: index })
+          } catch (error) {
+            wipeKeypair(active)
+            throw error
+          }
+        }
+        payloadRef.current = payload
         setAccounts(list)
         setActiveIndex(index)
         setKeypair(active)
-        if (!stored || stored.address !== address) {
-          persistMeta({ ...nextMeta, address, activeIndex: index })
-        }
         return
       }
 
       const { keypairFromPayload } = await loadKeys()
       const kp = keypairFromPayload(payload)
       const address = kp.publicKey.toBase58()
+      if (!stored || stored.address !== address) {
+        try {
+          persistMeta({ ...(stored ?? { ...DEFAULT_META, address, createdAt: Date.now() }), address, activeIndex: 0 })
+        } catch (error) {
+          wipeKeypair(kp)
+          throw error
+        }
+      }
+      payloadRef.current = payload
       setActiveIndex(0)
       setAccounts([{ index: 0, address, name: accountLabel(stored, 0) }])
       setKeypair(kp)
-      if (!stored || stored.address !== address) {
-        persistMeta({ ...(stored ?? { ...DEFAULT_META, address, createdAt: Date.now() }), address, activeIndex: 0 })
-      }
     },
     [persistMeta, setKeypair],
   )
@@ -281,19 +291,19 @@ useEffect(() => {
         createdAt: Date.now(),
       }
       try {
-        localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
-      } catch {
-        /* private mode */
+        persistMeta(nextMeta)
+      } catch (error) {
+        wipeKeypair(kp)
+        throw error
       }
       payloadRef.current = payload
       setVault(nextVault)
-      setMeta(nextMeta)
       setActiveIndex(0)
       setAccounts([{ index: 0, address: nextMeta.address, name: accountLabel(nextMeta, 0) }])
       setKeypair(kp)
       setInitializationError(null)
     },
-    [setKeypair],
+    [persistMeta, setKeypair],
   )
 
   const unlock = useCallback(
@@ -386,13 +396,13 @@ useEffect(() => {
         accountNames,
       }
       try {
-        localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
-      } catch {
-        /* private mode */
+        persistMeta(nextMeta)
+      } catch (error) {
+        wipeKeypair(kp)
+        throw error
       }
       payloadRef.current = payload
       setVault(nextVault)
-      setMeta(nextMeta)
       setActiveIndex(index)
       const accountsForRestore: WalletAccount[] = visibleIndices.map((accountIndex) => {
         const accountKeypair = derived[derivedIndices.indexOf(accountIndex)]
@@ -406,7 +416,7 @@ useEffect(() => {
       setKeypair(kp)
       setInitializationError(null)
     },
-    [setKeypair],
+    [persistMeta, setKeypair],
   )
 
   const resetWallet = useCallback(async () => {
@@ -443,17 +453,20 @@ useEffect(() => {
       if (index === activeIndex) return
       const { keypairForAccount, keypairFromPayload } = await loadKeys()
       const next = index === 0 ? keypairFromPayload(payload) : keypairForAccount(payload.mnemonic, index)
+      const address = next.publicKey.toBase58()
+      const base = meta ?? readMeta() ?? { ...DEFAULT_META, address, createdAt: Date.now() }
+      const ids = Array.from(
+        new Set([...(base.accountIndices ?? []), ...(index > 0 ? [index] : [])]),
+      )
+      try {
+        persistMeta({ ...base, address, activeIndex: index, accountIndices: ids })
+      } catch (error) {
+        wipeKeypair(next)
+        throw error
+      }
       wipeKeypair(keypairRef.current)
       setKeypair(next)
       setActiveIndex(index)
-      const address = next.publicKey.toBase58()
-      const base = meta ?? readMeta()
-      if (base) {
-        const ids = Array.from(
-          new Set([...(base.accountIndices ?? []), ...(index > 0 ? [index] : [])]),
-        )
-        persistMeta({ ...base, address, activeIndex: index, accountIndices: ids })
-      }
       setAccounts((current) => {
         if (current.some((account) => account.index === index)) return current
         return [...current, { index, address, name: accountLabel(base, index) }].sort(

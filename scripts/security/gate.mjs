@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Fail-closed deployment gate. Missing, malformed, or incomplete evidence blocks.
- * Existing dependency policy: any critical blocks; high direct advisories block
- * unless an explicit, reviewed exemption exists; transitive high is reported.
+ * Every critical or high dependency advisory blocks; the accepted list is audit
+ * metadata only and cannot suppress a high-severity finding.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -30,26 +30,6 @@ function parseDateOnly(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
   const parsed = new Date(`${value}T00:00:00.000Z`)
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? null : parsed
-}
-
-function collectHighAdvisoryIds(packageName, visited = new Set()) {
-  if (visited.has(packageName)) return new Set()
-  visited.add(packageName)
-  const ids = new Set()
-  const item = audit?.vulnerabilities?.[packageName]
-  if (!Array.isArray(item?.via)) return ids
-  for (const via of item.via) {
-    if (typeof via === 'string') {
-      for (const id of collectHighAdvisoryIds(via, visited)) ids.add(id)
-      continue
-    }
-    if (via?.severity !== 'high') continue
-    const match = typeof via.url === 'string'
-      ? via.url.match(/GHSA-[0-9A-Z]+-[0-9A-Z]+-[0-9A-Z]+/i)
-      : null
-    ids.add(match ? match[0].toUpperCase() : `UNIDENTIFIED:${via?.name ?? packageName}`)
-  }
-  return ids
 }
 
 if (!report || typeof report !== 'object' || !report.sections || typeof report.sections !== 'object') {
@@ -126,6 +106,18 @@ if (
   typeof audit.vulnerabilities !== 'object'
 ) {
   problems.push('npm-audit.json is missing, malformed, or incomplete — dependency risk was not evaluated')
+} else {
+  const counts = audit.metadata.vulnerabilities
+  for (const severity of ['critical', 'high']) {
+    if (!Number.isInteger(counts[severity]) || counts[severity] < 0) {
+      problems.push(`npm-audit.json has an invalid ${severity} vulnerability count`)
+      continue
+    }
+    const actual = Object.values(audit.vulnerabilities).filter((item) => item?.severity === severity).length
+    if (actual !== counts[severity]) {
+      problems.push(`npm-audit.json ${severity} count does not match its vulnerability records (${counts[severity]} reported, ${actual} listed)`)
+    }
+  }
 }
 
 if (!accepted || !Array.isArray(accepted.accepted)) {
@@ -178,26 +170,11 @@ if (audit?.vulnerabilities && typeof audit.vulnerabilities === 'object' && exemp
       problems.push(`npm audit has an invalid advisory record for ${name}`)
       continue
     }
-    const exempt = exemptions.get(name)
     if (item.severity === 'critical') {
       problems.push(`critical advisory in ${name}; critical findings cannot be exempted`)
-    } else if (item.severity === 'high' && item.isDirect && !exempt) {
-      problems.push(`high advisory in direct dependency ${name} (not in known-accepted.json)`)
-    } else if (item.severity === 'high' && item.isDirect && exempt) {
-      const allowedIds = new Set(exempt.advisories.map((id) => id.toUpperCase()))
-      const currentIds = collectHighAdvisoryIds(name)
-      if (currentIds.size === 0) {
-        problems.push(`high advisory in ${name} has no identifiable advisory ID — exemption cannot be verified`)
-      }
-      for (const id of currentIds) {
-        if (!allowedIds.has(id)) problems.push(`unreviewed high advisory in ${name}: ${id}`)
-      }
-      for (const id of allowedIds) {
-        if (!currentIds.has(id)) warnings.push(`accepted advisory ${id} is not currently high in ${name} — review the exemption`)
-      }
-      warnings.push(`accepted high advisory in ${name} — ${exempt.reason.slice(0, 140)}… (review by ${exempt.reviewBy})`)
     } else if (item.severity === 'high') {
-      warnings.push(`transitive high advisory in ${name} (fix: ${JSON.stringify(item.fixAvailable)})`)
+      const directness = item.isDirect ? 'direct' : 'transitive'
+      problems.push(`high advisory in ${directness} dependency ${name}; high findings cannot be exempted (fix: ${JSON.stringify(item.fixAvailable)})`)
     }
   }
   for (const [name] of exemptions) {

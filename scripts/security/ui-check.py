@@ -17,6 +17,7 @@ Prints JSON: {"status": "PASS|FAIL", "checks": [...], "requests": [...]}
 import http.server
 import json
 import os
+import re
 import socket
 import socketserver
 import subprocess
@@ -67,6 +68,22 @@ def type_pin(page, pin):
         page.wait_for_timeout(40)
 
 
+def account_snapshot(page):
+    return page.evaluate(
+        """() => {
+            const dialog = document.querySelector('[role="dialog"]');
+            const labels = dialog
+                ? [...dialog.querySelectorAll('button')]
+                    .map(button => button.innerText.trim().split('\\n')[0].trim())
+                    .filter(label => label === '메인' || /^계정 \\d+$/.test(label))
+                : [];
+            let meta = null;
+            try { meta = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null'); } catch {}
+            return { labels, meta };
+        }"""
+    )
+
+
 def main():
     # Point the same checks at an already-deployed build with MONO_BASE_URL.
     live_base = os.environ.get("MONO_BASE_URL")
@@ -89,6 +106,46 @@ def main():
 
         page.goto(base, wait_until="domcontentloaded")
         page.wait_for_selector("text=새 지갑 만들기", timeout=20000)
+
+        # browser.new_context() is an ephemeral, isolated profile; confirm that
+        # it contains no wallet material before creating the test-only wallet.
+        fresh_state = page.evaluate(
+            """async () => {
+                const walletKeys = ['mono.meta.v1', 'solwallet.meta.v1', 'solwallet.vault.v1', 'mono.vault.fallback.v1'];
+                const presentLocalKeys = walletKeys.filter(key => localStorage.getItem(key) !== null);
+                const presentSessionKeys = walletKeys.filter(key => sessionStorage.getItem(key) !== null);
+                let idbVault = null;
+                let idbError = '';
+                try {
+                    const request = indexedDB.open('mono-vault');
+                    const db = await new Promise((resolve, reject) => {
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                    if (db.objectStoreNames.contains('vault')) {
+                        idbVault = await new Promise((resolve, reject) => {
+                            const get = db.transaction('vault', 'readonly').objectStore('vault').get('primary');
+                            get.onsuccess = () => resolve(get.result ?? null);
+                            get.onerror = () => reject(get.error);
+                        });
+                    }
+                    db.close();
+                } catch (error) { idbError = String(error); }
+                return { presentLocalKeys, presentSessionKeys, hasIdbVault: idbVault !== null, idbError };
+            }"""
+        )
+        fresh_ok = (
+            not fresh_state["presentLocalKeys"]
+            and not fresh_state["presentSessionKeys"]
+            and not fresh_state["hasIdbVault"]
+            and not fresh_state["idbError"]
+        )
+        record(
+            "UI-17",
+            "A disposable browser context starts without pre-existing wallet material",
+            "PASS" if fresh_ok else "FAIL",
+            json.dumps(fresh_state, ensure_ascii=False),
+        )
 
         record("UI-01", "The production build renders the onboarding screen", "PASS", page.title())
 
@@ -289,6 +346,143 @@ def main():
             "An address-book label is stored and rendered as inert text",
             "PASS" if not xss2 and "script" not in str(dialogs) else "FAIL",
             f"executed={xss2} label_saved={bool(stored_label)}",
+        )
+
+        # A full reload must leave only the encrypted vault and metadata; unlock
+        # the disposable test wallet and confirm its original address returns.
+        original_address = page.evaluate(
+            "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.address ?? ''"
+        )
+        page.reload(wait_until="domcontentloaded")
+        try:
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            reload_locked = True
+        except Exception:
+            reload_locked = False
+        reload_unlocked = False
+        if reload_locked:
+            type_pin(page, "123456")
+            try:
+                page.wait_for_selector("text=보내기", timeout=25000)
+                reload_unlocked = True
+            except Exception:
+                reload_unlocked = False
+        restored_address = page.evaluate(
+            "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.address ?? ''"
+        )
+        record(
+            "UI-18",
+            "Reload locks the persisted wallet and the correct PIN restores its original address",
+            "PASS" if reload_locked and reload_unlocked and original_address and restored_address == original_address else "FAIL",
+            f"locked={reload_locked} unlocked={reload_unlocked} original_address_restored={bool(original_address and restored_address == original_address)}",
+        )
+
+        # This list is inspected inside the real account-management sheet. The
+        # browser context is disposable and all actions here are local key
+        # derivation/account selection; no send or transaction confirmation is
+        # opened or submitted.
+        page.locator('button[aria-label="계정 전환"]').click()
+        page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+        initial_accounts = account_snapshot(page)
+        initial_ok = initial_accounts["labels"] == ["메인"] and initial_accounts["meta"] is not None
+        record(
+            "UI-19",
+            "A freshly created mnemonic wallet presents exactly one account",
+            "PASS" if initial_ok else "FAIL",
+            json.dumps(initial_accounts, ensure_ascii=False),
+        )
+
+        main_address = initial_accounts.get("meta", {}).get("address", "") if initial_accounts.get("meta") else ""
+        page.get_by_role("button", name="계정 추가").click()
+        try:
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.activeIndex === 1",
+                timeout=15000,
+            )
+            add_switched = True
+        except Exception:
+            add_switched = False
+        page.locator('button[aria-label="계정 전환"]').click()
+        page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+        added_accounts = account_snapshot(page)
+        second_meta = added_accounts.get("meta") or {}
+        add_ok = (
+            add_switched
+            and added_accounts["labels"] == ["메인", "계정 2"]
+            and second_meta.get("activeIndex") == 1
+            and 1 in (second_meta.get("accountIndices") or [])
+            and bool(second_meta.get("address"))
+            and second_meta.get("address") != main_address
+        )
+        record(
+            "UI-20",
+            "Explicit account creation adds account 2 and switches to its distinct derived address",
+            "PASS" if add_ok else "FAIL",
+            json.dumps({"added": added_accounts, "mainAddressDistinct": bool(second_meta.get("address") and second_meta.get("address") != main_address), "addSwitched": add_switched}, ensure_ascii=False),
+        )
+
+        page.get_by_role("dialog").get_by_role("button", name=re.compile(r"^메인")).click()
+        try:
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.activeIndex === 0",
+                timeout=10000,
+            )
+            switched_back = True
+        except Exception:
+            switched_back = False
+        back_meta = page.evaluate(
+            "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')"
+        )
+        back_ok = (
+            switched_back
+            and back_meta is not None
+            and back_meta.get("activeIndex") == 0
+            and back_meta.get("address") == main_address
+            and 1 in (back_meta.get("accountIndices") or [])
+        )
+        record(
+            "UI-21",
+            "Explicitly switching back selects the original account without removing account 2",
+            "PASS" if back_ok else "FAIL",
+            f"switched_back={switched_back} activeIndex={back_meta.get('activeIndex') if back_meta else None} original_address_restored={bool(back_meta and back_meta.get('address') == main_address)} accountIndices={back_meta.get('accountIndices') if back_meta else None}",
+        )
+
+        page.reload(wait_until="domcontentloaded")
+        try:
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            second_reload_locked = True
+        except Exception:
+            second_reload_locked = False
+        second_reload_unlocked = False
+        if second_reload_locked:
+            type_pin(page, "123456")
+            try:
+                page.wait_for_selector("text=보내기", timeout=25000)
+                second_reload_unlocked = True
+            except Exception:
+                second_reload_unlocked = False
+        persisted_home = page.evaluate(
+            "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')"
+        )
+        persisted_ok = (
+            second_reload_locked
+            and second_reload_unlocked
+            and persisted_home is not None
+            and persisted_home.get("activeIndex") == 0
+            and persisted_home.get("address") == main_address
+            and 1 in (persisted_home.get("accountIndices") or [])
+        )
+        persisted_accounts = {"labels": [], "meta": persisted_home}
+        if second_reload_unlocked:
+            page.locator('button[aria-label="계정 전환"]').click()
+            page.get_by_role("dialog").wait_for(state="visible", timeout=10000)
+            persisted_accounts = account_snapshot(page)
+            persisted_ok = persisted_ok and persisted_accounts["labels"] == ["메인", "계정 2"]
+        record(
+            "UI-22",
+            "The second account and selected main account persist through reload and unlock",
+            "PASS" if persisted_ok else "FAIL",
+            json.dumps({"locked": second_reload_locked, "unlocked": second_reload_unlocked, "accounts": persisted_accounts}, ensure_ascii=False),
         )
 
         record(

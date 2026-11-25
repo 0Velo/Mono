@@ -46,6 +46,13 @@ function auditWithHigh(id = ADVISORY) {
   }
 }
 
+function cleanAudit() {
+  return {
+    metadata: { vulnerabilities: { critical: 0, high: 0, moderate: 0, low: 0, total: 0 } },
+    vulnerabilities: {},
+  }
+}
+
 function acceptedWith(ids = [ADVISORY], reviewBy = utcDate(90)) {
   return {
     reviewedAt: utcDate(),
@@ -78,16 +85,32 @@ function runGate({ report = evidence(), audit = auditWithHigh(), accepted = acce
   }
 }
 
-test('security gate permits only a currently reviewed exact high advisory', () => {
-  const result = runGate()
+test('security gate passes a clean dependency audit', () => {
+  const result = runGate({ audit: cleanAudit(), accepted: { reviewedAt: utcDate(), accepted: [] } })
   assert.equal(result.status, 0, result.output)
   assert.match(result.output, /gate: PASS/)
 })
 
-test('security gate blocks a new high advisory outside the reviewed ID list', () => {
-  const result = runGate({ audit: auditWithHigh('GHSA-new1-new2-new3') })
+test('security gate blocks a direct high advisory even when its ID is listed as accepted', () => {
+  const result = runGate()
   assert.notEqual(result.status, 0)
-  assert.match(result.output, /unreviewed high advisory in sample-package/)
+  assert.match(result.output, /high advisory in direct dependency sample-package; high findings cannot be exempted/)
+})
+
+test('security gate blocks transitive high advisories as well as direct advisories', () => {
+  const audit = auditWithHigh()
+  audit.vulnerabilities['sample-package'].isDirect = false
+  const result = runGate({ audit })
+  assert.notEqual(result.status, 0)
+  assert.match(result.output, /high advisory in transitive dependency sample-package; high findings cannot be exempted/)
+})
+
+test('security gate blocks audit evidence whose reported high count disagrees with its records', () => {
+  const audit = cleanAudit()
+  audit.metadata.vulnerabilities.high = 1
+  const result = runGate({ audit, accepted: { reviewedAt: utcDate(), accepted: [] } })
+  assert.notEqual(result.status, 0)
+  assert.match(result.output, /high count does not match its vulnerability records/)
 })
 
 test('security gate blocks an expired exception', () => {

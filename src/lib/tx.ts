@@ -3,7 +3,9 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
-  Transaction,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
 } from '@solana/web3.js'
 import {
   TOKEN_2022_PROGRAM_ID,
@@ -14,6 +16,14 @@ import {
 } from '@solana/spl-token'
 import bs58 from 'bs58'
 import { fromBaseUnits } from './format'
+import {
+  PREVIEW_TTL_MS,
+  assertMessageMatches,
+  buildTransactionPreview,
+  captureMessageBytes,
+  simulateAndCapture,
+  type TransactionPreview,
+} from './transactionPreview'
 
 export const BASE_FEE_LAMPORTS = 5000n
 export const ATA_RENT_LAMPORTS = 2_039_280n
@@ -192,33 +202,237 @@ async function confirm(
   )
 }
 
-async function submit(
+export interface PreparedSend {
+  transaction: VersionedTransaction
+  messageBytes: Uint8Array
+  preview: TransactionPreview
+  owner: string
+  recipient: string
+  kind: 'sol' | 'spl'
+  mint: string | null
+  amount: bigint
+  decimals: number
+  blockhash: string
+  lastValidBlockHeight: number
+  rentLamports: bigint
+  createsAta: boolean
+  createdAt: number
+}
+
+async function prepareSendMessage(
   connection: Connection,
-  tx: Transaction,
   signer: Keypair,
-  hooks?: TransactionHooks,
-): Promise<string> {
+  recipient: PublicKey,
+  kind: 'sol' | 'spl',
+  amount: bigint,
+  decimals: number,
+  mint: PublicKey | null,
+  instructions: TransactionInstruction[],
+  addresses: PublicKey[],
+  createsAta: boolean,
+): Promise<PreparedSend> {
   const { blockhash, lastValidBlockHeight } = await withTimeout(
     connection.getLatestBlockhash('confirmed'),
     STEP_TIMEOUT_MS,
     'RPC에서 응답이 없습니다. 네트워크나 RPC 설정을 확인하세요.',
   )
-  tx.recentBlockhash = blockhash
-  tx.feePayer = signer.publicKey
-  tx.sign(signer)
-  const localSignature = tx.signature ? bs58.encode(tx.signature) : ''
+  if (!blockhash || !Number.isSafeInteger(lastValidBlockHeight)) {
+    throw new Error('유효한 블록해시를 받지 못해 서명하지 않았습니다.')
+  }
+  const transaction = new VersionedTransaction(
+    new TransactionMessage({
+      payerKey: signer.publicKey,
+      recentBlockhash: blockhash,
+      instructions,
+    }).compileToV0Message(),
+  )
+  const programs = Array.from(new Set(instructions.map((instruction) => instruction.programId.toBase58())))
+  const snapshot = await simulateAndCapture(connection, transaction, addresses, programs)
+  const owner = signer.publicKey.toBase58()
+  const recipientAddress = recipient.toBase58()
+  const preview = buildTransactionPreview(
+    snapshot,
+    owner,
+    recipientAddress,
+    [owner, recipientAddress],
+    mint ? { [mint.toBase58()]: decimals } : {},
+  )
+  const ownerSol = preview.nativeChanges.find((change) => change.address === owner)
+  if (!ownerSol) throw new Error('지갑 SOL 잔액 변화가 미리보기에 없습니다. 서명하지 않았습니다.')
+  let rentLamports = 0n
+  if (kind === 'sol') {
+    const recipientSol = preview.nativeChanges.find((change) => change.address === recipientAddress)
+    if (!recipientSol || BigInt(recipientSol.deltaLamports) !== amount) {
+      throw new Error('시뮬레이션에서 받는 SOL 금액이 요청과 다릅니다. 서명하지 않았습니다.')
+    }
+    if (BigInt(ownerSol.deltaLamports) !== -(amount + BigInt(snapshot.feeLamports))) {
+      throw new Error('시뮬레이션에서 지갑의 SOL 차감액이 예상과 다릅니다. 서명하지 않았습니다.')
+    }
+  } else if (mint) {
+    const sourceDelta = preview.tokenChanges.find(
+      (change) => change.owner === owner && change.mint === mint.toBase58(),
+    )
+    const recipientDelta = preview.tokenChanges.find(
+      (change) => change.owner === recipientAddress && change.mint === mint.toBase58(),
+    )
+    if (!sourceDelta || BigInt(sourceDelta.deltaAmount) !== -amount) {
+      throw new Error('시뮬레이션에서 보낼 토큰 수량이 요청과 다릅니다. 서명하지 않았습니다.')
+    }
+    if (!recipientDelta || BigInt(recipientDelta.deltaAmount) <= 0n || BigInt(recipientDelta.deltaAmount) > amount) {
+      throw new Error('시뮬레이션에서 받는 토큰 수량을 안전하게 확인하지 못했습니다. 서명하지 않았습니다.')
+    }
+    const destinationAta = addresses[2]
+    if (createsAta && destinationAta) {
+      const account = snapshot.accounts.find((entry) => entry.address === destinationAta.toBase58())
+      if (!account?.before && account?.after) rentLamports = BigInt(account.after.lamports)
+    }
+    if (BigInt(ownerSol.deltaLamports) !== -(BigInt(snapshot.feeLamports) + rentLamports)) {
+      throw new Error('시뮬레이션에서 SOL 수수료·계정 생성 비용이 예상과 다릅니다. 서명하지 않았습니다.')
+    }
+  }
+
+  return {
+    transaction,
+    messageBytes: captureMessageBytes(transaction),
+    preview,
+    owner,
+    recipient: recipientAddress,
+    kind,
+    mint: mint?.toBase58() ?? null,
+    amount,
+    decimals,
+    blockhash,
+    lastValidBlockHeight,
+    rentLamports,
+    createsAta,
+    createdAt: Date.now(),
+  }
+}
+
+export async function prepareSolSend(
+  connection: Connection,
+  signer: Keypair,
+  recipient: string,
+  lamports: bigint,
+): Promise<PreparedSend> {
+  if (lamports <= 0n) throw new Error('보낼 수량을 입력하세요.')
+  const to = new PublicKey(recipient)
+  if (to.equals(signer.publicKey)) throw new Error('본인 주소로는 보낼 수 없습니다.')
+  const instruction = SystemProgram.transfer({ fromPubkey: signer.publicKey, toPubkey: to, lamports })
+  return prepareSendMessage(
+    connection,
+    signer,
+    to,
+    'sol',
+    lamports,
+    9,
+    null,
+    [instruction],
+    [signer.publicKey, to],
+    false,
+  )
+}
+
+export async function prepareSplSend(
+  connection: Connection,
+  signer: Keypair,
+  mintAddress: string,
+  recipient: string,
+  amount: bigint,
+  decimals: number,
+): Promise<PreparedSend> {
+  if (amount <= 0n) throw new Error('보낼 수량을 입력하세요.')
+  const mint = new PublicKey(mintAddress)
+  const to = new PublicKey(recipient)
+  if (to.equals(signer.publicKey)) throw new Error('본인 주소로는 보낼 수 없습니다.')
+  const programId = await resolveTokenProgram(connection, mint)
+  const sourceAta = getAssociatedTokenAddressSync(mint, signer.publicKey, false, programId)
+  const destinationAta = getAssociatedTokenAddressSync(mint, to, false, programId)
+  const instructions: TransactionInstruction[] = []
+  const destinationInfo = await withTimeout(
+    connection.getAccountInfo(destinationAta),
+    STEP_TIMEOUT_MS,
+    '받는 토큰 계정을 확인하지 못했습니다. 네트워크를 확인하세요.',
+  )
+  const createsAta = !destinationInfo
+  if (createsAta) {
+    instructions.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        signer.publicKey,
+        destinationAta,
+        to,
+        mint,
+        programId,
+      ),
+    )
+  }
+  instructions.push(
+    createTransferCheckedInstruction(
+      sourceAta,
+      mint,
+      destinationAta,
+      signer.publicKey,
+      amount,
+      decimals,
+      [],
+      programId,
+    ),
+  )
+  return prepareSendMessage(
+    connection,
+    signer,
+    to,
+    'spl',
+    amount,
+    decimals,
+    mint,
+    instructions,
+    [signer.publicKey, sourceAta, destinationAta],
+    createsAta,
+  )
+}
+
+async function submitPrepared(
+  connection: Connection,
+  prepared: PreparedSend,
+  signer: Keypair,
+  hooks?: TransactionHooks,
+): Promise<string> {
+  if (prepared.owner !== signer.publicKey.toBase58()) {
+    throw new Error('미리보기 당시 지갑과 현재 지갑이 다릅니다. 다시 시뮬레이션해 주세요.')
+  }
+  if (Date.now() - prepared.createdAt > PREVIEW_TTL_MS) {
+    throw new Error('미리보기가 오래되어 만료됐습니다. 다시 시뮬레이션해 주세요.')
+  }
+  const currentHeight = await withTimeout(
+    connection.getBlockHeight('confirmed'),
+    STEP_TIMEOUT_MS,
+    '블록 높이를 확인하지 못했습니다. 서명하지 않았습니다.',
+  )
+  if (currentHeight > prepared.lastValidBlockHeight) {
+    throw new Error('미리보기 블록해시가 만료됐습니다. 새 시뮬레이션을 확인해 주세요.')
+  }
+  assertMessageMatches(prepared.transaction, prepared.messageBytes)
+  prepared.transaction.sign([signer])
+  assertMessageMatches(prepared.transaction, prepared.messageBytes)
+  const signatureBytes = prepared.transaction.signatures[0]
+  const localSignature = signatureBytes ? bs58.encode(signatureBytes) : ''
   if (!localSignature) throw new Error('서명을 만들지 못했습니다. 전송하지 않았습니다.')
-  hooks?.onSigned?.({ signature: localSignature, blockhash, lastValidBlockHeight })
+  hooks?.onSigned?.({
+    signature: localSignature,
+    blockhash: prepared.blockhash,
+    lastValidBlockHeight: prepared.lastValidBlockHeight,
+  })
 
   let rpcSignature: string
   try {
     rpcSignature = await withTimeout(
-      connection.sendRawTransaction(tx.serialize(), maxRetriesOptions()),
+      connection.sendRawTransaction(prepared.transaction.serialize(), maxRetriesOptions()),
       STEP_TIMEOUT_MS,
       'RPC 응답 시간이 초과되었습니다.',
     )
   } catch {
-    const outcome = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    const outcome = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
     if (outcome === 'confirmed') {
       notifyTerminal(hooks)
       return localSignature
@@ -241,7 +455,7 @@ async function submit(
   }
 
   if (rpcSignature !== localSignature) {
-    const outcome = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    const outcome = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
     if (outcome === 'confirmed') {
       notifyTerminal(hooks)
       return localSignature
@@ -259,8 +473,17 @@ async function submit(
     throw new TxOutcomeError('unknown', localSignature, 'RPC가 로컬 서명과 다른 서명을 반환했습니다. 상태 확인 전 재전송하지 마세요.')
   }
 
-  await confirm(connection, localSignature, lastValidBlockHeight, hooks)
+  await confirm(connection, localSignature, prepared.lastValidBlockHeight, hooks)
   return localSignature
+}
+
+export async function signPreparedSend(
+  connection: Connection,
+  prepared: PreparedSend,
+  signer: Keypair,
+  hooks?: TransactionHooks,
+): Promise<string> {
+  return submitPrepared(connection, prepared, signer, hooks)
 }
 
 function maxRetriesOptions() {
@@ -274,17 +497,8 @@ export async function sendSol(
   lamports: bigint,
   hooks?: TransactionHooks,
 ): Promise<string> {
-  if (lamports <= 0n) throw new Error('보낼 수량을 입력하세요.')
-  const to = new PublicKey(recipient)
-  if (to.equals(signer.publicKey)) throw new Error('본인 주소로는 보낼 수 없습니다.')
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: signer.publicKey,
-      toPubkey: to,
-      lamports,
-    }),
-  )
-  return submit(connection, tx, signer, hooks)
+  const prepared = await prepareSolSend(connection, signer, recipient, lamports)
+  return submitPrepared(connection, prepared, signer, hooks)
 }
 
 export async function sendSplToken(
@@ -296,44 +510,8 @@ export async function sendSplToken(
   decimals: number,
   hooks?: TransactionHooks,
 ): Promise<string> {
-  if (amount <= 0n) throw new Error('보낼 수량을 입력하세요.')
-  const mint = new PublicKey(mintAddress)
-  const to = new PublicKey(recipient)
-  if (to.equals(signer.publicKey)) throw new Error('본인 주소로는 보낼 수 없습니다.')
-  const programId = await resolveTokenProgram(connection, mint)
-  const sourceAta = getAssociatedTokenAddressSync(mint, signer.publicKey, false, programId)
-  const destinationAta = getAssociatedTokenAddressSync(mint, to, false, programId)
-
-  const tx = new Transaction()
-  const destinationInfo = await withTimeout(
-    connection.getAccountInfo(destinationAta),
-    STEP_TIMEOUT_MS,
-    '받는 토큰 계정을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
-  )
-  if (!destinationInfo) {
-    tx.add(
-      createAssociatedTokenAccountIdempotentInstruction(
-        signer.publicKey,
-        destinationAta,
-        to,
-        mint,
-        programId,
-      ),
-    )
-  }
-  tx.add(
-    createTransferCheckedInstruction(
-      sourceAta,
-      mint,
-      destinationAta,
-      signer.publicKey,
-      amount,
-      decimals,
-      [],
-      programId,
-    ),
-  )
-  return submit(connection, tx, signer, hooks)
+  const prepared = await prepareSplSend(connection, signer, mintAddress, recipient, amount, decimals)
+  return submitPrepared(connection, prepared, signer, hooks)
 }
 
 export async function maxTransferableSol(

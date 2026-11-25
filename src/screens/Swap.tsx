@@ -23,13 +23,15 @@ import {
   type SwapQuote,
 } from '../lib/swap'
 import { explorerTx, type NetworkId } from '../lib/rpc'
-import { executeSwap } from '../lib/swapExecute'
-import { SwapGuardError } from '../lib/swapGuard'
+import { prepareSwap, signPreparedSwap, type PreparedSwapExecution } from '../lib/swapExecute'
+import { PROGRAM_IDS, SwapGuardError } from '../lib/swapGuard'
 import { inspectTransaction, TxOutcomeError, type TransactionResolution } from '../lib/tx'
+import type { TransactionPreview } from '../lib/transactionPreview'
 import {
   clearPendingTransaction,
   readPendingTransaction,
   savePendingTransaction,
+  withPendingTransactionLock,
   type PendingTransaction,
 } from '../lib/pendingTx'
 
@@ -50,6 +52,24 @@ const SLIPPAGE_OPTIONS = [
 ]
 
 const SWAP_CANDIDATES = [USDC_MINT, USDT_MINT]
+
+function signedAmount(raw: string, decimals: number): string {
+  const amount = BigInt(raw)
+  const abs = amount < 0n ? -amount : amount
+  return `${amount >= 0n ? '+' : '−'}${formatAmount(abs, decimals, 6)}`
+}
+
+function programLabel(program: string): string {
+  if (program === PROGRAM_IDS.jupiter) return 'Jupiter'
+  if (program === PROGRAM_IDS.token) return 'SPL Token'
+  if (program === PROGRAM_IDS.token2022) return 'Token-2022'
+  if (program === PROGRAM_IDS.associatedToken) return 'Associated Token Account'
+  if (program === PROGRAM_IDS.computeBudget) return 'Compute Budget'
+  if (program === PROGRAM_IDS.system) return 'System Program'
+  if (program === PROGRAM_IDS.memoV1) return 'Memo v1'
+  if (program === PROGRAM_IDS.memoV2) return 'Memo v2'
+  return '프로그램'
+}
 
 function pseudoAsset(mint: string): Asset | null {
   const known = KNOWN_TOKENS[mint]
@@ -96,17 +116,31 @@ export default function Swap({
   const [quoteError, setQuoteError] = useState<string | null>(null)
   const [step, setStep] = useState<'form' | 'confirm' | 'sending' | 'tracking' | 'done'>('form')
   const [sending, setSending] = useState(false)
+  const [preparing, setPreparing] = useState(false)
+  const [preview, setPreview] = useState<TransactionPreview | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null)
   const [resolution, setResolution] = useState<TransactionResolution | null>(null)
   const [checking, setChecking] = useState(false)
   const requestId = useRef(0)
+  const previewGeneration = useRef(0)
   const inFlightRef = useRef(false)
+  const preparedRef = useRef<PreparedSwapExecution | null>(null)
+  const preparedNetworkRef = useRef<NetworkId | null>(null)
+  const preparedConnectionRef = useRef<Connection | null>(null)
   const signedRef = useRef(false)
   const statusCheckRef = useRef(false)
   const reportedSignatureRef = useRef<string | null>(null)
   const owner = keypair?.publicKey.toBase58() ?? ''
+
+  const discardPrepared = () => {
+    previewGeneration.current += 1
+    preparedRef.current = null
+    preparedNetworkRef.current = null
+    preparedConnectionRef.current = null
+    setPreview(null)
+  }
 
   const inputAsset = universe.find((asset) => asset.key === inputKey) ?? universe[0]
   const outputAsset =
@@ -161,7 +195,7 @@ export default function Swap({
       setResolution(result)
       if (result === 'confirmed' || result === 'failed') {
         try {
-          clearPendingTransaction(target.owner, target.network)
+          clearPendingTransaction(target.owner, target.network, target.signature)
           setPendingTx(null)
         } catch (cause) {
           setSendError(cause instanceof Error ? cause.message : '확인된 전송 기록을 정리하지 못했습니다.')
@@ -233,6 +267,7 @@ export default function Swap({
   /* ------------------------------------------------------------- quoting */
 
   useEffect(() => {
+    discardPrepared()
     setQuote(null)
     setQuoteError(null)
     if (!connection || network !== 'mainnet' || !inputAsset || !outputAsset) return
@@ -287,104 +322,138 @@ export default function Swap({
     }
   }
 
+  const preparePreview = useCallback(async () => {
+    if (!connection || !keypair || !quote || preparing || inFlightRef.current) return
+    const activeOwner = keypair.publicKey.toBase58()
+    const generation = ++previewGeneration.current
+    inFlightRef.current = true
+    setPreparing(true)
+    setSendError(null)
+    try {
+      const built = await fetchSwapTransaction(quote, activeOwner)
+      const prepared = await prepareSwap({ connection, keypair, built, quote })
+      if (generation !== previewGeneration.current) return
+      preparedRef.current = prepared
+      preparedNetworkRef.current = network
+      preparedConnectionRef.current = connection
+      setPreview(prepared.preview)
+    } catch (error) {
+      if (generation === previewGeneration.current) {
+        discardPrepared()
+        setSendError(error instanceof Error ? error.message : '스왑 시뮬레이션 미리보기를 만들지 못했습니다.')
+      }
+    } finally {
+      setPreparing(false)
+      inFlightRef.current = false
+    }
+  }, [connection, keypair, quote, preparing, network])
+
   const execute = useCallback(async () => {
     if (!connection || !keypair || !quote || sending || inFlightRef.current) return
+    const prepared = preparedRef.current
     const activeOwner = keypair.publicKey.toBase58()
-    try {
-      const existing = readPendingTransaction(activeOwner, network)
-      if (existing) {
-        setPendingTx(existing)
-        setSignature(existing.signature)
-        setResolution('pending')
-        setStep('tracking')
-        void checkPending(existing)
-        return
-      }
-    } catch (cause) {
-      setSendError(cause instanceof Error ? cause.message : '저장된 전송 상태를 확인할 수 없습니다.')
-      setStep('tracking')
+    if (
+      !prepared ||
+      !preview ||
+      prepared.owner !== activeOwner ||
+      preparedNetworkRef.current !== network ||
+      preparedConnectionRef.current !== connection
+    ) {
+      discardPrepared()
+      setSendError('미리보기와 현재 지갑·네트워크·견적이 달라졌습니다. 다시 시뮬레이션해 주세요.')
       return
     }
     inFlightRef.current = true
-    signedRef.current = false
     setSending(true)
     setSendError(null)
     setStep('sending')
-    const hooks = {
-      onSigned: (attempt: { signature: string; blockhash: string; lastValidBlockHeight: number }) => {
-        const record: PendingTransaction = {
-          version: 1,
-          network,
-          owner: activeOwner,
-          signature: attempt.signature,
-          blockhash: attempt.blockhash,
-          lastValidBlockHeight: attempt.lastValidBlockHeight,
-          createdAt: Date.now(),
-          kind: 'swap',
-          symbol: `${inputAsset?.symbol ?? '토큰'} → ${outputAsset?.symbol ?? '토큰'}`,
-          amount: baseUnits.toString(),
+    try {
+      const lockResult = await withPendingTransactionLock(activeOwner, network, async () => {
+        signedRef.current = false
+        let persistedSignature: string | undefined
+        const hooks = {
+          onSigned: (attempt: { signature: string; blockhash: string; lastValidBlockHeight: number }) => {
+            const record: PendingTransaction = {
+              version: 1,
+              network,
+              owner: activeOwner,
+              signature: attempt.signature,
+              blockhash: attempt.blockhash,
+              lastValidBlockHeight: attempt.lastValidBlockHeight,
+              createdAt: Date.now(),
+              kind: 'swap',
+              symbol: `${inputAsset?.symbol ?? '토큰'} → ${outputAsset?.symbol ?? '토큰'}`,
+              amount: baseUnits.toString(),
+            }
+            savePendingTransaction(record)
+            persistedSignature = record.signature
+            signedRef.current = true
+            setPendingTx(record)
+            setSignature(record.signature)
+            setResolution('pending')
+            setStep('tracking')
+          },
+          onTerminal: () => clearPendingTransaction(activeOwner, network, persistedSignature),
         }
-        savePendingTransaction(record)
-        signedRef.current = true
-        setPendingTx(record)
-        setSignature(record.signature)
+        try {
+          const sig = await signPreparedSwap({ connection, keypair, prepared, quote, hooks })
+          discardPrepared()
+          setSignature(sig)
+          setResolution('confirmed')
+          setPendingTx(null)
+          setStep('done')
+          try {
+            onDone()
+          } catch {
+            // A refresh/navigation issue cannot turn a confirmed swap into a retry prompt.
+          }
+        } catch (error) {
+          const message = String((error as Error)?.message ?? '')
+          if (error instanceof TxOutcomeError) {
+            setSignature(error.signature)
+            setResolution(error.outcome)
+            try {
+              setPendingTx(readPendingTransaction(activeOwner, network))
+            } catch (storageError) {
+              setSendError(storageError instanceof Error ? storageError.message : message)
+            }
+            setSendError(message)
+            setStep('tracking')
+          } else if (signedRef.current) {
+            setResolution('unknown')
+            try {
+              setPendingTx(readPendingTransaction(activeOwner, network))
+            } catch (storageError) {
+              setSendError(storageError instanceof Error ? storageError.message : message)
+            }
+            setSendError(message || '서명 이후 오류가 발생했습니다. 같은 스왑을 다시 시작하지 마세요.')
+            setStep('tracking')
+          } else {
+            discardPrepared()
+            setSendError(error instanceof SwapGuardError ? message : message || '스왑에 실패했습니다.')
+            setStep('confirm')
+          }
+        }
+      })
+      if (lockResult.kind === 'pending') {
+        setPendingTx(lockResult.record)
+        setSignature(lockResult.record.signature)
         setResolution('pending')
         setStep('tracking')
-      },
-      onTerminal: () => clearPendingTransaction(activeOwner, network),
-    }
-    try {
-      const built = await fetchSwapTransaction(quote, keypair.publicKey.toBase58())
-      // Guard → simulate → sign → send happens in one place (lib/swapExecute).
-      // Nothing is signed unless the transaction pays with this key, needs only
-      // this signature, calls only swap programs, and the simulated balance
-      // changes match this quote.
-      const sig = await executeSwap({ connection, keypair, built, quote, hooks })
-      setSignature(sig)
-      setResolution('confirmed')
-      setPendingTx(null)
-      setStep('done')
-      try {
-        onDone()
-      } catch {
-        // A refresh/navigation issue cannot turn a confirmed swap into a retry prompt.
-      }
-    } catch (error) {
-      const message = String((error as Error)?.message ?? '')
-      if (error instanceof TxOutcomeError) {
-        setSignature(error.signature)
-        setResolution(error.outcome)
-        try {
-          setPendingTx(readPendingTransaction(activeOwner, network))
-        } catch (storageError) {
-          setSendError(storageError instanceof Error ? storageError.message : message)
-        }
-        setSendError(message)
-        setStep('tracking')
-      } else if (signedRef.current) {
-        setResolution('unknown')
-        try {
-          setPendingTx(readPendingTransaction(activeOwner, network))
-        } catch (storageError) {
-          setSendError(storageError instanceof Error ? storageError.message : message)
-        }
-        setSendError(message || '서명 이후 오류가 발생했습니다. 같은 스왑을 다시 시작하지 마세요.')
-        setStep('tracking')
-      } else {
-        setSendError(
-          error instanceof SwapGuardError
-            ? message
-            : /reject|denied|User rejected/i.test(message)
-              ? '서명이 취소되었습니다.'
-              : message || '스왑에 실패했습니다.',
-        )
+        void checkPending(lockResult.record)
+      } else if (lockResult.kind === 'busy') {
+        setSendError('다른 탭에서 전송 또는 스왑을 진행 중입니다. 완료 여부를 확인한 뒤 다시 시도하세요.')
         setStep('confirm')
       }
+    } catch (error) {
+      discardPrepared()
+      setSendError(error instanceof Error ? error.message : '스왑을 위한 안전 잠금을 확인하지 못했습니다.')
+      setStep('confirm')
     } finally {
       setSending(false)
       inFlightRef.current = false
     }
-  }, [connection, keypair, quote, sending, onDone, network, checkPending, inputAsset, outputAsset, baseUnits])
+  }, [connection, keypair, quote, sending, onDone, network, checkPending, inputAsset, outputAsset, baseUnits, preview])
 
   const canQuote = Boolean(
     quote && !quoting && baseUnits > 0n && !insufficient && !sameToken && network === 'mainnet' && !pendingTx,
@@ -676,15 +745,24 @@ export default function Swap({
       <Sheet
         open={step === 'confirm'}
         onClose={() => {
-          if (!sending) setStep('form')
+          if (!sending) {
+            discardPrepared()
+            setStep('form')
+          }
         }}
         title="스왑 확인"
         footer={
           <div className="space-y-2">
-            <Button full onClick={() => void execute()} loading={sending} id="swap-confirm">
-              서명하고 스왑
+            <Button
+              full
+              onClick={() => void (preview ? execute() : preparePreview())}
+              loading={sending || preparing}
+              disabled={preparing || (!preview && !quote)}
+              id="swap-confirm"
+            >
+              {preparing ? '시뮬레이션 중…' : preview ? '미리보기대로 서명하고 스왑' : '시뮬레이션 미리보기'}
             </Button>
-            <Button full variant="secondary" disabled={sending} onClick={() => setStep('form')}>
+            <Button full variant="secondary" disabled={sending || preparing} onClick={() => { discardPrepared(); setStep('form') }}>
               이전
             </Button>
           </div>
@@ -743,6 +821,67 @@ export default function Swap({
             <span className="text-ink">Solana Mainnet</span>
           </div>
         </div>
+
+        {preparing && (
+          <div className="mt-4 flex items-center gap-2 rounded-[14px] bg-surface px-3.5 py-3 text-[11.5px] text-muted">
+            <Loader2 size={14} className="animate-spin-slow" />
+            서명할 트랜잭션을 시뮬레이션하고 있습니다. 결과가 불완전하면 서명하지 않습니다.
+          </div>
+        )}
+
+        {preview && (
+          <section className="mt-5 rounded-[16px] bg-surface p-3.5">
+            <div className="text-[12px] font-semibold text-ink">서명 전 시뮬레이션</div>
+            <div className="mt-2 break-all font-mono text-[9.5px] leading-relaxed text-muted">
+              받는 지갑 · {preview.recipient}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-[11.5px]">
+              <span className="text-muted">트랜잭션 수수료</span>
+              <span className="tnum font-medium text-ink">{formatAmount(BigInt(preview.feeLamports), 9, 6)} SOL</span>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {preview.nativeChanges.map((change) => (
+                <div key={`swap-sol-${change.address}`} className="flex items-start justify-between gap-3 text-[11.5px]">
+                  <span className="text-muted">지갑 SOL 변화</span>
+                  <span className="tnum text-right font-medium text-ink">
+                    {signedAmount(change.deltaLamports, 9)} SOL
+                    <span className="block text-[10px] font-normal text-faint">
+                      {formatAmount(BigInt(change.beforeLamports), 9, 6)} → {formatAmount(BigInt(change.afterLamports), 9, 6)}
+                    </span>
+                  </span>
+                </div>
+              ))}
+              {preview.tokenChanges.map((change) => {
+                const token = universe.find((asset) => asset.mint === change.mint)
+                const label = token?.symbol ?? change.mint.slice(0, 5)
+                return (
+                  <div key={`swap-token-${change.owner}-${change.mint}`} className="flex items-start justify-between gap-3 text-[11.5px]">
+                    <span className="text-muted">{label} 변화</span>
+                    <span className="tnum text-right font-medium text-ink">
+                      {signedAmount(change.deltaAmount, change.decimals)} {label}
+                      <span className="block text-[10px] font-normal text-faint">
+                        {formatAmount(BigInt(change.beforeAmount), change.decimals, 6)} → {formatAmount(BigInt(change.afterAmount), change.decimals, 6)}
+                      </span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-3 border-t border-line pt-2.5">
+              <div className="text-[11px] font-semibold text-ink">호출 프로그램</div>
+              <div className="mt-1.5 space-y-1.5">
+                {preview.invokedPrograms.map((program) => (
+                  <div key={program} className="break-all text-[9.5px] leading-relaxed text-muted">
+                    <span className="font-medium text-ink">{programLabel(program)}</span> · {program}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="mt-2 text-[9.5px] leading-relaxed text-faint">
+              슬롯 {preview.slot}에서 얻은 미리보기입니다. 시뮬레이션 결과와 미리보기 메시지가 일치할 때만 서명합니다.
+            </p>
+          </section>
+        )}
 
         {impactHigh && (
           <div className="mt-4 rounded-[14px] bg-dangerSoft px-3.5 py-2.5 text-[11.5px] leading-snug text-danger">

@@ -1,15 +1,14 @@
 /**
  * A very small IndexedDB wrapper with no dependencies.
  *
- * The encrypted wallet vault lives here instead of in localStorage. Version 2
- * removes the obsolete device-authentication key store while preserving the
- * existing vault object store and its contents.
+ * The encrypted wallet vault lives here instead of in localStorage. Existing
+ * object stores, including obsolete authentication records, are retained so
+ * upgrading the database never deletes previously saved data.
  */
 
 export const DB_NAME = 'mono-vault'
 const DB_VERSION = 2
 export const STORE_VAULT = 'vault'
-const LEGACY_STORE_KEYS = 'keys'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -34,7 +33,6 @@ export function openDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result
       if (!db.objectStoreNames.contains(STORE_VAULT)) db.createObjectStore(STORE_VAULT)
-      if (db.objectStoreNames.contains(LEGACY_STORE_KEYS)) db.deleteObjectStore(LEGACY_STORE_KEYS)
     }
     request.onsuccess = () => {
       const db = request.result
@@ -56,8 +54,14 @@ export async function idbGet<T>(store: string, key: string): Promise<T | null> {
   return new Promise<T | null>((resolve, reject) => {
     const tx = db.transaction(store, 'readonly')
     const request = tx.objectStore(store).get(key)
-    request.onsuccess = () => resolve((request.result as T | undefined) ?? null)
+    let result: T | null = null
+    request.onsuccess = () => {
+      result = (request.result as T | undefined) ?? null
+    }
     request.onerror = () => reject(request.error ?? new Error('IndexedDB 읽기 실패'))
+    tx.oncomplete = () => resolve(result)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB 읽기 실패'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB 읽기 취소'))
   })
 }
 

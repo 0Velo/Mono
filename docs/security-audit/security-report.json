@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T00:16:03.837Z",
+  "startedAt": "2026-11-25T01:14:03.804Z",
   "node": "v24.22.1",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T00:16:03.903Z",
+      "generatedAt": "2026-11-25T01:14:03.882Z",
       "checks": [
         {
           "id": "SS-01",
@@ -69,7 +69,7 @@
           "id": "SS-11",
           "title": "localStorage key inventory (no plaintext secret keys expected)",
           "status": "INFO",
-          "detail": "keys, mono.addressBook.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
+          "detail": "key, mono.addressBook.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
         },
         {
           "id": "SS-12",
@@ -80,8 +80,8 @@
         {
           "id": "SS-13",
           "title": "Every dependency version is pinned to a semver range",
-          "status": "PASS",
-          "detail": "@noble/hashes@^1.7.1, @solana/spl-token@^0.4.9, @solana/web3.js@^1.98.0, bip39@^3.1.0, bs58@^6.0.0, lucide-react@^0.468.0, qrcode.react@^4.2.0, react@^18.3.1, react-dom@^18.3.1"
+          "status": "REVIEW",
+          "detail": "bigint-buffer@file:vendor/bigint-buffer"
         },
         {
           "id": "SS-14",
@@ -99,20 +99,20 @@
           "id": "SS-16",
           "title": "package-lock.json present and structurally valid",
           "status": "PASS",
-          "detail": "394 locked package entries"
+          "detail": "397 locked package entries"
         }
       ],
       "counts": {
-        "PASS": 12,
+        "PASS": 11,
         "INFO": 2,
-        "REVIEW": 2
+        "REVIEW": 3
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T00:16:04.548Z",
+      "generatedAt": "2026-11-25T01:14:04.634Z",
       "scanned": {
-        "trackedFiles": 117,
-        "commits": 27
+        "trackedFiles": 125,
+        "commits": 32
       },
       "workingTree": {
         "findings": [],
@@ -132,34 +132,26 @@
       "counts": {
         "info": 0,
         "low": 6,
-        "moderate": 7,
-        "high": 4,
+        "moderate": 8,
+        "high": 0,
         "critical": 0,
-        "total": 17
+        "total": 14
       },
       "advisories": [
         {
           "package": "@solana/buffer-layout-utils",
-          "severity": "high",
+          "severity": "moderate",
           "range": "*",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/spl-token",
-            "version": "0.1.8",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
         },
         {
           "package": "@solana/spl-token",
-          "severity": "high",
+          "severity": "moderate",
           "range": "*",
           "direct": true,
-          "fixAvailable": {
-            "name": "@solana/spl-token",
-            "version": "0.1.8",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
         },
         {
@@ -167,11 +159,7 @@
           "severity": "moderate",
           "range": "*",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/spl-token",
-            "version": "0.1.8",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
         },
         {
@@ -179,11 +167,7 @@
           "severity": "moderate",
           "range": "*",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/spl-token",
-            "version": "0.1.8",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
         },
         {
@@ -191,33 +175,8 @@
           "severity": "moderate",
           "range": "<=0.0.0-pr-29130 || 0.0.4 - 1.99.0",
           "direct": true,
-          "fixAvailable": {
-            "name": "@solana/web3.js",
-            "version": "3.2.1",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
-        },
-        {
-          "package": "bigint-buffer",
-          "severity": "high",
-          "range": "*",
-          "direct": false,
-          "fixAvailable": {
-            "name": "@solana/spl-token",
-            "version": "0.1.8",
-            "isSemVerMajor": true
-          },
-          "advisories": [
-            {
-              "title": "bigint-buffer Vulnerable to Buffer Overflow via toBigIntLE() Function",
-              "url": "https://github.com/advisories/GHSA-3gc7-fjrx-p6mg",
-              "cvss": 7.5,
-              "cwe": [
-                "CWE-120"
-              ]
-            }
-          ]
         },
         {
           "package": "browserify-sign",
@@ -277,36 +236,11 @@
           ]
         },
         {
-          "package": "esbuild",
-          "severity": "moderate",
-          "range": "<=0.24.2",
-          "direct": false,
-          "fixAvailable": {
-            "name": "vite",
-            "version": "8.3.8",
-            "isSemVerMajor": true
-          },
-          "advisories": [
-            {
-              "title": "esbuild enables any website to send any requests to the development server and read the response",
-              "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
-              "cvss": 5.3,
-              "cwe": [
-                "CWE-346"
-              ]
-            }
-          ]
-        },
-        {
           "package": "jayson",
           "severity": "moderate",
           "range": "2.0.6 - 4.3.0",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/web3.js",
-            "version": "3.2.1",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": []
         },
         {
@@ -326,11 +260,7 @@
           "severity": "moderate",
           "range": "<=3.5.0",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/web3.js",
-            "version": "3.2.1",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": [
             {
               "title": "stream-json: pick/ignore/filter/replace filters are O(depth²) on nested input — small crafted JSON blocks the event loop for seconds→minutes (DoS)",
@@ -363,11 +293,7 @@
           "severity": "moderate",
           "range": "<11.1.1",
           "direct": false,
-          "fixAvailable": {
-            "name": "@solana/web3.js",
-            "version": "3.2.1",
-            "isSemVerMajor": true
-          },
+          "fixAvailable": false,
           "advisories": [
             {
               "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
@@ -376,87 +302,6 @@
               "cwe": [
                 "CWE-787",
                 "CWE-1285"
-              ]
-            }
-          ]
-        },
-        {
-          "package": "vite",
-          "severity": "high",
-          "range": "<=6.4.3",
-          "direct": true,
-          "fixAvailable": {
-            "name": "vite",
-            "version": "8.3.8",
-            "isSemVerMajor": true
-          },
-          "advisories": [
-            {
-              "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
-              "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
-              "cvss": 0,
-              "cwe": [
-                "CWE-22",
-                "CWE-200"
-              ]
-            },
-            {
-              "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
-              "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
-              "cvss": 0,
-              "cwe": [
-                "CWE-73",
-                "CWE-522"
-              ]
-            },
-            {
-              "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
-              "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
-              "cvss": 0,
-              "cwe": [
-                "CWE-78"
-              ]
-            },
-            {
-              "title": "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
-              "url": "https://github.com/advisories/GHSA-r825-w8mm-5pxw",
-              "cvss": 0,
-              "cwe": [
-                "CWE-88"
-              ]
-            },
-            {
-              "title": "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
-              "url": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
-              "cvss": 0,
-              "cwe": [
-                "CWE-77"
-              ]
-            },
-            {
-              "title": "Vite: Cross origin script execution through Vite custom middleware",
-              "url": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw",
-              "cvss": 0,
-              "cwe": [
-                "CWE-80"
-              ]
-            },
-            {
-              "title": "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
-              "url": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22",
-              "cvss": 0,
-              "cwe": [
-                "CWE-22",
-                "CWE-284"
-              ]
-            },
-            {
-              "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
-              "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
-              "cvss": 0,
-              "cwe": [
-                "CWE-22",
-                "CWE-200"
               ]
             }
           ]
@@ -474,8 +319,8 @@
           "advisories": []
         }
       ],
-      "prodDependencies": 82,
-      "totalDependencies": 393
+      "prodDependencies": 81,
+      "totalDependencies": 396
     },
     "unit": {
       "tests": [
@@ -520,6 +365,31 @@
           "file": null
         },
         {
+          "name": "bigint-buffer replacement preserves little- and big-endian conversions",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "ESM and CommonJS entry points produce the same results",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement rejects non-Buffer inputs before conversion",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement safely converts large valid buffers without native code",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "bigint-buffer replacement rejects invalid widths, negative values, and overflow",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path",
           "status": "PASS",
           "file": null
@@ -560,12 +430,22 @@
           "file": null
         },
         {
-          "name": "security gate permits only a currently reviewed exact high advisory",
+          "name": "security gate passes a clean dependency audit",
           "status": "PASS",
           "file": null
         },
         {
-          "name": "security gate blocks a new high advisory outside the reviewed ID list",
+          "name": "security gate blocks a direct high advisory even when its ID is listed as accepted",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks transitive high advisories as well as direct advisories",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks audit evidence whose reported high count disagrees with its records",
           "status": "PASS",
           "file": null
         },
@@ -581,6 +461,11 @@
         },
         {
           "name": "security gate blocks when built-app UI evidence is missing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "database upgrade preserves old authentication records and read aborts reject",
           "status": "PASS",
           "file": null
         },
@@ -601,6 +486,36 @@
         },
         {
           "name": "a failed marker deletion is surfaced so the next send remains blocked",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an existing uncertain signature cannot be overwritten by a later attempt",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a stale terminal check cannot delete a newer signature marker",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the same owner/network lock excludes concurrent send and swap workflows",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a pending signature is returned without running another operation",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an error after signature persistence releases the lock but preserves the blocking signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "browsers without Web Locks fail closed instead of starting a send",
           "status": "PASS",
           "file": null
         },
@@ -716,6 +631,11 @@
         },
         {
           "name": "custom RPC input is validated as https-only in the settings screen",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes",
           "status": "PASS",
           "file": null
         },
@@ -865,6 +785,21 @@
           "file": null
         },
         {
+          "name": "prepared swap byte guard refuses a changed transaction before signing or broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "swap preview fails closed when simulation accounts or invocation logs are missing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "swap preview is bound to the same wallet and quote and expires by age or block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants",
           "status": "PASS",
           "file": null
@@ -916,6 +851,36 @@
         },
         {
           "name": "RPC status lookup failure stays unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL preparation displays simulated ATA rent rather than relying on a fixed estimate",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "simulation errors or missing result data fail before any signature or broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a changed message is rejected before sign or send",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "send preview is bound to the same wallet and expires by age or block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "history detail lookup failures preserve signature rows and successful details parse balances",
           "status": "PASS",
           "file": null
         },
@@ -1033,15 +998,46 @@
           "name": "a mnemonic-derived payload always reports the same address",
           "status": "PASS",
           "file": null
+        },
+        {
+          "name": "account list includes the base and user-registered indices only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "registered account indices and active account survive a metadata reload",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "metadata write failure is reported and does not update saved metadata",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "blocked metadata reads throw instead of appearing to be an empty install",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "initialization retains legacy auth and wallet data; clear remains user-invoked only",
+          "status": "PASS",
+          "file": null
         }
       ],
-      "pass": 111,
+      "pass": 140,
       "fail": 0,
       "compileErrors": []
     },
     "ui": {
       "status": "PASS",
       "checks": [
+        {
+          "id": "UI-17",
+          "title": "A disposable browser context starts without pre-existing wallet material",
+          "status": "PASS",
+          "detail": "{\"presentLocalKeys\": [], \"presentSessionKeys\": [], \"hasIdbVault\": false, \"idbError\": \"\"}"
+        },
         {
           "id": "UI-01",
           "title": "The production build renders the onboarding screen",
@@ -1064,7 +1060,7 @@
           "id": "UI-04",
           "title": "Every script is same-origin",
           "status": "PASS",
-          "detail": "http://127.0.0.1:54015/assets/index-C5tnLtnQ.js"
+          "detail": "http://127.0.0.1:57383/assets/index-B3Yb8s6s.js"
         },
         {
           "id": "UI-05",
@@ -1088,7 +1084,7 @@
           "id": "UI-08",
           "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
           "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"PyPW+TdgkWgK1D7s\", \"salt\": \"yvN9vCdxkpPttfgPLi3yJA==\"}"
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"J6nt1AANbwtz5cDl\", \"salt\": \"odKOUSjDceTp2ZDzX7fmLQ==\"}"
         },
         {
           "id": "UI-09",
@@ -1121,6 +1117,36 @@
           "detail": "executed=False label_saved=True"
         },
         {
+          "id": "UI-18",
+          "title": "Reload locks the persisted wallet and the correct PIN restores its original address",
+          "status": "PASS",
+          "detail": "locked=True unlocked=True original_address_restored=True"
+        },
+        {
+          "id": "UI-19",
+          "title": "A freshly created mnemonic wallet presents exactly one account",
+          "status": "PASS",
+          "detail": "{\"labels\": [\"메인\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2Xnh8yzkeL3KPjSSgSSyg4nAgdpX4dSKHov8Xhf3GmXE\"}}"
+        },
+        {
+          "id": "UI-20",
+          "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
+          "status": "PASS",
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"FxD5cHCpqkZpVWpCPZGqfK6gus2taLNLWiqVJaGL4W6L\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+        },
+        {
+          "id": "UI-21",
+          "title": "Explicitly switching back selects the original account without removing account 2",
+          "status": "PASS",
+          "detail": "switched_back=True activeIndex=0 original_address_restored=True accountIndices=[1]"
+        },
+        {
+          "id": "UI-22",
+          "title": "The second account and selected main account persist through reload and unlock",
+          "status": "PASS",
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2Xnh8yzkeL3KPjSSgSSyg4nAgdpX4dSKHov8Xhf3GmXE\", \"accountIndices\": [1]}}}"
+        },
+        {
           "id": "UI-14",
           "title": "No uncaught page errors while driving the app",
           "status": "PASS",
@@ -1136,24 +1162,24 @@
           "id": "UI-16",
           "title": "External origins contacted by the page",
           "status": "INFO",
-          "detail": "127.0.0.1:54015, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com"
+          "detail": "127.0.0.1:57383, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com"
         }
       ],
       "counts": {
-        "PASS": 15,
+        "PASS": 21,
         "FAIL": 0,
         "REVIEW": 0,
         "INFO": 1
       },
       "requests": [
-        "127.0.0.1:54015",
+        "127.0.0.1:57383",
         "api.coingecko.com",
         "api.mainnet-beta.solana.com",
         "solana-rpc.publicnode.com"
       ],
-      "generatedAt": "2026-11-25T09:16:22+0900"
+      "generatedAt": "2026-11-25T10:14:26+0900"
     }
   },
-  "durationSeconds": 18.86,
+  "durationSeconds": 22.48,
   "blockingFailures": []
 }

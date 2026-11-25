@@ -1,22 +1,5 @@
 {
-  "policy": "A critical advisory always blocks. A high advisory on a direct dependency blocks unless it is listed here with a reason, a scope, and a review date within 12 months. Anything accepted here is re-checked on the review date and whenever the dependency is upgraded.",
+  "policy": "This file records historical review context only and never exempts a finding. Every critical or high advisory blocks the security gate, including listed entries. Remove an entry only after its advisory is no longer present in the dependency audit.",
   "reviewedAt": "2026-11-25",
-  "accepted": [
-    {
-      "package": "@solana/spl-token",
-      "severity": "high",
-      "advisories": ["GHSA-3gc7-fjrx-p6mg"],
-      "reason": "The advisory is in bigint-buffer (native binding wrapper), pulled in transitively by @solana/buffer-layout-utils. The browser build resolves bigint-buffer to dist/browser.js (pure JS, no native binding), and every value it decodes comes from an SPL token account the wallet itself owns, bounded to 8-byte amounts. No path feeds it attacker-sized buffers. Upstream fix requires a @solana/spl-token major downgrade (0.1.8) that would break the token instruction API, so it is tracked rather than forced.",
-      "scope": "transitive, pure-JS browser path, bounded input",
-      "reviewBy": "2027-03-31"
-    },
-    {
-      "package": "vite",
-      "severity": "high",
-      "advisories": ["GHSA-587h-7wmj-h5pm"],
-      "reason": "Dev-server and launch-editor advisories: none of this code exists in the built dist/ that GitHub Pages serves (only hashed static assets). Exploiting them requires running `npm run dev` on a hostile network. Upgrade to Vite 7 is a separate, non-security-critical maintenance step.",
-      "scope": "development tooling, not shipped",
-      "reviewBy": "2027-03-31"
-    }
-  ]
+  "accepted": []
 }
