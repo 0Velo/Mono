@@ -56,13 +56,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def _rpc_result(self, method):
+    def _rpc_result(self, entry):
         """A tiny stand-in RPC, so a funded wallet can be opened without network."""
+        method = entry.get("method")
+        params = entry.get("params") or []
         context = {"slot": 123456}
         if method == "getBalance":
             return {"context": context, "value": MOCK_SOL_LAMPORTS}
         if method in ("getTokenAccountsByOwner", "getParsedTokenAccountsByOwner"):
-            return {"context": context, "value": []}
+            program = ""
+            if len(params) > 1 and isinstance(params[1], dict):
+                program = str(params[1].get("programId") or "")
+            value = MOCK_TOKEN_ACCOUNTS if program == MOCK_TOKEN_PROGRAM else []
+            return {"context": context, "value": value}
         if method == "getSignaturesForAddress":
             return []
         if method == "getLatestBlockhash":
@@ -95,7 +101,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return {
                 "jsonrpc": "2.0",
                 "id": entry.get("id", 1),
-                "result": self._rpc_result(entry.get("method")),
+                "result": self._rpc_result(entry),
             }
 
         body = json.dumps([answer(item) for item in payload] if isinstance(payload, list) else answer(payload))
@@ -116,6 +122,50 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 MOCK_SOL_LAMPORTS = 5_000_000_000
+MOCK_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+MOCK_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
+
+def mock_token_account(address: str, lamports: int) -> dict:
+    """A parsed, empty SPL token account exactly as the RPC reports it."""
+    return {
+        "pubkey": address,
+        "account": {
+            "lamports": lamports,
+            "executable": False,
+            "owner": MOCK_TOKEN_PROGRAM,
+            "rentEpoch": 0,
+            "space": 165,
+            "data": {
+                "program": "spl-token",
+                "parsed": { 
+                    "type": "account",
+                    "info": {
+                        "mint": MOCK_USDC_MINT,
+                        "owner": "11111111111111111111111111111111",
+                        "tokenAmount": {
+                            "amount": "0",
+                            "decimals": 6,
+                            "uiAmount": 0,
+                            "uiAmountString": "0",
+                        },
+                        "state": "initialized",
+                        "isNative": False,
+                        "closeAuthority": None,
+                    },
+                },
+                "space": 165,
+            },
+        },
+    }
+
+
+# Two empty token accounts, each holding the 1,488,440 lamport rent observed on
+# mainnet: closes to ~0.0029 SOL after the fee.
+MOCK_TOKEN_ACCOUNTS = [
+    mock_token_account("Ccuq2woKJGvocM7FYrGwGs4NnnhUSM4n22ZFyYf8H7DE", 1_488_440),
+    mock_token_account("HXwhnMhFH5cGRs9hfWdXZLHuHSzpgYvbYH6oWiJXYvzm", 1_488_440),
+]
 
 
 def serve(port):
@@ -940,14 +990,8 @@ def main():
                 json.dumps(uri_state, ensure_ascii=False),
             )
 
-            # Put the wallet back on the default RPC so nothing else (and nobody
-            # opening this build) is left pointing at a test endpoint.
-            set_custom_rpc("")
-            page.keyboard.press("Escape")
-            page.reload(wait_until="domcontentloaded")
-            page.wait_for_selector("text=지갑 잠김", timeout=15000)
-            type_pin(page, "123456")
-            page.wait_for_selector("text=보내기", timeout=25000)
+            # The wallet stays on the stand-in RPC one moment longer: the next
+            # check reads empty token accounts from it.
         else:
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
@@ -964,17 +1008,56 @@ def main():
                 "live mode: the funded stand-in RPC lives on the local static server; the same check runs in the local suite",
             )
 
-        # --- a wallet with no token accounts offers no cleanup row -------------
+        # --- empty token accounts: the cleanup row and its confirmation -------
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
         page.get_by_role("button", name="설정", exact=True).first.click()
         page.wait_for_selector("text=디스플레이", timeout=10000)
-        page.wait_for_timeout(1500)
-        cleanup_rows = page.locator("#rent-cleanup").count()
-        record(
-            "UI-36",
-            "A wallet with no empty token accounts shows no cleanup row",
-            "PASS" if cleanup_rows == 0 else "FAIL",
-            f"rows={cleanup_rows}",
-        )
+        if mock_available:
+            row = page.locator("#rent-cleanup")
+            try:
+                row.first.wait_for(state="visible", timeout=20000)
+                row_visible = True
+            except Exception:
+                row_visible = False
+            row_text = row.first.inner_text().replace("\n", " ") if row_visible else ""
+            sheet_text = ""
+            if row_visible:
+                row.first.click()
+                page.wait_for_selector("text=빈 계정 2개 닫고 회수", timeout=15000)
+                sheet_text = page.get_by_role("dialog").inner_text().replace("\n", " ")
+                page.get_by_role("button", name="취소").first.click()
+                page.wait_for_timeout(400)
+            record(
+                "UI-36",
+                "Empty token accounts surface one cleanup row and a confirmation that lists what closes",
+                "PASS"
+                if row_visible
+                and "빈 토큰 계정 2개 정리" in row_text
+                and "0.0029" in row_text
+                and "회수" in sheet_text
+                and "2개" in sheet_text
+                else "FAIL",
+                json.dumps({"row": row_text, "sheet": sheet_text[:200]}, ensure_ascii=False),
+            )
+        else:
+            page.wait_for_timeout(1500)
+            cleanup_rows = page.locator("#rent-cleanup").count()
+            record(
+                "UI-36",
+                "A wallet with no empty token accounts shows no cleanup row",
+                "PASS" if cleanup_rows == 0 else "FAIL",
+                f"rows={cleanup_rows}",
+            )
+
+        # Put the wallet back on the default RPC so nothing else (and nobody
+        # opening this build) is left pointing at a test endpoint.
+        if mock_available:
+            set_custom_rpc("")
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            type_pin(page, "123456")
+            page.wait_for_selector("text=보내기", timeout=25000)
 
         # --- the bundled decoder actually reads a QR code ---------------------
         # No camera exists in CI, so the pixels come from a checked-in PNG that
