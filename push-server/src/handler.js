@@ -26,8 +26,7 @@ function response(status, body, origin, env, extra = {}) {
   return new Response(body === null ? null : JSON.stringify(body), { status, headers });
 }
 
-function exactKeys(value, keys) {
-  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+function exactKeys(value, keys) {  return value !== null && typeof value === "object" && !Array.isArray(value) &&
     Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
 }
 
@@ -93,10 +92,19 @@ export async function reserveDailyOperation(kv, now) {
   return true;
 }
 
+/** The deployment's own origin, used to build the webhook URL Helius calls back. */
+function deploymentOrigin(request) {
+  try { return new URL(request.url).origin; } catch { return ""; }
+}
+
 /**
  * Mirror the active subscriptions into the Helius webhooks after a change.
  * Never throws: the webhook only makes delivery faster, and the 15-minute scan is
  * the backstop, so a Helius outage must not fail a subscribe or revoke request.
+ *
+ * `origin` must be the deployment's own origin (`new URL(request.url).origin`),
+ * never the browser's `Origin` header — that is the app host and would point the
+ * webhook at GitHub Pages.
  */
 async function syncHeliusQuietly(env, kv, origin, now) {
   if (!env.HELIUS_API_KEY) return;
@@ -145,7 +153,7 @@ async function handleSubscribe(request, env, kv, origin, now) {
   };
   try { await kv.put(key, JSON.stringify(record)); }
   catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
-  await syncHeliusQuietly(env, kv, origin, now);
+  await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return response(previous ? 200 : 201, { id }, origin, env);
 }
 
@@ -167,7 +175,7 @@ async function handleDelete(request, id, env, kv, origin, now) {
     await kv.delete(key);
     await kv.delete(`state/${id}`);
   } catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
-  await syncHeliusQuietly(env, kv, origin, now);
+  await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return response(200, { disabled: true }, origin, env);
 }
 
@@ -228,7 +236,7 @@ export async function scanHandler(request, env, kv, now = new Date()) {
   const result = await scheduledScan({ ...env, SUBSCRIPTIONS: kv }, createOutboundBudget(50), now.toISOString());
   // The scheduled scan also re-syncs the webhook address list, so a change missed
   // by an earlier best-effort sync is corrected within 15 minutes.
-  await syncHeliusQuietly(env, kv, new URL(request.url).origin, now);
+  await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return new Response(JSON.stringify(result), {
     status: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" }
