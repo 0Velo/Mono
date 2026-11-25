@@ -7,7 +7,7 @@ Vercel 프로젝트로 올립니다(Root Directory: `push-server`). 정적 사�
 
 - 런타임: Vercel **Edge Functions** (`api/`)
 - 저장소: **Neon Postgres** (Vercel Storage에서 프로비저닝한 `mono-push-db`, 무료 플랜)
-- 감시: Solana 공개 RPC만 사용(유료 API 키 없음), Vercel Cron(하루 1회) + GitHub Actions(15분)
+- 감시: Solana 공개 RPC만 사용(유료 API 키 없음), Vercel Schedule 15분 + Cron 하루 1회
 - 지갑 키·시드는 절대 받지 않습니다. 계정 연결 증명은 잠금 해제 중에 지갑이 만든 Ed25519 서명 한 번뿐입니다.
 
 ## 공개 API (브라우저가 호출)
@@ -55,14 +55,22 @@ managementToken**의 해시가 일치해야 합니다(다르면 `409`). 서버�
 `webpush.googleapis.com`, `web.push.apple.com`, `*.push.services.mozilla.com`,
 `*.notify.windows.com`.
 
+### 배포 환경의 경로 처리
+
+Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁니다
+(`/api/v1/subscriptions/<id>` → `/api/v1/subscriptions?id=<id>`). `src/request.js`의
+`withCanonicalPath`가 `/api` 접두사를 떼고 64자 hex id 하나만 경로로 되돌립니다. 그 밖의
+쿼리 문자열은 손대지 않아 핸들러가 계속 거부합니다.
+
 ## 감시 경로
 
 `GET|POST /api/cron/scan` — `Authorization: Bearer $CRON_SECRET` 필요.
 
-- Vercel Cron: `vercel.json`의 `crons`가 하루 1회 호출합니다(Hobby 플랜의 최소 주기).
-  Vercel은 `CRON_SECRET`이 설정돼 있으면 이 헤더를 자동으로 붙입니다.
-- GitHub Actions `.github/workflows/push-scan.yml`: 15분마다 같은 엔드포인트를 호출합니다
-  (public 저장소는 Actions 시간이 무료). `CRON_SECRET` 저장소 시크릿이 필요합니다.
+- **Vercel Schedule**(`vercel.json`의 `schedules`)이 **15분마다** 호출합니다.
+  Hobby 플랜도 Schedule은 15분 주기를 허용합니다(레거시 Cron Job은 하루 1회 제한).
+- `crons`의 하루 1회 호출은 백스톱입니다.
+- Vercel은 `CRON_SECRET`이 설정돼 있으면 두 방식 모두 `Authorization: Bearer $CRON_SECRET`을
+  붙입니다. 실행 이력은 프로젝트 → Schedules 에서 확인합니다.
 
 스캔 1회는 최대 3개 구독을 순환 처리하고, 구독당 Solana RPC 호출을 최대 12회로 묶습니다
 (전체 상한 50회). 첫 스캔은 기존 서명을 조용한 기준선으로만 저장하고 알림을 보내지
@@ -98,7 +106,7 @@ managementToken**의 해시가 일치해야 합니다(다르면 `409`). 서버�
 ```sh
 cd push-server
 npm install
-npm test        # 16개: 계약·CORS·서명검증·감시기준선·저장소 어댑터 (외부 호출 없음)
+npm test        # 20개: 계약·CORS·서명검증·감시 기준선·저장소·경로 복원 (외부 호출 없음)
 npm run check   # 문법 검사 + 위 테스트
 ```
 
@@ -111,5 +119,5 @@ npm run check   # 문법 검사 + 위 테스트
 - 잔액 증가는 외부 입금의 완전한 의미 증명이 아닙니다(렌트 환급·계정 폐쇄 등도 증가로 보임).
 - 푸시 전달 보장은 없습니다(중복·지연·누락 가능). 벤더가 404/410을 주면 해당 구독을
   수동으로 해지해야 합니다.
-- Vercel Hobby Cron은 하루 1회이므로 실제 주기는 GitHub Actions가 만듭니다. 저장소에
-  60일간 커밋이 없으면 GitHub가 예약 워크플로를 멈춥니다.
+- Vercel Schedules는 현재 Beta이고 Hobby는 지터 15분이 붙습니다. 즉 알림은 입금 후
+  대략 15~30분 안에 도착합니다.

@@ -5,6 +5,13 @@
     { "source": "/v1/subscriptions", "destination": "/api/v1/subscriptions" },
     { "source": "/v1/subscriptions/:id", "destination": "/api/v1/subscriptions/:id" }
   ],
+  "schedules": {
+    "push-scan": {
+      "schedule": "*/15 * * * *",
+      "path": "/api/cron/scan",
+      "requestMethod": "GET"
+    }
+  },
   "crons": [
     { "path": "/api/cron/scan", "schedule": "0 1 * * *" }
   ]
