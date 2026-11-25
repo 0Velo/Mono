@@ -5,10 +5,8 @@ import {
   Copy,
   Download,
   ExternalLink,
-  Fingerprint,
   Lock,
   Moon,
-  ScanFace,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -53,36 +51,6 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-function Toggle({
-  value,
-  onChange,
-  label,
-}: {
-  value: boolean
-  onChange: () => void
-  label: string
-}) {
-  return (
-    <button
-      role="switch"
-      aria-checked={value}
-      aria-label={label}
-      onClick={onChange}
-      className={cx(
-        'relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200',
-        value ? 'bg-mint' : 'bg-switch',
-      )}
-    >
-      <span
-        className={cx(
-          'absolute left-0 top-[3px] h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(13,14,18,0.18)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
-          value ? 'translate-x-[21px]' : 'translate-x-[3px]',
-        )}
-      />
-    </button>
-  )
-}
-
 const AUTO_LOCK_OPTIONS = [
   { value: '1', label: '1분' },
   { value: '5', label: '5분' },
@@ -112,20 +80,11 @@ export function Settings({
     accounts,
     activeIndex,
     activeAccount,
-    biometricSupported,
-    biometricAvailable,
-    biometricEnabled,
-    biometricMode,
-    biometricCreatedAt,
-    enrolBiometric,
-    disableBiometric,
-    biometricError,
   } = useWallet()
   const { pref: themePref, setTheme } = useTheme()
   const book = useAddressBook()
   const [rpcInput, setRpcInput] = useState(meta.rpc[meta.network] ?? '')
   const [copied, setCopied] = useState(false)
-  const [bioBusy, setBioBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
@@ -155,29 +114,15 @@ export function Settings({
     }
   }
 
-  const toggleBiometric = async () => {
-    if (bioBusy) return
-    if (biometricEnabled) {
-      disableBiometric()
-      showToast('Face ID 잠금 해제를 껐습니다')
-      return
-    }
-    setBioBusy(true)
-    try {
-      await enrolBiometric()
-      showToast('Face ID를 등록했습니다')
-    } catch {
-      /* the provider stores a readable reason */
-    } finally {
-      setBioBusy(false)
-    }
-  }
-
   const exportBackup = async () => {
     if (!vault || exporting) return
     setExporting(true)
     try {
-      const result = await saveBackupFile(vault, meta.address)
+      const result = await saveBackupFile(vault, meta.address, {
+        activeIndex,
+        accountIndices: accounts.map((account) => account.index),
+        accountNames: meta.accountNames,
+      })
       showToast(
         result === 'shared'
           ? '공유 시트에서 파일 앱 또는 iCloud Drive를 고르세요'
@@ -395,37 +340,7 @@ export function Settings({
         </div>
 
         <div className="flex items-center gap-2.5 border-t border-line2 px-4 py-3.5">
-          <ScanFace size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
-          <div className="min-w-0 flex-1">
-            <div className="text-[14.5px] tracking-[-0.02em] text-ink">Face ID 잠금 해제</div>
-            <div className="mt-0.5 text-[11px] leading-snug text-muted">
-              {!biometricSupported
-                ? '이 기기에서는 지원되지 않습니다'
-                : biometricEnabled
-                  ? `등록됨${
-                      biometricCreatedAt
-                        ? ` · ${new Date(biometricCreatedAt).toLocaleDateString('ko-KR')}`
-                        : ''
-                    }${biometricMode === 'device' ? ' · 기기 키' : ''}`
-                  : biometricAvailable
-                    ? 'PIN 대신 얼굴로 열 수 있습니다'
-                    : 'Face ID로 열기 (탭해서 등록)'}
-            </div>
-            {biometricError && (
-              <div className="mt-1 text-[10.5px] leading-snug text-danger">{biometricError}</div>
-            )}
-          </div>
-          {biometricSupported ? (
-            bioBusy ? (
-              <Spinner size={18} />
-            ) : (
-              <Toggle value={biometricEnabled} onChange={() => void toggleBiometric()} label="Face ID 잠금 해제" />
-            )
-          ) : null}
-        </div>
-
-        <div className="flex items-center gap-2.5 border-t border-line2 px-4 py-3.5">
-          <Fingerprint size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
+          <Lock size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
           <div className="min-w-0 flex-1">
             <div className="text-[14.5px] tracking-[-0.02em] text-ink">키 보관 방식</div>
             <div className="mt-0.5 text-[11px] leading-snug text-muted">

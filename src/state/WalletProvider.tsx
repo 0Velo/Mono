@@ -12,24 +12,13 @@ import {
   InvalidPinError,
   decryptSecret,
   encryptSecret,
-  isVaultShape,
   type SecretPayload,
   type Vault,
 } from '../lib/vault'
 import { loadKeys } from '../lib/keys'
-import {
-  BiometricError,
-  biometricSupportedByBrowser,
-  clearEnrolment,
-  enrol,
-  hasEnrolment,
-  isPlatformAuthenticatorAvailable,
-  readRecord,
-  unlockWithBiometric,
-  type BiometricMode,
-} from '../lib/biometric'
 import { loadVault, saveVault, clearVault } from '../lib/vaultStore'
 import type { NetworkId } from '../lib/rpc'
+import type { BackupAccountMetadata } from '../lib/backup'
 
 const META_KEY = 'mono.meta.v1'
 const LEGACY_META_KEY = 'solwallet.meta.v1'
@@ -72,6 +61,7 @@ export function accountLabel(meta: WalletMeta | null, index: number): string {
 
 interface WalletContextValue {
   ready: boolean
+  initializationError: string | null
   vaultExists: boolean
   vault: Vault | null
   meta: WalletMeta | null
@@ -80,10 +70,10 @@ interface WalletContextValue {
   createWallet: (payload: SecretPayload, pin: string) => Promise<void>
   unlock: (pin: string) => Promise<void>
   lock: () => void
-  resetWallet: () => void
+  resetWallet: () => Promise<void>
   updateMeta: (patch: Partial<WalletMeta>) => void
   verifyPin: (pin: string) => Promise<SecretPayload>
-  restoreBackup: (vault: Vault, pin: string, addressHint?: string) => Promise<void>
+  restoreBackup: (vault: Vault, pin: string, addressHint?: string, accountMetadata?: BackupAccountMetadata) => Promise<void>
 
   /** Accounts derived from the same seed phrase. A single key shows one. */
   accounts: WalletAccount[]
@@ -92,18 +82,6 @@ interface WalletContextValue {
   switchAccount: (index: number) => Promise<void>
   renameAccount: (index: number, name: string) => void
 
-  /** Face ID state, driven by `lib/biometric.ts`. */
-  /** The browser exposes WebAuthn at all — this is what shows the toggle. */
-  biometricSupported: boolean
-  /** The platform-authenticator hint; may be false on iOS yet still work. */
-  biometricAvailable: boolean
-  biometricEnabled: boolean
-  biometricMode: BiometricMode | null
-  biometricCreatedAt: number | null
-  unlockWithFaceId: () => Promise<void>
-  enrolBiometric: (payload?: SecretPayload) => Promise<void>
-  disableBiometric: () => void
-  biometricError: string | null
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -113,20 +91,43 @@ function readMeta(): WalletMeta | null {
     const raw = localStorage.getItem(META_KEY) ?? localStorage.getItem(LEGACY_META_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<WalletMeta>
-    if (!parsed?.address) return null
+    if (typeof parsed?.address !== 'string' || !parsed.address) return null
+    const active = Number(parsed.activeIndex)
+    const activeIndex = Number.isInteger(active) && active >= 0 && active < 100 ? active : 0
+    const accountIndices = Array.isArray(parsed.accountIndices)
+      ? Array.from(
+          new Set(
+            parsed.accountIndices
+              .map(Number)
+              .filter((index) => Number.isInteger(index) && index > 0 && index < 100),
+          ),
+        )
+      : []
+    const accountNames = Object.fromEntries(
+      Object.entries(parsed.accountNames ?? {})
+        .filter(([index, name]) => /^\d+$/.test(index) && Number(index) < 100 && typeof name === 'string')
+        .map(([index, name]) => [index, (name as string).trim().slice(0, 14)])
+        .filter(([, name]) => Boolean(name)),
+    )
     return {
       ...DEFAULT_META,
       ...parsed,
       address: parsed.address,
       rpc: { ...DEFAULT_META.rpc, ...(parsed.rpc ?? {}) },
-      accountNames: { ...(parsed.accountNames ?? {}) },
-      accountIndices: Array.isArray(parsed.accountIndices)
-        ? parsed.accountIndices.map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 100)
-        : [],
-      activeIndex: Math.max(0, Number(parsed.activeIndex) || 0),
+      accountNames,
+      accountIndices,
+      activeIndex,
     }
   } catch {
     return null
+  }
+}
+
+function hasStoredMeta(): boolean {
+  try {
+    return Boolean(localStorage.getItem(META_KEY) || localStorage.getItem(LEGACY_META_KEY))
+  } catch {
+    return false
   }
 }
 
@@ -152,23 +153,15 @@ function accountIndices(activeIndex: number, names?: Record<string, string>, sav
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
+  const [initializationError, setInitializationError] = useState<string | null>(null)
   const [vault, setVault] = useState<Vault | null>(null)
   const [meta, setMeta] = useState<WalletMeta | null>(null)
   const [keypair, setKeypairState] = useState<Keypair | null>(null)
   const [accounts, setAccounts] = useState<WalletAccount[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
 
-  // Kept in memory only, so Face ID can be enabled from Settings without
-  // asking for the PIN again. It is wiped on lock and never persisted.
   const payloadRef = useRef<SecretPayload | null>(null)
   const keypairRef = useRef<Keypair | null>(null)
-
-  const [biometricSupported] = useState<boolean>(() => biometricSupportedByBrowser())
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
-  const [biometricEnabled, setBiometricEnabled] = useState(false)
-  const [biometricMode, setBiometricMode] = useState<BiometricMode | null>(null)
-  const [biometricCreatedAt, setBiometricCreatedAt] = useState<number | null>(null)
-  const [biometricError, setBiometricError] = useState<string | null>(null)
 
   const setKeypair = useCallback((next: Keypair | null) => {
     keypairRef.current = next
@@ -181,21 +174,26 @@ useEffect(() => {
 
   const initialize = async () => {
     try {
+      try {
+        localStorage.removeItem('mono.faceid.v2')
+        localStorage.removeItem('solwallet.faceid.v1')
+      } catch {
+        // Obsolete device-auth metadata is inert; wallet data remains usable.
+      }
       const stored = await loadVault()
       if (cancelled) return
 
       const storedMeta = readMeta()
-      const record = readRecord()
-
-      if (cancelled) return
-
-      setVault(stored)
-      setMeta(storedMeta)
-      setBiometricEnabled(Boolean(record))
-      setBiometricMode(record?.mode ?? null)
-      setBiometricCreatedAt(record?.createdAt ?? null)
-    } catch (error) {
-      console.error('[MONO] Wallet initialization failed:', error)
+      if (hasStoredMeta() && !storedMeta) {
+        setInitializationError('저장된 지갑 설정을 읽지 못했습니다. 기존 암호화 지갑과 설정 원본을 유지했습니다.')
+      } else if (!stored && storedMeta) {
+        setInitializationError('저장된 지갑 설정은 있지만 암호화 지갑 데이터를 불러오지 못했습니다. 기존 데이터를 유지했습니다.')
+      } else {
+        setVault(stored)
+        setMeta(storedMeta)
+      }
+    } catch {
+      setInitializationError('저장된 지갑 데이터를 읽지 못했습니다. 데이터를 삭제하거나 초기화하지 않았습니다.')
     } finally {
       if (!cancelled) {
         setReady(true)
@@ -204,14 +202,6 @@ useEffect(() => {
   }
 
   void initialize()
-
-  void isPlatformAuthenticatorAvailable()
-    .then((available) => {
-      if (!cancelled) setBiometricAvailable(available)
-    })
-    .catch((error) => {
-      console.error('[MONO] Biometric availability check failed:', error)
-    })
 
   return () => {
     cancelled = true
@@ -241,9 +231,9 @@ useEffect(() => {
 
       if (payload.kind === 'mnemonic') {
         const { deriveAccounts } = await loadKeys()
-        const index = Math.max(0, stored?.activeIndex ?? 0)
+        const index = stored?.activeIndex ?? 0
         const indices = accountIndices(index, stored?.accountNames, stored?.accountIndices)
-        const keypairs = deriveAccounts(payload.mnemonic, indices)
+        const keypairs = deriveAccounts(payload.mnemonic, indices, payload.path)
         const list: WalletAccount[] = indices.map((accountIndex, position) => ({
           index: accountIndex,
           address: keypairs[position].publicKey.toBase58(),
@@ -255,11 +245,13 @@ useEffect(() => {
         keypairs.forEach((kp) => {
           if (kp !== active) wipeKeypair(kp)
         })
+        const address = active.publicKey.toBase58()
+        const nextMeta: WalletMeta = stored ?? { ...DEFAULT_META, address, createdAt: Date.now() }
         setAccounts(list)
         setActiveIndex(index)
         setKeypair(active)
-        if (stored && stored.address !== active.publicKey.toBase58()) {
-          persistMeta({ ...stored, address: active.publicKey.toBase58() })
+        if (!stored || stored.address !== address) {
+          persistMeta({ ...nextMeta, address, activeIndex: index })
         }
         return
       }
@@ -270,8 +262,8 @@ useEffect(() => {
       setActiveIndex(0)
       setAccounts([{ index: 0, address, name: accountLabel(stored, 0) }])
       setKeypair(kp)
-      if (stored && stored.address !== address) {
-        persistMeta({ ...stored, address, activeIndex: 0 })
+      if (!stored || stored.address !== address) {
+        persistMeta({ ...(stored ?? { ...DEFAULT_META, address, createdAt: Date.now() }), address, activeIndex: 0 })
       }
     },
     [persistMeta, setKeypair],
@@ -299,6 +291,7 @@ useEffect(() => {
       setActiveIndex(0)
       setAccounts([{ index: 0, address: nextMeta.address, name: accountLabel(nextMeta, 0) }])
       setKeypair(kp)
+      setInitializationError(null)
     },
     [setKeypair],
   )
@@ -323,50 +316,107 @@ useEffect(() => {
   }, [setKeypair])
 
   const restoreBackup = useCallback(
-    async (nextVault: Vault, pin: string, addressHint?: string) => {
+    async (nextVault: Vault, pin: string, addressHint?: string, accountMetadata?: BackupAccountMetadata) => {
       const payload = await decryptSecret(nextVault, pin)
-      const { keypairFromPayload } = await loadKeys()
-      const kp = keypairFromPayload(payload)
+      const { deriveAccounts, keypairFromPayload } = await loadKeys()
+      const requestedIndex = accountMetadata?.activeIndex
+      let index = Number.isInteger(requestedIndex) && requestedIndex! >= 0 && requestedIndex! < 100 ? requestedIndex! : 0
+      let derived: Keypair[] = []
+      let derivedIndices: number[] = [0]
+      let kp: Keypair
+      if (payload.kind === 'mnemonic') {
+        const hasAccountMetadata = Boolean(accountMetadata?.activeIndex !== undefined || accountMetadata?.accountIndices)
+        derivedIndices = hasAccountMetadata
+          ? Array.from(
+              new Set([
+                0,
+                ...(accountMetadata?.accountIndices ?? []).filter((value) => Number.isInteger(value) && value >= 0 && value < 100),
+                index,
+              ]),
+            ).sort((a, b) => a - b)
+          : addressHint
+            ? Array.from({ length: 100 }, (_, value) => value)
+            : [0]
+        derived = deriveAccounts(payload.mnemonic, derivedIndices, payload.path)
+        if (!hasAccountMetadata && addressHint) {
+          const found = derived.findIndex((candidate) => candidate.publicKey.toBase58() === addressHint)
+          if (found < 0) {
+            derived.forEach(wipeKeypair)
+            throw new Error('백업 주소에 해당하는 계정을 찾지 못했습니다. 지갑 데이터를 변경하지 않았습니다.')
+          }
+          index = derivedIndices[found]
+        }
+        kp = derived[derivedIndices.indexOf(index)]
+        if (!kp) {
+          derived.forEach(wipeKeypair)
+          throw new Error('백업에서 활성 계정을 확인하지 못했습니다. 지갑 데이터를 변경하지 않았습니다.')
+        }
+        derived.forEach((candidate) => {
+          if (candidate !== kp) wipeKeypair(candidate)
+        })
+      } else {
+        if (index !== 0) throw new Error('개인키 백업에는 추가 계정 인덱스를 사용할 수 없습니다.')
+        kp = keypairFromPayload(payload)
+      }
       const address = kp.publicKey.toBase58()
       if (addressHint && addressHint !== address) {
         wipeKeypair(kp)
         throw new Error('백업 파일의 주소가 PIN과 맞지 않습니다.')
       }
-      await saveVault(nextVault)
+      try {
+        await saveVault(nextVault)
+      } catch (error) {
+        wipeKeypair(kp)
+        throw error
+      }
+      const visibleIndices = payload.kind === 'mnemonic'
+        ? accountMetadata?.accountIndices
+          ? Array.from(new Set([0, ...accountMetadata.accountIndices.filter((value) => Number.isInteger(value) && value >= 0 && value < 100), index])).sort((a, b) => a - b)
+          : index > 0
+            ? [0, index]
+            : [0]
+        : [0]
+      const accountNames = accountMetadata?.accountNames ?? {}
       const nextMeta: WalletMeta = {
         ...DEFAULT_META,
         address,
         createdAt: nextVault.createdAt ?? Date.now(),
+        activeIndex: index,
+        accountIndices: visibleIndices.filter((value) => value > 0),
+        accountNames,
       }
       try {
         localStorage.setItem(META_KEY, JSON.stringify(nextMeta))
       } catch {
         /* private mode */
       }
-      // A Face ID credential from another wallet must not outlive the restore.
-      clearEnrolment()
-      setBiometricEnabled(false)
-      setBiometricMode(null)
-      setBiometricCreatedAt(null)
       payloadRef.current = payload
       setVault(nextVault)
       setMeta(nextMeta)
-      setActiveIndex(0)
-      setAccounts([{ index: 0, address, name: accountLabel(nextMeta, 0) }])
+      setActiveIndex(index)
+      const accountsForRestore: WalletAccount[] = visibleIndices.map((accountIndex) => {
+        const accountKeypair = derived[derivedIndices.indexOf(accountIndex)]
+        return {
+          index: accountIndex,
+          address: accountKeypair?.publicKey.toBase58() ?? (accountIndex === 0 ? address : ''),
+          name: accountLabel(nextMeta, accountIndex),
+        }
+      })
+      setAccounts(accountsForRestore.filter((account) => account.address))
       setKeypair(kp)
+      setInitializationError(null)
     },
     [setKeypair],
   )
 
-  const resetWallet = useCallback(() => {
-    void clearVault()
+  const resetWallet = useCallback(async () => {
     try {
       localStorage.removeItem(META_KEY)
       localStorage.removeItem(LEGACY_META_KEY)
     } catch {
-      /* ignore */
+      throw new Error('지갑 설정을 삭제하지 못했습니다. 지갑 데이터를 유지했습니다.')
     }
-    clearEnrolment()
+    await clearVault()
     wipeKeypair(keypairRef.current)
     payloadRef.current = null
     setVault(null)
@@ -374,9 +424,7 @@ useEffect(() => {
     setKeypair(null)
     setAccounts([])
     setActiveIndex(0)
-    setBiometricEnabled(false)
-    setBiometricMode(null)
-    setBiometricCreatedAt(null)
+    setInitializationError(null)
   }, [setKeypair])
 
   const updateMeta = useCallback(
@@ -391,9 +439,10 @@ useEffect(() => {
     async (index: number) => {
       const payload = payloadRef.current
       if (!payload || payload.kind !== 'mnemonic') return
+      if (!Number.isInteger(index) || index < 0 || index >= 100) throw new Error('계정 번호가 올바르지 않습니다.')
       if (index === activeIndex) return
-      const { keypairForAccount } = await loadKeys()
-      const next = keypairForAccount(payload.mnemonic, index)
+      const { keypairForAccount, keypairFromPayload } = await loadKeys()
+      const next = index === 0 ? keypairFromPayload(payload) : keypairForAccount(payload.mnemonic, index)
       wipeKeypair(keypairRef.current)
       setKeypair(next)
       setActiveIndex(index)
@@ -440,59 +489,6 @@ useEffect(() => {
     },
     [vault],
   )
-
-  /* ------------------------------------------------------------- face id */
-
-  const enrolBiometric = useCallback(async (payload?: SecretPayload) => {
-    const secret = payload ?? payloadRef.current
-    if (!secret) {
-      throw new BiometricError('error', 'PIN으로 한 번 잠금 해제한 뒤 다시 시도해 주세요.')
-    }
-    setBiometricError(null)
-    try {
-      const record = await enrol(secret)
-      setBiometricEnabled(true)
-      setBiometricMode(record.mode)
-      setBiometricCreatedAt(record.createdAt)
-    } catch (error) {
-      const message =
-        error instanceof BiometricError
-          ? error.message
-          : 'Face ID를 등록하지 못했습니다. PIN을 계속 사용할 수 있습니다.'
-      setBiometricError(message)
-      throw error
-    }
-  }, [])
-
-  const disableBiometric = useCallback(() => {
-    clearEnrolment()
-    setBiometricEnabled(false)
-    setBiometricMode(null)
-    setBiometricCreatedAt(null)
-    setBiometricError(null)
-  }, [])
-
-  const unlockWithFaceId = useCallback(async () => {
-    setBiometricError(null)
-    try {
-      const payload = await unlockWithBiometric()
-      const current = vault ?? (await loadVault())
-      if (current) setVault(current)
-      await applyPayload(payload)
-    } catch (error) {
-      if (error instanceof BiometricError) {
-        setBiometricError(error.message)
-        // A stale record would keep failing: drop it so the PIN stays the way in.
-        if (error.reason === 'corrupt' || error.reason === 'prf' || error.reason === 'unsupported') {
-          clearEnrolment()
-          setBiometricEnabled(false)
-          setBiometricMode(null)
-          setBiometricCreatedAt(null)
-        }
-      }
-      throw error
-    }
-  }, [vault, applyPayload])
 
   // Auto-lock after a period without interaction.
   const lastActivity = useRef(Date.now())
@@ -562,6 +558,7 @@ useEffect(() => {
   const value = useMemo<WalletContextValue>(
     () => ({
       ready,
+      initializationError,
       vaultExists: Boolean(vault),
       vault,
       meta,
@@ -579,18 +576,10 @@ useEffect(() => {
       activeAccount,
       switchAccount,
       renameAccount,
-      biometricAvailable,
-      biometricSupported,
-      biometricEnabled,
-      biometricMode,
-      biometricCreatedAt,
-      unlockWithFaceId,
-      enrolBiometric,
-      disableBiometric,
-      biometricError,
     }),
     [
       ready,
+      initializationError,
       vault,
       meta,
       keypair,
@@ -606,15 +595,6 @@ useEffect(() => {
       activeAccount,
       switchAccount,
       renameAccount,
-      biometricAvailable,
-      biometricSupported,
-      biometricEnabled,
-      biometricMode,
-      biometricCreatedAt,
-      unlockWithFaceId,
-      enrolBiometric,
-      disableBiometric,
-      biometricError,
     ],
   )
 
@@ -627,4 +607,4 @@ export function useWallet(): WalletContextValue {
   return context
 }
 
-export { InvalidPinError, hasEnrolment }
+export { InvalidPinError }

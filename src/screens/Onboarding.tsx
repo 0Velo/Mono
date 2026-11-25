@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Check, Copy, FileJson, ScanFace, Upload } from 'lucide-react'
+import { ArrowLeft, Check, Copy, FileJson, Upload } from 'lucide-react'
 import { MonoMark, Segmented } from '../components/ui'
 import { Button } from '../components/Button'
 import { Keypad, PinDots } from '../components/Keypad'
@@ -17,7 +17,7 @@ type Step = 'start' | 'backup' | 'import' | 'pin' | 'restore'
 type ImportMode = 'mnemonic' | 'secretKey' | 'backup'
 
 export function Onboarding() {
-  const { createWallet, restoreBackup, biometricSupported, enrolBiometric } = useWallet()
+  const { createWallet, restoreBackup } = useWallet()
   const [step, setStep] = useState<Step>('start')
   const [mnemonic, setMnemonic] = useState('')
   const [importMode, setImportMode] = useState<ImportMode>('mnemonic')
@@ -31,7 +31,6 @@ export function Onboarding() {
   const [pinError, setPinError] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [faceIdWanted, setFaceIdWanted] = useState(false)
   const [backup, setBackup] = useState<ParsedBackup | null>(null)
   const [restoreError, setRestoreError] = useState<string | null>(null)
 
@@ -66,13 +65,6 @@ export function Onboarding() {
     if (importMode !== 'secretKey') return
     setImportValid(looksLikeSecretKey(importText))
   }, [importText, importMode])
-
-  // Offer Face ID whenever the browser has WebAuthn. The platform-authenticator
-  // hint is false on iOS Safari/PWA even though registration works, so it must
-  // not decide this — enrol() lets the authenticator answer for itself.
-  useEffect(() => {
-    if (biometricSupported) setFaceIdWanted(true)
-  }, [biometricSupported])
 
   const startCreate = async () => {
     if (busy) return
@@ -138,14 +130,6 @@ export function Onboarding() {
     if (!payload) return
     setBusy(true)
     try {
-      if (faceIdWanted && biometricSupported) {
-        try {
-          await enrolBiometric(payload)
-          showToast('Face ID를 등록했습니다')
-        } catch {
-          showToast('Face ID 등록을 건너뜁니다')
-        }
-      }
       await createWallet(payload, value)
     } catch (err) {
       setError((err as Error)?.message || '지갑을 만들지 못했습니다.')
@@ -161,7 +145,7 @@ export function Onboarding() {
     setBusy(true)
     setRestoreError(null)
     try {
-      await restoreBackup(backup.vault, value, backup.address)
+      await restoreBackup(backup.vault, value, backup.address, backup)
     } catch (err) {
       const name = (err as { name?: string })?.name
       setRestoreError(
@@ -434,36 +418,6 @@ export function Onboarding() {
               disabled={busy}
               compact
             />
-
-            {biometricSupported && (
-              <button
-                onClick={() => setFaceIdWanted((value) => !value)}
-                className="mt-4 flex w-full items-center gap-2.5 rounded-[16px] bg-surface px-4 py-3 text-left"
-              >
-                <ScanFace size={17} strokeWidth={1.8} className="shrink-0 text-ink" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold text-ink">
-                    Face ID로 잠금 해제
-                  </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-muted">
-                    다음부터 PIN 대신 얼굴로 열 수 있습니다.
-                  </span>
-                </span>
-                <span
-                  className={cx(
-                    'relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors duration-200',
-                    faceIdWanted ? 'bg-mint' : 'bg-switch',
-                  )}
-                >
-                  <span
-                    className={cx(
-                      'absolute left-0 top-[3px] h-5 w-5 rounded-full bg-white shadow transition-transform duration-200',
-                      faceIdWanted ? 'translate-x-[21px]' : 'translate-x-[3px]',
-                    )}
-                  />
-                </span>
-              </button>
-            )}
 
             <p className="mt-4 text-center text-[11.5px] leading-relaxed text-faint">
               PIN은 이 기기를 벗어나지 않습니다. 잊어버리면 복구할 수 없으니 시드 문구를 꼭

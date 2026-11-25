@@ -8,6 +8,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   InvalidPinError,
+  VaultFormatError,
   decryptSecret,
   encryptSecret,
   isVaultShape,
@@ -83,10 +84,14 @@ test('a tampered salt throws (key derivation must not silently succeed)', async 
   await assert.rejects(() => decryptSecret(tampered, PIN), InvalidPinError)
 })
 
-test('a downgraded iteration count throws (KDF parameters are authenticated by use)', async () => {
+test('a downgraded or excessive iteration count is rejected before expensive derivation', async () => {
   const vault = await encryptSecret(PAYLOAD, PIN)
   const tampered: Vault = { ...vault, iter: 1_000 }
-  await assert.rejects(() => decryptSecret(tampered, PIN), InvalidPinError)
+  await assert.rejects(() => decryptSecret(tampered, PIN), VaultFormatError)
+  await assert.rejects(
+    () => decryptSecret({ ...vault, iter: Number.MAX_SAFE_INTEGER }, PIN),
+    VaultFormatError,
+  )
 })
 
 test('a truncated ciphertext throws instead of returning a partial payload', async () => {
@@ -94,7 +99,7 @@ test('a truncated ciphertext throws instead of returning a partial payload', asy
   const bytes = Buffer.from(vault.ct, 'base64').subarray(0, 8)
   await assert.rejects(
     () => decryptSecret({ ...vault, ct: bytes.toString('base64') }, PIN),
-    InvalidPinError,
+    VaultFormatError,
   )
 })
 
@@ -133,6 +138,9 @@ test('isVaultShape accepts a real vault and rejects malformed records', async ()
     { ...vault, iv: undefined },
     { ...vault, ct: null },
     { ...vault, iter: '210000' },
+    { ...vault, alg: 'AES-CBC' },
+    { ...vault, kdf: 'scrypt' },
+    { ...vault, salt: 'not-base64' },
     'string',
     [],
   ]

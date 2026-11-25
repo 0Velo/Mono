@@ -1,16 +1,15 @@
 /**
- * A very small IndexedDB wrapper — two stores, no dependencies.
+ * A very small IndexedDB wrapper with no dependencies.
  *
- * The encrypted vault and the Face ID wrapping key live here instead of in
- * localStorage: IndexedDB keeps binary values (a non-extractable CryptoKey is
- * a structured-clone type) and is not readable by a same-origin page's simple
- * `localStorage` scrape.
+ * The encrypted wallet vault lives here instead of in localStorage. Version 2
+ * removes the obsolete device-authentication key store while preserving the
+ * existing vault object store and its contents.
  */
 
 export const DB_NAME = 'mono-vault'
-const DB_VERSION = 1
+const DB_VERSION = 2
 export const STORE_VAULT = 'vault'
-export const STORE_KEYS = 'keys'
+const LEGACY_STORE_KEYS = 'keys'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -35,7 +34,7 @@ export function openDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result
       if (!db.objectStoreNames.contains(STORE_VAULT)) db.createObjectStore(STORE_VAULT)
-      if (!db.objectStoreNames.contains(STORE_KEYS)) db.createObjectStore(STORE_KEYS)
+      if (db.objectStoreNames.contains(LEGACY_STORE_KEYS)) db.deleteObjectStore(LEGACY_STORE_KEYS)
     }
     request.onsuccess = () => {
       const db = request.result
@@ -80,5 +79,6 @@ export async function idbDelete(store: string, key: string): Promise<void> {
     tx.objectStore(store).delete(key)
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error ?? new Error('IndexedDB 삭제 실패'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB 삭제 취소'))
   })
 }

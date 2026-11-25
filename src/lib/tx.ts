@@ -12,6 +12,7 @@ import {
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token'
+import bs58 from 'bs58'
 import { fromBaseUnits } from './format'
 
 export const BASE_FEE_LAMPORTS = 5000n
@@ -25,17 +26,45 @@ export interface FeeEstimate {
   createsAta: boolean
 }
 
+export interface SignedTransactionAttempt {
+  signature: string
+  blockhash: string
+  lastValidBlockHeight: number
+}
+
+export type TransactionResolution = 'confirmed' | 'failed' | 'expired' | 'pending' | 'unknown'
+
+export class TxOutcomeError extends Error {
+  outcome: 'failed' | 'expired' | 'pending' | 'unknown'
+  signature: string
+  constructor(outcome: 'failed' | 'expired' | 'pending' | 'unknown', signature: string, message: string) {
+    super(message)
+    this.name = 'TxOutcomeError'
+    this.outcome = outcome
+    this.signature = signature
+  }
+}
+
+export interface TransactionHooks {
+  /** Called after signing and before any bytes are sent to an RPC. */
+  onSigned?: (attempt: SignedTransactionAttempt) => void
+  /** Called only after the RPC confirms a terminal result or expiry. */
+  onTerminal?: () => void
+}
+
 export async function resolveTokenProgram(
   connection: Connection,
   mint: PublicKey,
 ): Promise<PublicKey> {
-  try {
-    const info = await connection.getAccountInfo(mint)
-    if (info?.owner?.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID
-  } catch {
-    /* default to the classic token program */
-  }
-  return TOKEN_PROGRAM_ID
+  const info = await withTimeout(
+    connection.getAccountInfo(mint),
+    STEP_TIMEOUT_MS,
+    '토큰 발행 계정을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
+  )
+  if (!info) throw new Error('토큰 발행 계정을 찾지 못했습니다.')
+  if (info.owner.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID
+  if (info.owner.equals(TOKEN_PROGRAM_ID)) return TOKEN_PROGRAM_ID
+  throw new Error('지원하지 않는 토큰 프로그램입니다. 안전을 위해 전송을 중단했습니다.')
 }
 
 export async function estimateFee(
@@ -47,15 +76,15 @@ export async function estimateFee(
 ): Promise<FeeEstimate> {
   let createsAta = false
   if (kind === 'spl' && mint && recipient) {
-    try {
-      const mintKey = new PublicKey(mint)
-      const programId = await resolveTokenProgram(connection, mintKey)
-      const ata = getAssociatedTokenAddressSync(mintKey, new PublicKey(recipient), false, programId)
-      const info = await connection.getAccountInfo(ata)
-      createsAta = !info
-    } catch {
-      createsAta = false
-    }
+    const mintKey = new PublicKey(mint)
+    const programId = await resolveTokenProgram(connection, mintKey)
+    const ata = getAssociatedTokenAddressSync(mintKey, new PublicKey(recipient), false, programId)
+    const info = await withTimeout(
+      connection.getAccountInfo(ata),
+      STEP_TIMEOUT_MS,
+      '받는 토큰 계정 확인이 시간 초과되었습니다. 수수료를 확인하기 전에는 진행할 수 없습니다.',
+    )
+    createsAta = !info
   }
   const feeLamports = BASE_FEE_LAMPORTS
   const rentLamports = createsAta ? ATA_RENT_LAMPORTS : 0n
@@ -92,56 +121,83 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   })
 }
 
-/**
- * Confirms by polling getSignatureStatuses over plain HTTPS instead of
- * connection.confirmTransaction(), which waits on a WebSocket subscription.
- * The page CSP allows `https:` but not `wss:`, and iOS home-screen apps drop
- * sockets easily, so that wait could hang with the spinner on screen.
- */
+/** Query the same signed transaction; never create a replacement signature. */
+export async function inspectTransaction(
+  connection: Connection,
+  signature: string,
+  lastValidBlockHeight: number,
+): Promise<TransactionResolution> {
+  try {
+    const response = await withTimeout(
+      connection.getSignatureStatuses([signature], { searchTransactionHistory: true }),
+      10_000,
+      'timeout',
+    )
+    const status = response.value[0] ?? null
+    if (status) {
+      if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+        return status.err ? 'failed' : 'confirmed'
+      }
+      return 'pending'
+    }
+    const height = await withTimeout(connection.getBlockHeight('confirmed'), 10_000, 'timeout')
+    // A missing status after expiry proves the blockhash is no longer usable,
+    // not that the signature was never included (RPC history can be incomplete).
+    return height > lastValidBlockHeight ? 'expired' : 'pending'
+  } catch {
+    return 'unknown'
+  }
+}
+
+function notifyTerminal(hooks?: TransactionHooks): void {
+  try {
+    hooks?.onTerminal?.()
+  } catch {
+    // A stale local marker can be checked again; it must not hide an RPC result.
+  }
+}
+
+/** Polls HTTPS signature status, which also works when iOS drops WebSockets. */
 async function confirm(
   connection: Connection,
   signature: string,
   lastValidBlockHeight: number,
+  hooks?: TransactionHooks,
 ): Promise<void> {
   const startedAt = Date.now()
+  let lastResolution: TransactionResolution = 'unknown'
   while (Date.now() - startedAt < CONFIRM_TIMEOUT_MS) {
-    // Height first, status second: if the blockhash has expired AND the status
-    // is still empty afterwards, the transaction can never land.
-    let expired = false
-    try {
-      const height = await withTimeout(connection.getBlockHeight('confirmed'), 10_000, 'timeout')
-      expired = height > lastValidBlockHeight
-    } catch {
-      /* transient RPC error: keep polling until the deadline */
+    const outcome = await inspectTransaction(connection, signature, lastValidBlockHeight)
+    lastResolution = outcome
+    if (outcome === 'confirmed') {
+      notifyTerminal(hooks)
+      return
     }
-
-    let status: { err: unknown; confirmationStatus?: string } | null = null
-    try {
-      const res = await withTimeout(connection.getSignatureStatuses([signature]), 10_000, 'timeout')
-      status = res.value[0] ?? null
-    } catch {
-      /* transient RPC error: keep polling until the deadline */
+    if (outcome === 'failed') {
+      notifyTerminal(hooks)
+      throw new TxOutcomeError('failed', signature, '트랜잭션 실패가 확인됐습니다. 같은 서명을 다시 보내지 않았습니다.')
     }
-
-    if (status) {
-      if (status.err) {
-        throw new Error('트랜잭션이 실패했습니다. Solscan에서 상태를 확인하세요.')
-      }
-      if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-        return
-      }
-    } else if (expired) {
-      throw new Error('트랜잭션이 만료되어 처리되지 않았습니다. 잠시 후 다시 시도하세요.')
+    if (outcome === 'expired') {
+      throw new TxOutcomeError('expired', signature, '블록해시는 만료됐지만 조회 기록만으로 미포함을 단정할 수 없습니다. 결과 확인 전 재전송하지 마세요.')
     }
-
     await sleep(CONFIRM_POLL_MS)
   }
-  throw new Error(
-    `전송은 되었을 수 있지만 확인이 지연되고 있습니다. 같은 송금을 다시 누르지 말고 활동 탭이나 Solscan에서 먼저 확인하세요. (${signature.slice(0, 8)}…)`,
+  if (lastResolution === 'pending') {
+    throw new TxOutcomeError('pending', signature, '같은 서명이 아직 확정되지 않았습니다. 완료 여부를 계속 확인하세요.')
+  }
+  throw new TxOutcomeError(
+    'unknown',
+    signature,
+    '전송 결과를 확인하지 못했습니다. 같은 송금을 다시 보내지 말고 이 서명의 상태를 먼저 확인하세요.',
   )
 }
 
-async function submit(connection: Connection, tx: Transaction, signer: Keypair): Promise<string> {
+async function submit(
+  connection: Connection,
+  tx: Transaction,
+  signer: Keypair,
+  hooks?: TransactionHooks,
+): Promise<string> {
   const { blockhash, lastValidBlockHeight } = await withTimeout(
     connection.getLatestBlockhash('confirmed'),
     STEP_TIMEOUT_MS,
@@ -150,13 +206,61 @@ async function submit(connection: Connection, tx: Transaction, signer: Keypair):
   tx.recentBlockhash = blockhash
   tx.feePayer = signer.publicKey
   tx.sign(signer)
-  const signature = await withTimeout(
-    connection.sendRawTransaction(tx.serialize(), maxRetriesOptions()),
-    STEP_TIMEOUT_MS,
-    'RPC가 전송에 응답하지 않습니다. 활동 탭이나 Solscan에서 송금 여부를 확인한 뒤 다시 시도하세요.',
-  )
-  await confirm(connection, signature, lastValidBlockHeight)
-  return signature
+  const localSignature = tx.signature ? bs58.encode(tx.signature) : ''
+  if (!localSignature) throw new Error('서명을 만들지 못했습니다. 전송하지 않았습니다.')
+  hooks?.onSigned?.({ signature: localSignature, blockhash, lastValidBlockHeight })
+
+  let rpcSignature: string
+  try {
+    rpcSignature = await withTimeout(
+      connection.sendRawTransaction(tx.serialize(), maxRetriesOptions()),
+      STEP_TIMEOUT_MS,
+      'RPC 응답 시간이 초과되었습니다.',
+    )
+  } catch {
+    const outcome = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    if (outcome === 'confirmed') {
+      notifyTerminal(hooks)
+      return localSignature
+    }
+    if (outcome === 'failed') {
+      notifyTerminal(hooks)
+      throw new TxOutcomeError('failed', localSignature, 'RPC 응답은 끊겼지만 실패 상태가 확인됐습니다.')
+    }
+    if (outcome === 'expired') {
+      throw new TxOutcomeError('expired', localSignature, 'RPC 응답이 끊겼고 블록해시가 만료됐지만 과거 포함 여부는 확인되지 않았습니다. 재전송하지 마세요.')
+    }
+    if (outcome === 'pending') {
+      throw new TxOutcomeError('pending', localSignature, 'RPC 응답은 지연됐지만 동일 서명이 처리 중일 수 있습니다. 새 서명을 만들지 마세요.')
+    }
+    throw new TxOutcomeError(
+      'unknown',
+      localSignature,
+      'RPC 응답이 끊겨 전송 결과가 불명확합니다. 같은 전송을 다시 시도하지 말고 동일 서명을 확인하세요.',
+    )
+  }
+
+  if (rpcSignature !== localSignature) {
+    const outcome = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    if (outcome === 'confirmed') {
+      notifyTerminal(hooks)
+      return localSignature
+    }
+    if (outcome === 'failed') {
+      notifyTerminal(hooks)
+      throw new TxOutcomeError('failed', localSignature, 'RPC signature 불일치가 있었지만 로컬 서명의 실패가 확인됐습니다.')
+    }
+    if (outcome === 'expired') {
+      throw new TxOutcomeError('expired', localSignature, 'RPC signature 불일치가 있었고 블록해시는 만료됐지만 과거 포함 여부는 미확정입니다.')
+    }
+    if (outcome === 'pending') {
+      throw new TxOutcomeError('pending', localSignature, 'RPC signature 불일치가 있어 로컬 서명의 확정을 계속 확인해야 합니다.')
+    }
+    throw new TxOutcomeError('unknown', localSignature, 'RPC가 로컬 서명과 다른 서명을 반환했습니다. 상태 확인 전 재전송하지 마세요.')
+  }
+
+  await confirm(connection, localSignature, lastValidBlockHeight, hooks)
+  return localSignature
 }
 
 function maxRetriesOptions() {
@@ -168,6 +272,7 @@ export async function sendSol(
   signer: Keypair,
   recipient: string,
   lamports: bigint,
+  hooks?: TransactionHooks,
 ): Promise<string> {
   if (lamports <= 0n) throw new Error('보낼 수량을 입력하세요.')
   const to = new PublicKey(recipient)
@@ -179,7 +284,7 @@ export async function sendSol(
       lamports,
     }),
   )
-  return submit(connection, tx, signer)
+  return submit(connection, tx, signer, hooks)
 }
 
 export async function sendSplToken(
@@ -189,6 +294,7 @@ export async function sendSplToken(
   recipient: string,
   amount: bigint,
   decimals: number,
+  hooks?: TransactionHooks,
 ): Promise<string> {
   if (amount <= 0n) throw new Error('보낼 수량을 입력하세요.')
   const mint = new PublicKey(mintAddress)
@@ -199,7 +305,11 @@ export async function sendSplToken(
   const destinationAta = getAssociatedTokenAddressSync(mint, to, false, programId)
 
   const tx = new Transaction()
-  const destinationInfo = await connection.getAccountInfo(destinationAta)
+  const destinationInfo = await withTimeout(
+    connection.getAccountInfo(destinationAta),
+    STEP_TIMEOUT_MS,
+    '받는 토큰 계정을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.',
+  )
   if (!destinationInfo) {
     tx.add(
       createAssociatedTokenAccountIdempotentInstruction(
@@ -223,14 +333,18 @@ export async function sendSplToken(
       programId,
     ),
   )
-  return submit(connection, tx, signer)
+  return submit(connection, tx, signer, hooks)
 }
 
 export async function maxTransferableSol(
   connection: Connection,
   owner: PublicKey,
 ): Promise<bigint> {
-  const balance = BigInt(await connection.getBalance(owner))
+  const balance = BigInt(await withTimeout(
+    connection.getBalance(owner),
+    STEP_TIMEOUT_MS,
+    'SOL 잔액 조회가 시간 초과되었습니다.',
+  ))
   const fee = BASE_FEE_LAMPORTS
   return balance > fee ? balance - fee : 0n
 }

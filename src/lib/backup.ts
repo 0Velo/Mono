@@ -11,21 +11,49 @@ import { isVaultShape, type Vault } from './vault'
 
 export type BackupApp = 'mono' | 'sol-wallet'
 
+export interface BackupAccountMetadata {
+  activeIndex?: number
+  accountIndices?: number[]
+  accountNames?: Record<string, string>
+}
+
 export interface BackupFile extends Vault {
   app: BackupApp
   kind: string
   exportedAt: number
   /** Public key — identifies the file without revealing any secret. */
   address?: string
+  /** Optional account metadata; absent in older backups. */
+  activeIndex?: number
+  accountIndices?: number[]
+  accountNames?: Record<string, string>
 }
 
-export function buildBackupFile(vault: Vault, address?: string): BackupFile {
+export function buildBackupFile(
+  vault: Vault,
+  address?: string,
+  accountMetadata?: BackupAccountMetadata,
+): BackupFile {
   return {
     ...vault,
     app: 'mono',
     kind: 'mono-backup',
     exportedAt: Date.now(),
     ...(address ? { address } : {}),
+    ...(accountMetadata
+      ? {
+          ...(Number.isInteger(accountMetadata.activeIndex) && accountMetadata.activeIndex! >= 0 && accountMetadata.activeIndex! < 100
+            ? { activeIndex: accountMetadata.activeIndex }
+            : {}),
+          accountIndices: Array.from(new Set((accountMetadata.accountIndices ?? []).filter((index) => Number.isInteger(index) && index >= 0 && index < 100))).sort((a, b) => a - b),
+          accountNames: Object.fromEntries(
+            Object.entries(accountMetadata.accountNames ?? {})
+              .filter(([index, name]) => /^\d+$/.test(index) && Number(index) < 100 && typeof name === 'string')
+              .map(([index, name]) => [index, name.trim().slice(0, 14)])
+              .filter(([, name]) => Boolean(name)),
+          ),
+        }
+      : {}),
   }
 }
 
@@ -43,8 +71,12 @@ export type BackupSaveResult = 'shared' | 'downloaded'
  * iCloud Drive is one tap away. Falls back to a normal download everywhere
  * else (or when sharing files is unsupported).
  */
-export async function saveBackupFile(vault: Vault, address?: string): Promise<BackupSaveResult> {
-  const json = JSON.stringify(buildBackupFile(vault, address), null, 2)
+export async function saveBackupFile(
+  vault: Vault,
+  address?: string,
+  accountMetadata?: BackupAccountMetadata,
+): Promise<BackupSaveResult> {
+  const json = JSON.stringify(buildBackupFile(vault, address, accountMetadata), null, 2)
   const name = backupFileName()
   const file = new File([json], name, { type: 'application/json' })
 
@@ -77,6 +109,9 @@ export interface ParsedBackup {
   vault: Vault
   address?: string
   exportedAt?: number
+  activeIndex?: number
+  accountIndices?: number[]
+  accountNames?: Record<string, string>
 }
 
 /** Throws a plain Korean error when the file is not a Mono backup. */
@@ -108,5 +143,20 @@ export function parseBackupFile(text: string): ParsedBackup {
     },
     address: typeof record.address === 'string' ? record.address : undefined,
     exportedAt: typeof record.exportedAt === 'number' ? record.exportedAt : undefined,
+    activeIndex:
+      Number.isInteger(record.activeIndex) && Number(record.activeIndex) >= 0 && Number(record.activeIndex) < 100
+        ? Number(record.activeIndex)
+        : undefined,
+    accountIndices: Array.isArray(record.accountIndices)
+      ? Array.from(new Set(record.accountIndices.map(Number).filter((index) => Number.isInteger(index) && index >= 0 && index < 100))).sort((a, b) => a - b)
+      : undefined,
+    accountNames: record.accountNames && typeof record.accountNames === 'object' && !Array.isArray(record.accountNames)
+      ? Object.fromEntries(
+          Object.entries(record.accountNames)
+            .filter(([index, name]) => /^\d+$/.test(index) && Number(index) < 100 && typeof name === 'string')
+            .map(([index, name]) => [index, (name as string).trim().slice(0, 14)])
+            .filter(([, name]) => Boolean(name)),
+        )
+      : undefined,
   }
 }

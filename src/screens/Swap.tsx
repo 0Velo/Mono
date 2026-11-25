@@ -25,6 +25,13 @@ import {
 import { explorerTx, type NetworkId } from '../lib/rpc'
 import { executeSwap } from '../lib/swapExecute'
 import { SwapGuardError } from '../lib/swapGuard'
+import { inspectTransaction, TxOutcomeError, type TransactionResolution } from '../lib/tx'
+import {
+  clearPendingTransaction,
+  readPendingTransaction,
+  savePendingTransaction,
+  type PendingTransaction,
+} from '../lib/pendingTx'
 
 interface SwapProps {
   portfolio: Portfolio | null
@@ -87,11 +94,19 @@ export default function Swap({
   const [quote, setQuote] = useState<SwapQuote | null>(null)
   const [quoting, setQuoting] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
-  const [step, setStep] = useState<'form' | 'confirm' | 'sending' | 'done'>('form')
+  const [step, setStep] = useState<'form' | 'confirm' | 'sending' | 'tracking' | 'done'>('form')
   const [sending, setSending] = useState(false)
   const [signature, setSignature] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null)
+  const [resolution, setResolution] = useState<TransactionResolution | null>(null)
+  const [checking, setChecking] = useState(false)
   const requestId = useRef(0)
+  const inFlightRef = useRef(false)
+  const signedRef = useRef(false)
+  const statusCheckRef = useRef(false)
+  const reportedSignatureRef = useRef<string | null>(null)
+  const owner = keypair?.publicKey.toBase58() ?? ''
 
   const inputAsset = universe.find((asset) => asset.key === inputKey) ?? universe[0]
   const outputAsset =
@@ -110,6 +125,86 @@ export default function Swap({
     // Intentional: seed once per arrival from token detail.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMint])
+
+  useEffect(() => {
+    if (!owner) return
+    try {
+      const saved = readPendingTransaction(owner, network)
+      if (saved) {
+        setPendingTx(saved)
+        setSignature(saved.signature)
+        setResolution('pending')
+        setStep('tracking')
+      }
+    } catch (cause) {
+      setSendError(cause instanceof Error ? cause.message : '저장된 전송 상태를 확인할 수 없습니다.')
+      setStep('tracking')
+    }
+  }, [owner, network])
+
+  const checkPending = useCallback(async (record?: PendingTransaction) => {
+    const target = record ?? pendingTx
+    if (!target) return
+    if (!connection || target.network !== network) {
+      setResolution('unknown')
+      return
+    }
+    if (statusCheckRef.current) return
+    statusCheckRef.current = true
+    setChecking(true)
+    try {
+      const result = await inspectTransaction(
+        connection,
+        target.signature,
+        target.lastValidBlockHeight,
+      )
+      setResolution(result)
+      if (result === 'confirmed' || result === 'failed') {
+        try {
+          clearPendingTransaction(target.owner, target.network)
+          setPendingTx(null)
+        } catch (cause) {
+          setSendError(cause instanceof Error ? cause.message : '확인된 전송 기록을 정리하지 못했습니다.')
+        }
+        if (result === 'confirmed') {
+          setSignature(target.signature)
+          setStep('tracking')
+          if (reportedSignatureRef.current !== target.signature) {
+            reportedSignatureRef.current = target.signature
+            try {
+              onDone()
+            } catch {
+              // Navigation or refresh errors cannot change a confirmed swap.
+            }
+          }
+        }
+      }
+    } finally {
+      statusCheckRef.current = false
+      setChecking(false)
+    }
+  }, [connection, network, onDone, pendingTx])
+
+  useEffect(() => {
+    if (step !== 'tracking' || !pendingTx || !connection) return
+    let active = true
+    const check = () => {
+      if (active) void checkPending(pendingTx)
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+    }
+    void checkPending(pendingTx)
+    const timer = window.setInterval(check, 8_000)
+    window.addEventListener('online', check)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('online', check)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [step, pendingTx, connection, checkPending])
 
   const inDecimals = inputAsset?.decimals ?? 9
   const outDecimals = outputAsset?.decimals ?? 6
@@ -193,37 +288,106 @@ export default function Swap({
   }
 
   const execute = useCallback(async () => {
-    if (!connection || !keypair || !quote || sending) return
+    if (!connection || !keypair || !quote || sending || inFlightRef.current) return
+    const activeOwner = keypair.publicKey.toBase58()
+    try {
+      const existing = readPendingTransaction(activeOwner, network)
+      if (existing) {
+        setPendingTx(existing)
+        setSignature(existing.signature)
+        setResolution('pending')
+        setStep('tracking')
+        void checkPending(existing)
+        return
+      }
+    } catch (cause) {
+      setSendError(cause instanceof Error ? cause.message : '저장된 전송 상태를 확인할 수 없습니다.')
+      setStep('tracking')
+      return
+    }
+    inFlightRef.current = true
+    signedRef.current = false
     setSending(true)
     setSendError(null)
     setStep('sending')
+    const hooks = {
+      onSigned: (attempt: { signature: string; blockhash: string; lastValidBlockHeight: number }) => {
+        const record: PendingTransaction = {
+          version: 1,
+          network,
+          owner: activeOwner,
+          signature: attempt.signature,
+          blockhash: attempt.blockhash,
+          lastValidBlockHeight: attempt.lastValidBlockHeight,
+          createdAt: Date.now(),
+          kind: 'swap',
+          symbol: `${inputAsset?.symbol ?? '토큰'} → ${outputAsset?.symbol ?? '토큰'}`,
+          amount: baseUnits.toString(),
+        }
+        savePendingTransaction(record)
+        signedRef.current = true
+        setPendingTx(record)
+        setSignature(record.signature)
+        setResolution('pending')
+        setStep('tracking')
+      },
+      onTerminal: () => clearPendingTransaction(activeOwner, network),
+    }
     try {
       const built = await fetchSwapTransaction(quote, keypair.publicKey.toBase58())
       // Guard → simulate → sign → send happens in one place (lib/swapExecute).
       // Nothing is signed unless the transaction pays with this key, needs only
       // this signature, calls only swap programs, and the simulated balance
       // changes match this quote.
-      const sig = await executeSwap({ connection, keypair, built, quote })
+      const sig = await executeSwap({ connection, keypair, built, quote, hooks })
       setSignature(sig)
+      setResolution('confirmed')
+      setPendingTx(null)
       setStep('done')
-      onDone()
+      try {
+        onDone()
+      } catch {
+        // A refresh/navigation issue cannot turn a confirmed swap into a retry prompt.
+      }
     } catch (error) {
       const message = String((error as Error)?.message ?? '')
-      setSendError(
-        error instanceof SwapGuardError
-          ? message
-          : /reject|denied|User rejected/i.test(message)
-            ? '서명이 취소되었습니다.'
-            : message || '스왑에 실패했습니다.',
-      )
-      setStep('confirm')
+      if (error instanceof TxOutcomeError) {
+        setSignature(error.signature)
+        setResolution(error.outcome)
+        try {
+          setPendingTx(readPendingTransaction(activeOwner, network))
+        } catch (storageError) {
+          setSendError(storageError instanceof Error ? storageError.message : message)
+        }
+        setSendError(message)
+        setStep('tracking')
+      } else if (signedRef.current) {
+        setResolution('unknown')
+        try {
+          setPendingTx(readPendingTransaction(activeOwner, network))
+        } catch (storageError) {
+          setSendError(storageError instanceof Error ? storageError.message : message)
+        }
+        setSendError(message || '서명 이후 오류가 발생했습니다. 같은 스왑을 다시 시작하지 마세요.')
+        setStep('tracking')
+      } else {
+        setSendError(
+          error instanceof SwapGuardError
+            ? message
+            : /reject|denied|User rejected/i.test(message)
+              ? '서명이 취소되었습니다.'
+              : message || '스왑에 실패했습니다.',
+        )
+        setStep('confirm')
+      }
     } finally {
       setSending(false)
+      inFlightRef.current = false
     }
-  }, [connection, keypair, quote, sending, onDone])
+  }, [connection, keypair, quote, sending, onDone, network, checkPending, inputAsset, outputAsset, baseUnits])
 
   const canQuote = Boolean(
-    quote && !quoting && baseUnits > 0n && !insufficient && !sameToken && network === 'mainnet',
+    quote && !quoting && baseUnits > 0n && !insufficient && !sameToken && network === 'mainnet' && !pendingTx,
   )
   const impactHigh = (quote?.priceImpactPct ?? 0) >= 3
 
@@ -299,6 +463,23 @@ export default function Swap({
         {network !== 'mainnet' && (
           <div className="mb-3 rounded-[14px] bg-surface px-3.5 py-2.5 text-[11.5px] leading-snug text-muted">
             스왑은 Solana Mainnet에서만 동작합니다. 설정에서 Mainnet으로 바꿔 주세요.
+          </div>
+        )}
+
+        {pendingTx && (
+          <div className="mb-3 flex items-center gap-3 rounded-[14px] bg-dangerSoft px-3.5 py-2.5">
+            <div className="min-w-0 flex-1 text-[11.5px] leading-snug text-danger">
+              이전 전송의 결과가 아직 확인되지 않았습니다. 중복 방지를 위해 새 스왑을 막았습니다.
+            </div>
+            <button
+              onClick={() => {
+                setStep('tracking')
+                void checkPending(pendingTx)
+              }}
+              className="shrink-0 text-[11.5px] font-semibold text-danger"
+            >
+              상태 확인
+            </button>
           </div>
         )}
 
@@ -474,7 +655,13 @@ export default function Swap({
               onClick={() => setStep('confirm')}
               id="swap-review"
             >
-              {sameToken ? '서로 다른 토큰을 고르세요' : quoting ? '견적 받는 중' : '스왑'}
+              {pendingTx
+                ? '이전 전송 상태를 먼저 확인하세요'
+                : sameToken
+                  ? '서로 다른 토큰을 고르세요'
+                  : quoting
+                    ? '견적 받는 중'
+                    : '스왑'}
             </Button>
           )}
         </div>
@@ -579,6 +766,68 @@ export default function Swap({
         <div className="flex flex-col items-center py-10">
           <Loader2 size={26} className="animate-spin-slow text-ink" />
           <p className="mt-4 text-[13px] text-muted">트랜잭션을 보내고 컨펌을 기다립니다.</p>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={step === 'tracking'}
+        onClose={() => setStep('form')}
+        title="스왑 전송 상태"
+        footer={
+          <div className="space-y-2">
+            <Button
+              full
+              onClick={() => void checkPending()}
+              loading={checking}
+              disabled={!pendingTx || !connection}
+            >
+              서명 상태 다시 확인
+            </Button>
+            <Button full variant="secondary" onClick={() => setStep('form')}>
+              닫기
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col items-center py-5 text-center">
+          <Loader2 size={25} className={cx('text-ink', checking && 'animate-spin-slow')} />
+          <div className="mt-4 text-[18px] font-bold text-ink">
+            {resolution === 'confirmed'
+              ? '스왑 성공 확인'
+              : resolution === 'pending'
+              ? '네트워크 확인 중'
+              : resolution === 'failed'
+                ? '스왑 실패 확인'
+                : resolution === 'expired'
+                  ? '블록해시 만료 · 결과 미확정'
+                  : '스왑 결과 불명확'}
+          </div>
+          <p className="mt-2 max-w-[290px] text-[12.5px] leading-relaxed text-muted">
+            {resolution === 'confirmed'
+              ? '네트워크에서 이 서명의 성공을 확인했습니다.'
+              : resolution === 'failed'
+              ? '네트워크가 이 서명의 실패를 확인했습니다. 새 스왑은 닫은 뒤 직접 다시 시작할 수 있습니다.'
+              : resolution === 'expired'
+                ? '블록해시 유효기간은 지났지만 과거 포함 여부가 확인되지 않았습니다. 중복 방지를 위해 새 스왑은 차단됩니다.'
+                : resolution === 'pending'
+                  ? '동일한 서명의 확정을 기다리고 있습니다. 같은 스왑을 다시 시작하지 마세요.'
+                  : '네트워크에서 이 서명의 결과를 확인할 수 없습니다. 연결 복구 후 같은 서명을 다시 조회하세요.'}
+          </p>
+          {sendError && (
+            <div className="mt-4 w-full rounded-[14px] bg-dangerSoft px-3.5 py-2.5 text-left text-[11.5px] leading-snug text-danger">
+              {sendError}
+            </div>
+          )}
+          {signature && (
+            <a
+              href={explorerTx(signature, network)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 flex items-center gap-1.5 rounded-full bg-surface px-3.5 py-2 text-[12px] font-medium text-ink"
+            >
+              Solscan에서 확인 <ExternalLink size={12} />
+            </a>
+          )}
         </div>
       </Sheet>
 

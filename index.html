@@ -24,16 +24,6 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
-    <!-- 65 KB variable subset (was a 2.0 MB file), preloaded so the first
-         screen paints in Pretendard without a font-blocking round trip. -->
-    <link
-      rel="preload"
-      href="%BASE_URL%fonts/pretendard-subset.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin="anonymous"
-    />
-    <link rel="stylesheet" href="%BASE_URL%fonts/pretendard.css" />
     <style>
       /* Paint the shell before any script runs, so there is never a blank gap.
          Colour comes from the OS before the saved theme can be read, so a

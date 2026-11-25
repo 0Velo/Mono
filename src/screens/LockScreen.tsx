@@ -1,59 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ScanFace } from 'lucide-react'
+import { useState } from 'react'
 import { MonoMark } from '../components/ui'
 import { Keypad, PinDots } from '../components/Keypad'
 import { Button } from '../components/Button'
 import { Sheet } from '../components/Sheet'
-import { Spinner } from '../components/Spinner'
-import { useWallet } from '../state/WalletProvider'
+import { InvalidPinError, useWallet } from '../state/WalletProvider'
 import { shortAddress } from '../lib/format'
 
 export function LockScreen() {
-  const { unlock, resetWallet, meta, biometricEnabled, unlockWithFaceId, biometricError } =
-    useWallet()
+  const { unlock, resetWallet, meta } = useWallet()
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [errorState, setErrorState] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [bioBusy, setBioBusy] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
   const [showReset, setShowReset] = useState(false)
-  const autoTried = useRef(false)
 
   const handle = async (value: string) => {
     setBusy(true)
     setError(null)
     try {
       await unlock(value)
-    } catch {
-      setError('PIN이 올바르지 않습니다.')
-      setPin('')
-      setErrorState(true)
-      window.setTimeout(() => setErrorState(false), 460)
+    } catch (reason) {
+      if (reason instanceof InvalidPinError) {
+        setError('PIN이 올바르지 않습니다.')
+        setPin('')
+        setErrorState(true)
+        window.setTimeout(() => setErrorState(false), 460)
+      } else {
+        setError((reason as Error)?.message || '지갑을 열지 못했습니다. 저장된 데이터는 삭제하지 않았습니다.')
+      }
     } finally {
       setBusy(false)
     }
   }
-
-  const faceId = useCallback(async () => {
-    if (bioBusy) return
-    setBioBusy(true)
-    setError(null)
-    try {
-      await unlockWithFaceId()
-    } catch {
-      /* the provider already wrote a human-readable reason */
-    } finally {
-      setBioBusy(false)
-    }
-  }, [bioBusy, unlockWithFaceId])
-
-  // Face ID is the fast path: offer it once as soon as the lock screen appears.
-  useEffect(() => {
-    if (!biometricEnabled || autoTried.current) return
-    autoTried.current = true
-    const timer = window.setTimeout(() => void faceId(), 320)
-    return () => window.clearTimeout(timer)
-  }, [biometricEnabled, faceId])
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-base">
@@ -61,9 +40,6 @@ export function LockScreen() {
       <div className="flex flex-1 flex-col px-6 pb-[calc(env(safe-area-inset-bottom)+18px)]">
         <div className="flex flex-1 flex-col items-center justify-center">
           <div className="relative flex h-[92px] w-[92px] items-center justify-center">
-            {biometricEnabled && bioBusy && (
-              <span className="animate-halo absolute inset-0 rounded-full bg-mintSoft" />
-            )}
             <MonoMark size={92} />
           </div>
           <h1 className="mt-4 text-[19px] font-bold tracking-[-0.03em] text-ink">지갑 잠김</h1>
@@ -71,21 +47,10 @@ export function LockScreen() {
             {meta ? shortAddress(meta.address, 5) : ''}
           </p>
 
-          {biometricEnabled && (
-            <button
-              onClick={() => void faceId()}
-              disabled={bioBusy || busy}
-              className="press mt-6 flex items-center gap-2 rounded-full bg-surface px-4 py-2.5 text-[13px] font-semibold text-ink disabled:opacity-60"
-            >
-              {bioBusy ? <Spinner size={15} /> : <ScanFace size={16} strokeWidth={1.9} />}
-              {bioBusy ? 'Face ID 확인 중…' : 'Face ID로 잠금 해제'}
-            </button>
-          )}
-
           <div className="mt-8">
             <PinDots value={pin} error={errorState} />
             <div className="mt-4 h-5 max-w-[280px] text-center text-[12.5px] leading-snug text-danger">
-              {error ?? (biometricEnabled ? biometricError : null) ?? ''}
+              {error ?? ''}
             </div>
           </div>
         </div>
@@ -118,13 +83,19 @@ export function LockScreen() {
           <Button
             full
             variant="danger"
-            onClick={() => {
-              resetWallet()
-              setShowReset(false)
+            onClick={async () => {
+              setResetError(null)
+              try {
+                await resetWallet()
+                setShowReset(false)
+              } catch (reason) {
+                setResetError((reason as Error)?.message || '지갑을 초기화하지 못했습니다.')
+              }
             }}
           >
             삭제하고 초기화
           </Button>
+          {resetError && <p className="text-center text-[12px] text-danger">{resetError}</p>}
           <Button full variant="secondary" onClick={() => setShowReset(false)}>
             취소
           </Button>

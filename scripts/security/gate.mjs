@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 /**
- * Deploy gate: fails a build that must not reach mainnet hosting.
- *
- * Rules:
- *  - any FAIL in the static scan, the secret scan or the unit suite blocks;
- *  - a `critical` advisory anywhere in the production dependency tree blocks;
- *  - a `high` advisory on a *direct* production dependency blocks;
- *  - transitive `high` advisories that cannot be fixed without a major upgrade
- *    are reported as warnings with the reason (see docs/SECURITY_AUDIT_REPORT.md).
+ * Fail-closed deployment gate. Missing, malformed, or incomplete evidence blocks.
+ * Existing dependency policy: any critical blocks; high direct advisories block
+ * unless an explicit, reviewed exemption exists; transitive high is reported.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,6 +10,9 @@ import path from 'node:path'
 const ROOT = process.cwd()
 const reportPath = path.join(ROOT, 'docs/security-audit/security-report.json')
 const auditPath = path.join(ROOT, 'docs/security-audit/npm-audit.json')
+const acceptedPath = path.join(ROOT, 'docs/security-audit/known-accepted.json')
+const problems = []
+const warnings = []
 
 function readJson(file) {
   try {
@@ -26,51 +24,184 @@ function readJson(file) {
 
 const report = readJson(reportPath)
 const audit = readJson(auditPath)
-const problems = []
-const warnings = []
+const accepted = readJson(acceptedPath)
 
-if (!report) {
-  problems.push('security-report.json is missing — run `npm run test:security` first')
-} else {
-  const staticFails = (report.sections?.static?.checks ?? []).filter((check) => check.status === 'FAIL')
-  if (staticFails.length) problems.push(`static scan FAIL: ${staticFails.map((item) => item.id).join(', ')}`)
-  if (report.sections?.secrets?.status && report.sections.secrets.status !== 'PASS' && report.sections.secrets.status !== 'REVIEW') {
-    problems.push(`secret scan ${report.sections.secrets.status}`)
-  }
-  const unit = report.sections?.unit ?? {}
-  if ((unit.fail ?? 0) > 0) problems.push(`unit tests failed: ${unit.fail}`)
-  if ((unit.compileErrors ?? []).length) problems.push('unit test bundle failed to compile')
-  const ui = report.sections?.ui
-  if (ui && ui.status === 'FAIL') problems.push('built-app checks failed')
+function parseDateOnly(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? null : parsed
 }
 
-if (!audit) {
-  warnings.push('npm-audit.json missing — dependency advisories not evaluated')
-} else {
-  let accepted = { accepted: [] }
-  try {
-    accepted = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/security-audit/known-accepted.json'), 'utf8'))
-  } catch {
-    warnings.push('known-accepted.json missing — no advisory is exempt')
+function collectHighAdvisoryIds(packageName, visited = new Set()) {
+  if (visited.has(packageName)) return new Set()
+  visited.add(packageName)
+  const ids = new Set()
+  const item = audit?.vulnerabilities?.[packageName]
+  if (!Array.isArray(item?.via)) return ids
+  for (const via of item.via) {
+    if (typeof via === 'string') {
+      for (const id of collectHighAdvisoryIds(via, visited)) ids.add(id)
+      continue
+    }
+    if (via?.severity !== 'high') continue
+    const match = typeof via.url === 'string'
+      ? via.url.match(/GHSA-[0-9A-Z]+-[0-9A-Z]+-[0-9A-Z]+/i)
+      : null
+    ids.add(match ? match[0].toUpperCase() : `UNIDENTIFIED:${via?.name ?? packageName}`)
   }
-  const exemptions = new Map((accepted.accepted ?? []).map((entry) => [entry.package, entry]))
-  const vulns = audit.vulnerabilities ?? {}
-  for (const [name, item] of Object.entries(vulns)) {
-    const severity = item.severity
-    const direct = Boolean(item.isDirect)
+  return ids
+}
+
+if (!report || typeof report !== 'object' || !report.sections || typeof report.sections !== 'object') {
+  problems.push('security-report.json is missing, malformed, or has no sections — rerun the security suite')
+} else {
+  const staticScan = report.sections.static
+  if (!staticScan || !Array.isArray(staticScan.checks) || staticScan.checks.length === 0) {
+    problems.push('static scan evidence is missing or incomplete')
+  } else {
+    const invalid = staticScan.checks.filter((check) => !['PASS', 'FAIL', 'INFO', 'REVIEW'].includes(check?.status))
+    if (invalid.length) problems.push(`static scan contains invalid status on ${invalid.length} check(s)`)
+    const fails = staticScan.checks.filter((check) => check.status === 'FAIL')
+    if (fails.length) problems.push(`static scan FAIL: ${fails.map((item) => item.id ?? 'unknown').join(', ')}`)
+  }
+
+  const secrets = report.sections.secrets
+  if (
+    !secrets ||
+    secrets.status !== 'PASS' ||
+    !Array.isArray(secrets.workingTree?.findings) ||
+    !Array.isArray(secrets.builtArtifacts?.findings) ||
+    !Array.isArray(secrets.gitHistory?.findings) ||
+    typeof secrets.scanned?.trackedFiles !== 'number' ||
+    typeof secrets.scanned?.commits !== 'number' ||
+    secrets.gitHistory.error
+  ) {
+    problems.push('secret scan evidence is missing, incomplete, or not PASS (working tree, build, and git history are all required)')
+  } else if (
+    secrets.workingTree.findings.length ||
+    secrets.builtArtifacts.findings.length ||
+    secrets.gitHistory.findings.length
+  ) {
+    problems.push('secret scan found potential secret material')
+  }
+
+  const unit = report.sections.unit
+  if (
+    !unit ||
+    !Number.isInteger(unit.pass) ||
+    !Number.isInteger(unit.fail) ||
+    !Array.isArray(unit.tests) ||
+    unit.tests.length === 0 ||
+    !Array.isArray(unit.compileErrors) ||
+    unit.pass + unit.fail !== unit.tests.length
+  ) {
+    problems.push('unit test evidence is missing, malformed, or incomplete')
+  } else {
+    if (unit.fail > 0) problems.push(`unit tests failed: ${unit.fail}`)
+    if (unit.compileErrors.length) problems.push(`unit test bundle failed to compile: ${unit.compileErrors.length} file(s)`)
+    if (unit.tests.some((test) => !['PASS', 'FAIL'].includes(test?.status))) {
+      problems.push('unit test report contains an invalid test status')
+    }
+  }
+
+  const ui = report.sections.ui
+  if (
+    !ui ||
+    ui.status !== 'PASS' ||
+    !Array.isArray(ui.checks) ||
+    ui.checks.length === 0 ||
+    ui.checks.some((check) => !['PASS', 'FAIL', 'INFO', 'REVIEW'].includes(check?.status)) ||
+    ui.checks.some((check) => check.status === 'FAIL')
+  ) {
+    problems.push(`built-app checks are missing, incomplete, or not PASS: ${ui?.status ?? 'missing status'}`)
+  }
+}
+
+if (
+  !audit ||
+  typeof audit !== 'object' ||
+  !audit.metadata?.vulnerabilities ||
+  typeof audit.metadata.vulnerabilities !== 'object' ||
+  !audit.vulnerabilities ||
+  typeof audit.vulnerabilities !== 'object'
+) {
+  problems.push('npm-audit.json is missing, malformed, or incomplete — dependency risk was not evaluated')
+}
+
+if (!accepted || !Array.isArray(accepted.accepted)) {
+  problems.push('known-accepted.json is missing, malformed, or has no accepted array')
+}
+
+const today = parseDateOnly(new Date().toISOString().slice(0, 10))
+const reviewedAt = parseDateOnly(accepted?.reviewedAt)
+if (!reviewedAt) {
+  problems.push('known-accepted.json needs a valid reviewedAt date')
+} else if (reviewedAt > today) {
+  problems.push('known-accepted.json reviewedAt cannot be in the future')
+}
+
+let exemptions = new Map()
+if (Array.isArray(accepted?.accepted)) {
+  for (const entry of accepted.accepted) {
+    const reviewBy = parseDateOnly(entry?.reviewBy)
+    const advisoryIds = entry?.advisories
+    const maxReviewBy = reviewedAt ? new Date(reviewedAt) : null
+    if (maxReviewBy) maxReviewBy.setUTCFullYear(maxReviewBy.getUTCFullYear() + 1)
+    if (
+      !entry ||
+      typeof entry.package !== 'string' ||
+      !entry.package ||
+      entry.severity !== 'high' ||
+      typeof entry.reason !== 'string' ||
+      !entry.reason.trim() ||
+      typeof entry.scope !== 'string' ||
+      !entry.scope.trim() ||
+      !Array.isArray(advisoryIds) ||
+      advisoryIds.length === 0 ||
+      advisoryIds.some((id) => typeof id !== 'string' || !/^GHSA-[0-9A-Z]+-[0-9A-Z]+-[0-9A-Z]+$/i.test(id)) ||
+      !reviewBy ||
+      (today && reviewBy < today) ||
+      (reviewedAt && reviewBy <= reviewedAt) ||
+      (maxReviewBy && reviewBy > maxReviewBy)
+    ) {
+      problems.push('known-accepted.json contains an incomplete advisory exemption')
+      continue
+    }
+    if (exemptions.has(entry.package)) problems.push(`duplicate exemption for ${entry.package}`)
+    exemptions.set(entry.package, entry)
+  }
+}
+
+if (audit?.vulnerabilities && typeof audit.vulnerabilities === 'object' && exemptions instanceof Map) {
+  for (const [name, item] of Object.entries(audit.vulnerabilities)) {
+    if (!item || !['critical', 'high', 'moderate', 'low'].includes(item.severity)) {
+      problems.push(`npm audit has an invalid advisory record for ${name}`)
+      continue
+    }
     const exempt = exemptions.get(name)
-    if (severity === 'critical') {
-      problems.push(`critical advisory in ${name}${exempt ? ' — a critical advisory cannot be exempted' : ''}`)
-    } else if (severity === 'high' && direct && !exempt) {
+    if (item.severity === 'critical') {
+      problems.push(`critical advisory in ${name}; critical findings cannot be exempted`)
+    } else if (item.severity === 'high' && item.isDirect && !exempt) {
       problems.push(`high advisory in direct dependency ${name} (not in known-accepted.json)`)
-    } else if (severity === 'high' && direct && exempt) {
+    } else if (item.severity === 'high' && item.isDirect && exempt) {
+      const allowedIds = new Set(exempt.advisories.map((id) => id.toUpperCase()))
+      const currentIds = collectHighAdvisoryIds(name)
+      if (currentIds.size === 0) {
+        problems.push(`high advisory in ${name} has no identifiable advisory ID — exemption cannot be verified`)
+      }
+      for (const id of currentIds) {
+        if (!allowedIds.has(id)) problems.push(`unreviewed high advisory in ${name}: ${id}`)
+      }
+      for (const id of allowedIds) {
+        if (!currentIds.has(id)) warnings.push(`accepted advisory ${id} is not currently high in ${name} — review the exemption`)
+      }
       warnings.push(`accepted high advisory in ${name} — ${exempt.reason.slice(0, 140)}… (review by ${exempt.reviewBy})`)
-    } else if (severity === 'high') {
+    } else if (item.severity === 'high') {
       warnings.push(`transitive high advisory in ${name} (fix: ${JSON.stringify(item.fixAvailable)})`)
     }
   }
-  for (const [name, entry] of exemptions) {
-    if (!vulns[name]) warnings.push(`known-accepted entry ${name} no longer matches an advisory — remove it`)
+  for (const [name] of exemptions) {
+    if (!audit.vulnerabilities[name]) warnings.push(`known-accepted entry ${name} no longer matches an advisory — review and remove it`)
   }
 }
 

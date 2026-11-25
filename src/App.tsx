@@ -30,7 +30,7 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { ready, vaultExists, unlocked } = useWallet()
+  const { ready, initializationError, vaultExists, unlocked } = useWallet()
 
   // Warm the heavy chunks while the person is still on the lock screen or
   // reading the seed phrase: nothing blocks, and the swap is instant.
@@ -54,6 +54,23 @@ export default function App() {
 
   if (!ready) {
     return <div className="min-h-full bg-base" />
+  }
+
+  if (initializationError) {
+    return (
+      <SecureContextGate>
+        <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col justify-center bg-base px-8 text-center">
+          <h1 className="text-[18px] font-bold tracking-tight">지갑 데이터를 불러오지 못했습니다</h1>
+          <p className="mt-3 text-[13px] leading-relaxed text-muted">{initializationError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-full bg-ink px-5 py-3 text-[13px] font-semibold text-onInk"
+          >
+            다시 시도
+          </button>
+        </div>
+      </SecureContextGate>
+    )
   }
 
   return (

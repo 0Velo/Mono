@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-24T21:12:47.292Z",
-  "node": "v20.18.1",
+  "startedAt": "2026-11-25T00:16:03.837Z",
+  "node": "v24.22.1",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-24T21:12:47.862Z",
+      "generatedAt": "2026-11-25T00:16:03.903Z",
       "checks": [
         {
           "id": "SS-01",
@@ -69,7 +69,7 @@
           "id": "SS-11",
           "title": "localStorage key inventory (no plaintext secret keys expected)",
           "status": "INFO",
-          "detail": "faceid-wrap.v2, keys, mono.addressBook.v1, mono.faceid.v2, mono.meta.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.faceid.v1, solwallet.meta.v1, solwallet.vault.v1"
+          "detail": "keys, mono.addressBook.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
         },
         {
           "id": "SS-12",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-24T21:12:51.519Z",
+      "generatedAt": "2026-11-25T00:16:04.548Z",
       "scanned": {
-        "trackedFiles": 110,
-        "commits": 19
+        "trackedFiles": 117,
+        "commits": 27
       },
       "workingTree": {
         "findings": [],
@@ -128,6 +128,7 @@
       "status": "PASS"
     },
     "dependencies": {
+      "status": "PASS",
       "counts": {
         "info": 0,
         "low": 6,
@@ -282,7 +283,7 @@
           "direct": false,
           "fixAvailable": {
             "name": "vite",
-            "version": "6.4.6",
+            "version": "8.3.8",
             "isSemVerMajor": true
           },
           "advisories": [
@@ -386,7 +387,7 @@
           "direct": true,
           "fixAvailable": {
             "name": "vite",
-            "version": "6.4.6",
+            "version": "8.3.8",
             "isSemVerMajor": true
           },
           "advisories": [
@@ -489,6 +490,11 @@
           "file": null
         },
         {
+          "name": "optional account metadata survives backup parsing without exposing secret material",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "a wrong PIN cannot restore a backup file",
           "status": "PASS",
           "file": null
@@ -550,6 +556,56 @@
         },
         {
           "name": "secretPayloadFromMnemonic stores the hardened Phantom path",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate permits only a currently reviewed exact high advisory",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks a new high advisory outside the reviewed ID list",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks an expired exception",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks missing or malformed audit evidence",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "security gate blocks when built-app UI evidence is missing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "pending transaction records round-trip by owner and network",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "corrupt pending JSON blocks a new transaction",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "unavailable storage blocks reads and writes rather than allowing a broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a failed marker deletion is surfaced so the next send remains blocked",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "tampered owner, network, or missing validity height is rejected",
           "status": "PASS",
           "file": null
         },
@@ -754,6 +810,16 @@
           "file": null
         },
         {
+          "name": "a swap that spends an unrelated user token is refused even when its quoted input and output are valid",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "the SOL fee tolerance is small enough to be a real bound",
           "status": "PASS",
           "file": null
@@ -784,6 +850,21 @@
           "file": null
         },
         {
+          "name": "executeSwap will not broadcast if persisting the local signature fails",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap keeps an RPC-loss attempt pending and does not clear its record",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "executeSwap refuses to sign when Jupiter omits the real last valid block height",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants",
           "status": "PASS",
           "file": null
@@ -805,6 +886,56 @@
         },
         {
           "name": "an invalid recipient address never reaches signing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a signed SOL send is persisted before RPC broadcast and confirmed with the same signature",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a pending-record write failure prevents any RPC broadcast",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a lost RPC response with an unconfirmed signature stays pending and is not reported failed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "processed failures are not treated as final; confirmed failures are terminal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "expired blockhash with no history is reported as unresolved expiry, not proof of non-inclusion",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "RPC status lookup failure stays unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "fallback write failure is returned to the caller",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "corrupt stored data is not treated as an empty wallet",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "clear failure is returned and the fallback copy remains untouched",
           "status": "PASS",
           "file": null
         },
@@ -844,7 +975,7 @@
           "file": null
         },
         {
-          "name": "a downgraded iteration count throws (KDF parameters are authenticated by use)",
+          "name": "a downgraded or excessive iteration count is rejected before expensive derivation",
           "status": "PASS",
           "file": null
         },
@@ -904,7 +1035,7 @@
           "file": null
         }
       ],
-      "pass": 85,
+      "pass": 111,
       "fail": 0,
       "compileErrors": []
     },
@@ -933,7 +1064,7 @@
           "id": "UI-04",
           "title": "Every script is same-origin",
           "status": "PASS",
-          "detail": "http://127.0.0.1:41829/assets/index-Dhq3gRQS.js"
+          "detail": "http://127.0.0.1:54015/assets/index-C5tnLtnQ.js"
         },
         {
           "id": "UI-05",
@@ -957,13 +1088,13 @@
           "id": "UI-08",
           "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
           "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"YtJCvvman1jMTkmA\", \"salt\": \"a/HG9aMEQHLN3UzmSjnB1A==\"}"
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"PyPW+TdgkWgK1D7s\", \"salt\": \"yvN9vCdxkpPttfgPLi3yJA==\"}"
         },
         {
           "id": "UI-09",
-          "title": "Any Face ID record on disk is ciphertext only",
+          "title": "Biometric unlock UI and persisted state are absent",
           "status": "PASS",
-          "detail": "no enrolment (toggle off)"
+          "detail": "ui_present=False storage_keys=[]"
         },
         {
           "id": "UI-10",
@@ -1005,7 +1136,7 @@
           "id": "UI-16",
           "title": "External origins contacted by the page",
           "status": "INFO",
-          "detail": "127.0.0.1:41829, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com, solana.drpc.org"
+          "detail": "127.0.0.1:54015, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com"
         }
       ],
       "counts": {
@@ -1015,15 +1146,14 @@
         "INFO": 1
       },
       "requests": [
-        "127.0.0.1:41829",
+        "127.0.0.1:54015",
         "api.coingecko.com",
         "api.mainnet-beta.solana.com",
-        "solana-rpc.publicnode.com",
-        "solana.drpc.org"
+        "solana-rpc.publicnode.com"
       ],
-      "generatedAt": "2026-11-25T06:13:14+0900"
+      "generatedAt": "2026-11-25T09:16:22+0900"
     }
   },
-  "durationSeconds": 27.04,
+  "durationSeconds": 18.86,
   "blockingFailures": []
 }

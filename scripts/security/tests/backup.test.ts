@@ -51,6 +51,20 @@ test('export → parse → decrypt reproduces the original secret payload', asyn
   assert.equal(keypairFromPayload(restored).publicKey.toBase58(), parsed.address)
 })
 
+test('optional account metadata survives backup parsing without exposing secret material', async () => {
+  const vault = await encryptSecret(payload, PIN)
+  const file = buildBackupFile(vault, 'HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk', {
+    activeIndex: 3,
+    accountIndices: [0, 3],
+    accountNames: { '3': 'Cold' },
+  })
+  const parsed = parseBackupFile(JSON.stringify(file))
+  assert.equal(parsed.activeIndex, 3)
+  assert.deepEqual(parsed.accountIndices, [0, 3])
+  assert.deepEqual(parsed.accountNames, { '3': 'Cold' })
+  assert.ok(!JSON.stringify(file).includes(payload.mnemonic))
+})
+
 test('a wrong PIN cannot restore a backup file', async () => {
   const vault = await encryptSecret(payload, PIN)
   const parsed = parseBackupFile(JSON.stringify(buildBackupFile(vault)))
@@ -68,8 +82,7 @@ test('a tampered backup ciphertext is rejected on restore', async () => {
 test('a backup whose iteration count was lowered to speed up brute force still fails', async () => {
   const vault = await encryptSecret(payload, PIN)
   const file = buildBackupFile(vault)
-  const parsed = parseBackupFile(JSON.stringify({ ...file, iter: 1 }))
-  await assert.rejects(() => decryptSecret(parsed.vault, PIN), InvalidPinError)
+  assert.throws(() => parseBackupFile(JSON.stringify({ ...file, iter: 1 })), /Mono 백업/)
 })
 
 test('non-backup files are rejected with a readable message', () => {
