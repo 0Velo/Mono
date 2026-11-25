@@ -1,14 +1,10 @@
-import { fetchHandler } from "../../src/handler.js";
-import { getKv, runtimeEnv } from "../../src/runtime.js";
-
 export const config = { runtime: "edge" };
 
-/**
- * One catch-all function serves the whole `/v1` contract. A per-route dynamic
- * function (`[id].js`) does not receive the requested path, which left the
- * `DELETE /v1/subscriptions/{id}` route unreachable; the catch-all keeps the
- * original URL intact so the handler can match it.
- */
+/** Temporary routing diagnostic: reports what a catch-all edge function receives. */
 export default function handler(request) {
-  return fetchHandler(request, runtimeEnv(), getKv());
+  const url = new URL(request.url);
+  const headerNames = ["x-matched-path", "x-vercel-original-path", "x-forwarded-uri", "x-vercel-deployment-url", "x-invoke-path", "x-real-url"];
+  const headers = {};
+  for (const name of headerNames) headers[name] = request.headers.get(name);
+  return new Response(JSON.stringify({ method: request.method, url: request.url, pathname: url.pathname, search: url.search, headers }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
