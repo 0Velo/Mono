@@ -6,9 +6,13 @@
  */
 
 const SPLASH_ID = 'app-splash'
-/** 마스코트가 들어오고 숨 쉴 시간을 주는 최소 노출 시간. */
-const MIN_VISIBLE_MS = 1150
-const FADE_MS = 380
+/**
+ * 최소 노출 시간. 마스코트가 떠오르고, 우주선이 내려와 태우고, 대각선으로
+ * 날아가는 한 장면(약 2.1초)이 끝까지 보이도록 잡은 값이다.
+ */
+const MIN_VISIBLE_MS = 2150
+/** 페이드아웃 시간. index.html의 #app-splash transition과 같아야 한다. */
+const FADE_MS = 350
 let requested = false
 
 /**

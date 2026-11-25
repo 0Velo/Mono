@@ -44,11 +44,11 @@ test('the mascot asset is a small transparent WebP, not a megabyte PNG', () => {
 })
 
 test('the splash is held long enough to be seen, then never replayed', () => {
-  assert.equal(splashRemainingDelay(0), 1150)
-  assert.equal(splashRemainingDelay(200), 950)
-  assert.equal(splashRemainingDelay(1150), 0)
+  assert.equal(splashRemainingDelay(0), 2150)
+  assert.equal(splashRemainingDelay(200), 1950)
+  assert.equal(splashRemainingDelay(2150), 0)
   assert.equal(splashRemainingDelay(5000), 0)
-  assert.equal(splashRemainingDelay(Number.NaN), 1150)
+  assert.equal(splashRemainingDelay(Number.NaN), 2150)
 
   const g = globalThis as unknown as {
     window?: unknown
@@ -94,10 +94,42 @@ test('the mascot enters, floats and breathes instead of just appearing', () => {
   assert.match(html, /animation:\s*splash-float[^;]*infinite/)
   assert.match(html, /splash-breathe[^;]*infinite/)
   assert.match(html, /@keyframes splash-enter/)
-  assert.match(html, /transition: opacity 380ms ease/)
+  assert.match(html, /transition: opacity 350ms ease/)
   // Motion sickness settings still win: no float, no breathing.
   const reduce = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))
   assert.match(reduce, /#app-splash \.splash-mark \{\s*animation: none;/)
+})
+
+test('a clay saucer lands, lifts the mascot aboard and carries it off in ~2.5 s', () => {
+  const html = readRepoFile('index.html')
+  const splash = readRepoFile('src/lib/splash.ts')
+
+  // Hold plus fade is the whole beat the brief asks for: about 2.5 seconds.
+  assert.match(splash, /const MIN_VISIBLE_MS = 2150/)
+  assert.match(splash, /const FADE_MS = 350/)
+
+  // The ship is drawn in the document itself: no extra file, no script.
+  assert.match(html, /<svg class="splash-ufo" viewBox="0 0 240 152"/)
+  assert.match(html, /<div class="splash-beam"><\/div>/)
+  assert.match(html, /@keyframes splash-ship-in/)
+  assert.match(html, /@keyframes splash-board/)
+  assert.match(html, /@keyframes splash-beam/)
+  assert.match(html, /@keyframes splash-flame/)
+  assert.match(html, /@keyframes splash-launch/)
+
+  // The ship comes after the mascot has been seen, and the flight is last.
+  const order = (name: string) => html.indexOf(`@keyframes ${name}`)
+  assert.ok(order('splash-enter') < order('splash-ship-in'), 'the saucer waits for the mascot')
+  assert.ok(order('splash-ship-in') < order('splash-board'), 'the saucer arrives before the lift')
+
+  // The whole stage, not a stray layer, is what leaves the frame.
+  assert.match(html, /#app-splash \.splash-stage \{[^}]*animation: splash-launch/)
+  assert.match(html, /#app-splash \.splash-alien \{[^}]*animation: splash-board/)
+
+  // No flight, beam or twinkle for anyone who asked motion to be reduced.
+  const reduce = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)'))
+  assert.match(reduce, /#app-splash \.splash-stage,[\s\S]*\.splash-alien,[\s\S]*\{\s*animation: none;/)
+  assert.match(reduce, /#app-splash \.splash-ship,[\s\S]*\{\s*display: none;/)
 })
 
 test('the service worker cache moved past the previous build', () => {
