@@ -3,11 +3,10 @@
   "vulnerabilities": {
     "@solana/buffer-layout-utils": {
       "name": "@solana/buffer-layout-utils",
-      "severity": "high",
+      "severity": "moderate",
       "isDirect": false,
       "via": [
-        "@solana/web3.js",
-        "bigint-buffer"
+        "@solana/web3.js"
       ],
       "effects": [
         "@solana/spl-token"
@@ -16,15 +15,11 @@
       "nodes": [
         "node_modules/@solana/buffer-layout-utils"
       ],
-      "fixAvailable": {
-        "name": "@solana/spl-token",
-        "version": "0.1.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "@solana/spl-token": {
       "name": "@solana/spl-token",
-      "severity": "high",
+      "severity": "moderate",
       "isDirect": true,
       "via": [
         "@solana/buffer-layout-utils",
@@ -37,11 +32,7 @@
       "nodes": [
         "node_modules/@solana/spl-token"
       ],
-      "fixAvailable": {
-        "name": "@solana/spl-token",
-        "version": "0.1.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "@solana/spl-token-group": {
       "name": "@solana/spl-token-group",
@@ -57,11 +48,7 @@
       "nodes": [
         "node_modules/@solana/spl-token-group"
       ],
-      "fixAvailable": {
-        "name": "@solana/spl-token",
-        "version": "0.1.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "@solana/spl-token-metadata": {
       "name": "@solana/spl-token-metadata",
@@ -77,11 +64,7 @@
       "nodes": [
         "node_modules/@solana/spl-token-metadata"
       ],
-      "fixAvailable": {
-        "name": "@solana/spl-token",
-        "version": "0.1.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "@solana/web3.js": {
       "name": "@solana/web3.js",
@@ -100,46 +83,7 @@
       "nodes": [
         "node_modules/@solana/web3.js"
       ],
-      "fixAvailable": {
-        "name": "@solana/web3.js",
-        "version": "3.2.1",
-        "isSemVerMajor": true
-      }
-    },
-    "bigint-buffer": {
-      "name": "bigint-buffer",
-      "severity": "high",
-      "isDirect": false,
-      "via": [
-        {
-          "source": 1103747,
-          "name": "bigint-buffer",
-          "dependency": "bigint-buffer",
-          "title": "bigint-buffer Vulnerable to Buffer Overflow via toBigIntLE() Function",
-          "url": "https://github.com/advisories/GHSA-3gc7-fjrx-p6mg",
-          "severity": "high",
-          "cwe": [
-            "CWE-120"
-          ],
-          "cvss": {
-            "score": 7.5,
-            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
-          },
-          "range": "<=1.1.5"
-        }
-      ],
-      "effects": [
-        "@solana/buffer-layout-utils"
-      ],
-      "range": "*",
-      "nodes": [
-        "node_modules/bigint-buffer"
-      ],
-      "fixAvailable": {
-        "name": "@solana/spl-token",
-        "version": "0.1.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "browserify-sign": {
       "name": "browserify-sign",
@@ -238,41 +182,6 @@
         "isSemVerMajor": true
       }
     },
-    "esbuild": {
-      "name": "esbuild",
-      "severity": "moderate",
-      "isDirect": false,
-      "via": [
-        {
-          "source": 1102341,
-          "name": "esbuild",
-          "dependency": "esbuild",
-          "title": "esbuild enables any website to send any requests to the development server and read the response",
-          "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-346"
-          ],
-          "cvss": {
-            "score": 5.3,
-            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
-          },
-          "range": "<=0.24.2"
-        }
-      ],
-      "effects": [
-        "vite"
-      ],
-      "range": "<=0.24.2",
-      "nodes": [
-        "node_modules/esbuild"
-      ],
-      "fixAvailable": {
-        "name": "vite",
-        "version": "8.3.8",
-        "isSemVerMajor": true
-      }
-    },
     "jayson": {
       "name": "jayson",
       "severity": "moderate",
@@ -288,11 +197,7 @@
       "nodes": [
         "node_modules/jayson"
       ],
-      "fixAvailable": {
-        "name": "@solana/web3.js",
-        "version": "3.2.1",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "node-stdlib-browser": {
       "name": "node-stdlib-browser",
@@ -375,11 +280,7 @@
       "nodes": [
         "node_modules/stream-json"
       ],
-      "fixAvailable": {
-        "name": "@solana/web3.js",
-        "version": "3.2.1",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "uuid": {
       "name": "uuid",
@@ -411,161 +312,7 @@
       "nodes": [
         "node_modules/uuid"
       ],
-      "fixAvailable": {
-        "name": "@solana/web3.js",
-        "version": "3.2.1",
-        "isSemVerMajor": true
-      }
-    },
-    "vite": {
-      "name": "vite",
-      "severity": "high",
-      "isDirect": true,
-      "via": [
-        {
-          "source": 1116229,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "Vite Vulnerable to Path Traversal in Optimized Deps `.map` Handling",
-          "url": "https://github.com/advisories/GHSA-4w7w-66w2-5vf9",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-22",
-            "CWE-200"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.1"
-        },
-        {
-          "source": 1120784,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "launch-editor: NTLMv2 hash disclosure via UNC path handling on Windows",
-          "url": "https://github.com/advisories/GHSA-v6wh-96g9-6wx3",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-73",
-            "CWE-522"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.2"
-        },
-        {
-          "source": 1242622,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "launch-editor: escapeCmdArgs() omits % escaping on Windows",
-          "url": "https://github.com/advisories/GHSA-698v-4r3x-3vcv",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-78"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.3"
-        },
-        {
-          "source": 1242651,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for some editors",
-          "url": "https://github.com/advisories/GHSA-r825-w8mm-5pxw",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-88"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.3"
-        },
-        {
-          "source": 1242658,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "launch-editor: `fs.existsSync()` existence check can be bypassed on Windows",
-          "url": "https://github.com/advisories/GHSA-587h-7wmj-h5pm",
-          "severity": "high",
-          "cwe": [
-            "CWE-77"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.3"
-        },
-        {
-          "source": 1242724,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "Vite: Cross origin script execution through Vite custom middleware",
-          "url": "https://github.com/advisories/GHSA-9jrq-w75r-8gcw",
-          "severity": "low",
-          "cwe": [
-            "CWE-80"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.3"
-        },
-        {
-          "source": 1242730,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "Vite: Files outside `server.fs.allow` could be served when project paths match system paths on non-Windows machine",
-          "url": "https://github.com/advisories/GHSA-rq7h-c2jc-7f22",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-22",
-            "CWE-284"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.3"
-        },
-        {
-          "source": 1243432,
-          "name": "vite",
-          "dependency": "vite",
-          "title": "vite: `server.fs.deny` bypass on Windows alternate paths",
-          "url": "https://github.com/advisories/GHSA-fx2h-pf6j-xcff",
-          "severity": "moderate",
-          "cwe": [
-            "CWE-22",
-            "CWE-200"
-          ],
-          "cvss": {
-            "score": 0,
-            "vectorString": null
-          },
-          "range": "<=6.4.2"
-        },
-        "esbuild"
-      ],
-      "effects": [],
-      "range": "<=6.4.3",
-      "nodes": [
-        "node_modules/vite"
-      ],
-      "fixAvailable": {
-        "name": "vite",
-        "version": "8.3.8",
-        "isSemVerMajor": true
-      }
+      "fixAvailable": false
     },
     "vite-plugin-node-polyfills": {
       "name": "vite-plugin-node-polyfills",
@@ -590,18 +337,18 @@
     "vulnerabilities": {
       "info": 0,
       "low": 6,
-      "moderate": 7,
-      "high": 4,
+      "moderate": 8,
+      "high": 0,
       "critical": 0,
-      "total": 17
+      "total": 14
     },
     "dependencies": {
-      "prod": 82,
-      "dev": 307,
-      "optional": 54,
-      "peer": 2,
+      "prod": 81,
+      "dev": 312,
+      "optional": 56,
+      "peer": 1,
       "peerOptional": 0,
-      "total": 393
+      "total": 396
     }
   }
 }

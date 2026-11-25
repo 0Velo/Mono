@@ -263,6 +263,11 @@ export default function Shell() {
             assets={assets}
             connection={connection}
             network={network}
+            historyItems={history.items}
+            historyLoading={history.loading}
+            historyError={history.error}
+            tokenSymbols={tokenSymbols}
+            onRefreshHistory={() => void history.refresh()}
             onClose={() => setSheet(null)}
             onSend={(mint) => setSheet({ type: 'send', mint })}
             onSwap={(mint) => openSwap(mint)}

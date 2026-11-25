@@ -139,3 +139,13 @@ test('custom RPC input is validated as https-only in the settings screen', () =>
   const rpc = readRepoFile('src/lib/rpc.ts')
   assert.match(rpc, /protocol === 'https:'/)
 })
+
+test('send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes', () => {
+  const send = readRepoFile('src/sheets/SendSheet.tsx')
+  const swap = readRepoFile('src/screens/Swap.tsx')
+  for (const source of [send, swap]) {
+    assert.match(source, /prepared\.owner !== activeOwner/)
+    assert.match(source, /preparedNetworkRef\.current !== network/)
+    assert.match(source, /preparedConnectionRef\.current !== connection/)
+  }
+})

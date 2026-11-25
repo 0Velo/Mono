@@ -4,6 +4,7 @@ import {
   clearPendingTransaction,
   readPendingTransaction,
   savePendingTransaction,
+  withPendingTransactionLock,
   type PendingTransaction,
 } from '../../../src/lib/pendingTx'
 
@@ -38,6 +39,36 @@ function installStorage(t: { after: (fn: () => void) => void }): MemoryStorage {
     else Reflect.deleteProperty(globalThis, 'localStorage')
   })
   return storage
+}
+
+class FakeLockManager {
+  private readonly active = new Set<string>()
+
+  async request<T>(
+    name: string,
+    _options: { mode: 'exclusive'; ifAvailable: true },
+    callback: (lock: object | null) => Promise<T>,
+  ): Promise<T> {
+    if (this.active.has(name)) return callback(null)
+    this.active.add(name)
+    try {
+      return await callback({})
+    } finally {
+      this.active.delete(name)
+    }
+  }
+}
+
+function installLocks(t: { after: (fn: () => void) => void }, locks?: FakeLockManager): void {
+  const prior = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: locks ? { locks } : {},
+  })
+  t.after(() => {
+    if (prior) Object.defineProperty(globalThis, 'navigator', prior)
+    else Reflect.deleteProperty(globalThis, 'navigator')
+  })
 }
 
 const owner = '11111111111111111111111111111111'
@@ -85,6 +116,84 @@ test('a failed marker deletion is surfaced so the next send remains blocked', (t
   assert.throws(() => clearPendingTransaction(owner, 'devnet'), /기록을 지우지 못했습니다/)
   storage.failRemove = false
   assert.deepEqual(readPendingTransaction(owner, 'devnet'), record)
+})
+
+test('an existing uncertain signature cannot be overwritten by a later attempt', (t) => {
+  const storage = installStorage(t)
+  savePendingTransaction(record)
+  const replacement = { ...record, signature: '4'.repeat(64), createdAt: record.createdAt + 1 }
+  assert.throws(() => savePendingTransaction(replacement), /저장하지 못했습니다/)
+  assert.deepEqual(readPendingTransaction(owner, 'devnet'), record)
+  assert.equal(storage.values.size, 1)
+})
+
+test('a stale terminal check cannot delete a newer signature marker', (t) => {
+  const storage = installStorage(t)
+  const newer = { ...record, signature: '5'.repeat(64), createdAt: record.createdAt + 1 }
+  storage.values.set('mono.pending-tx.v1:devnet:' + owner, JSON.stringify(newer))
+  clearPendingTransaction(owner, 'devnet', record.signature)
+  assert.deepEqual(readPendingTransaction(owner, 'devnet'), newer)
+})
+
+test('the same owner/network lock excludes concurrent send and swap workflows', async (t) => {
+  installStorage(t)
+  installLocks(t, new FakeLockManager())
+  let releaseFirst!: () => void
+  let started!: () => void
+  const firstStarted = new Promise<void>((resolve) => { started = resolve })
+  const holdFirst = new Promise<void>((resolve) => { releaseFirst = resolve })
+  let operationCount = 0
+  const first = withPendingTransactionLock(owner, 'devnet', async () => {
+    operationCount += 1
+    started()
+    await holdFirst
+    return 'send'
+  })
+  await firstStarted
+  const second = await withPendingTransactionLock(owner, 'devnet', async () => {
+    operationCount += 1
+    return 'swap'
+  })
+  assert.deepEqual(second, { kind: 'busy' })
+  assert.equal(operationCount, 1)
+  releaseFirst()
+  assert.deepEqual(await first, { kind: 'completed', value: 'send' })
+  const afterRelease = await withPendingTransactionLock(owner, 'devnet', async () => 'swap')
+  assert.deepEqual(afterRelease, { kind: 'completed', value: 'swap' })
+})
+
+test('a pending signature is returned without running another operation', async (t) => {
+  installStorage(t)
+  installLocks(t, new FakeLockManager())
+  savePendingTransaction(record)
+  let called = false
+  const result = await withPendingTransactionLock(owner, 'devnet', async () => {
+    called = true
+  })
+  assert.deepEqual(result, { kind: 'pending', record })
+  assert.equal(called, false)
+})
+
+test('an error after signature persistence releases the lock but preserves the blocking signature', async (t) => {
+  installStorage(t)
+  installLocks(t, new FakeLockManager())
+  await assert.rejects(withPendingTransactionLock(owner, 'devnet', async () => {
+    savePendingTransaction(record)
+    throw new Error('simulated tab failure after the signed marker was persisted')
+  }), /simulated tab failure/)
+  const retry = await withPendingTransactionLock(owner, 'devnet', async () => 'should not run')
+  assert.deepEqual(retry, { kind: 'pending', record })
+})
+
+test('browsers without Web Locks fail closed instead of starting a send', async (t) => {
+  installStorage(t)
+  installLocks(t)
+  let called = false
+  await assert.rejects(
+    withPendingTransactionLock(owner, 'devnet', async () => { called = true }),
+    /안전 잠금을 지원하지 않아 전송을 시작하지 않았습니다/,
+  )
+  assert.equal(called, false)
 })
 
 test('tampered owner, network, or missing validity height is rejected', (t) => {

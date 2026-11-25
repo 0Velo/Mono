@@ -19,6 +19,9 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js'
 import {
+  AccountLayout,
+  MintLayout,
+  TOKEN_PROGRAM_ID,
   AuthorityType,
   createApproveInstruction,
   createCloseAccountInstruction,
@@ -34,7 +37,8 @@ import {
   assertSwapSimulation,
   assertSwapTransaction,
 } from '../../../src/lib/swapGuard'
-import { executeSwap, SwapExecutionError } from '../../../src/lib/swapExecute'
+import { executeSwap, prepareSwap, signPreparedSwap, SwapExecutionError } from '../../../src/lib/swapExecute'
+import { PREVIEW_TTL_MS, assertMessageMatches } from '../../../src/lib/transactionPreview'
 import { TxOutcomeError } from '../../../src/lib/tx'
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -339,12 +343,103 @@ test('the SOL fee tolerance is small enough to be a real bound', () => {
 
 /* ----------------------------------------------------------- full execution */
 
-function fakeSwapConnection(overrides: { simulation?: any; status?: any; failSend?: boolean } = {}) {
+function mintAccountInfo() {
+  const data = Buffer.alloc(MintLayout.span)
+  MintLayout.encode({
+    mintAuthorityOption: 0,
+    mintAuthority: PublicKey.default,
+    supply: 1_000_000_000n,
+    decimals: 6,
+    isInitialized: true,
+    freezeAuthorityOption: 0,
+    freezeAuthority: PublicKey.default,
+  }, data)
+  return { executable: false, owner: TOKEN_PROGRAM_ID, lamports: 1, data, rentEpoch: 0 }
+}
+
+function tokenAccountInfo(amount: bigint) {
+  const data = Buffer.alloc(AccountLayout.span)
+  AccountLayout.encode({
+    mint: new PublicKey(USDC_MINT),
+    owner: user.publicKey,
+    amount,
+    delegateOption: 0,
+    delegate: PublicKey.default,
+    state: 1,
+    isNativeOption: 0,
+    isNative: 0n,
+    delegatedAmount: 0n,
+    closeAuthorityOption: 0,
+    closeAuthority: PublicKey.default,
+  }, data)
+  return { executable: false, owner: TOKEN_PROGRAM_ID, lamports: 2_039_280, data, rentEpoch: 0 }
+}
+
+function encodedAccount(info: any) {
+  if (!info) return null
+  return {
+    executable: info.executable,
+    owner: info.owner.toBase58(),
+    lamports: info.lamports,
+    data: [info.data.toString('base64'), 'base64'],
+    rentEpoch: info.rentEpoch,
+  }
+}
+
+const outputMintKey = new PublicKey(USDC_MINT)
+const outputAta = getAssociatedTokenAddressSync(outputMintKey, user.publicKey)
+function executableSwapTransaction() {
+  return build([
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }),
+    jupiterInstruction([outputAta, outputMintKey]),
+  ])
+}
+
+function fakeSwapConnection(overrides: { simulation?: any; status?: any; failSend?: boolean; failSimulation?: boolean; outputAmount?: bigint; omitAccounts?: boolean; omitLogs?: boolean } = {}) {
   const calls: string[] = []
   const connection = {
-    simulateTransaction: async () => {
+    getFeeForMessage: async () => {
+      calls.push('fee')
+      return { context: { slot: 88 }, value: 5_000 }
+    },
+    getMultipleAccountsInfoAndContext: async (addresses: PublicKey[]) => {
+      calls.push('before')
+      return {
+        context: { slot: 88 },
+        value: addresses.map((address) => {
+          if (address.equals(user.publicKey)) return { executable: false, owner: SystemProgram.programId, lamports: 1_000_000_000, data: Buffer.alloc(0), rentEpoch: 0 }
+          if (address.equals(outputAta)) return tokenAccountInfo(0n)
+          if (address.equals(outputMintKey)) return mintAccountInfo()
+          return null
+        }),
+      }
+    },
+    simulateTransaction: async (_tx: unknown, config: any) => {
       calls.push('simulate')
-      return overrides.simulation ?? simulation()
+      const addresses = config.accounts.addresses.map((address: string) => new PublicKey(address))
+      const accounts = addresses.map((address: PublicKey) => {
+        if (address.equals(user.publicKey)) {
+          return encodedAccount({ executable: false, owner: SystemProgram.programId, lamports: overrides.simulation?.value?.postBalances?.[0] ?? 989_995_000, data: Buffer.alloc(0), rentEpoch: 0 })
+        }
+        if (address.equals(outputAta)) return encodedAccount(tokenAccountInfo(overrides.outputAmount ?? 1_000_000n))
+        if (address.equals(outputMintKey)) return encodedAccount(mintAccountInfo())
+        return null
+      })
+      const programLogs = [
+        `Program ${PROGRAM_IDS.computeBudget} invoke [1]`,
+        `Program ${PROGRAM_IDS.computeBudget} success`,
+        `Program ${PROGRAM_IDS.jupiter} invoke [1]`,
+        `Program ${PROGRAM_IDS.jupiter} success`,
+      ]
+      return {
+        context: { slot: 88 },
+        value: {
+          err: overrides.failSimulation ? { InstructionError: [1, 'Custom'] } : null,
+          ...(overrides.omitAccounts ? {} : { accounts }),
+          ...(overrides.omitLogs ? {} : { logs: programLogs }),
+          unitsConsumed: 50_000,
+        },
+      }
     },
     sendRawTransaction: async (raw: Uint8Array) => {
       calls.push('send')
@@ -380,7 +475,7 @@ const quote = {
 
 test('executeSwap runs guard → simulate → sign → send → confirm and returns the signature', async () => {
   const { connection, calls } = fakeSwapConnection()
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const tx = executableSwapTransaction()
   const steps: string[] = []
   let persistedSignature = ''
   let terminal = false
@@ -402,7 +497,7 @@ test('executeSwap runs guard → simulate → sign → send → confirm and retu
   assert.equal(signature, persistedSignature)
   assert.equal(terminal, true)
   assert.deepEqual(steps, ['guard', 'simulate', 'sign', 'send', 'confirm'])
-  assert.deepEqual(calls, ['simulate', 'persist', 'send', 'confirm'])
+  assert.deepEqual(calls, ['fee', 'before', 'simulate', 'height', 'height', 'persist', 'send', 'confirm'])
 })
 
 test('executeSwap never broadcasts a draining transaction', async () => {
@@ -419,23 +514,23 @@ test('executeSwap never broadcasts a draining transaction', async () => {
 })
 
 test('executeSwap never broadcasts when the simulation fails', async () => {
-  const { connection, calls } = fakeSwapConnection({ simulation: simulation({ err: { InstructionError: [1, 'Custom'] } }) })
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const { connection, calls } = fakeSwapConnection({ failSimulation: true })
+  const tx = executableSwapTransaction()
   await assert.rejects(
     () => executeSwap({ connection, keypair: user, built: builtFor(tx), quote }),
-    (error: unknown) => error instanceof SwapGuardError && error.reason === 'simulation-failed',
+    /트랜잭션 시뮬레이션에 실패했습니다/,
   )
-  assert.deepEqual(calls, ['simulate'])
+  assert.deepEqual(calls, ['fee', 'before', 'simulate'])
 })
 
 test('executeSwap never broadcasts when the simulation moves more than quoted', async () => {
-  const { connection, calls } = fakeSwapConnection({ simulation: simulation({ postBalances: [0] }) })
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const { connection, calls } = fakeSwapConnection({ outputAmount: 1n })
+  const tx = executableSwapTransaction()
   await assert.rejects(
     () => executeSwap({ connection, keypair: user, built: builtFor(tx), quote }),
     (error: unknown) => error instanceof SwapGuardError && error.reason === 'simulation-delta',
   )
-  assert.deepEqual(calls, ['simulate'])
+  assert.deepEqual(calls, ['fee', 'before', 'simulate'])
 })
 
 test('executeSwap rejects a payload that is not a transaction', async () => {
@@ -455,7 +550,7 @@ test('executeSwap rejects a payload that is not a transaction', async () => {
 
 test('executeSwap will not broadcast if persisting the local signature fails', async () => {
   const { connection, calls } = fakeSwapConnection()
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const tx = executableSwapTransaction()
   await assert.rejects(
     () =>
       executeSwap({
@@ -467,12 +562,12 @@ test('executeSwap will not broadcast if persisting the local signature fails', a
       }),
     /storage unavailable/,
   )
-  assert.deepEqual(calls, ['simulate'])
+  assert.deepEqual(calls, ['fee', 'before', 'simulate', 'height', 'height'])
 })
 
 test('executeSwap keeps an RPC-loss attempt pending and does not clear its record', async () => {
   const { connection, calls } = fakeSwapConnection({ failSend: true, status: null })
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const tx = executableSwapTransaction()
   let saved = ''
   let terminal = false
   await assert.rejects(
@@ -491,15 +586,63 @@ test('executeSwap keeps an RPC-loss attempt pending and does not clear its recor
   )
   assert.ok(saved)
   assert.equal(terminal, false)
-  assert.deepEqual(calls, ['simulate', 'send', 'confirm', 'height'])
+  assert.deepEqual(calls, ['fee', 'before', 'simulate', 'height', 'height', 'send', 'confirm', 'height'])
 })
 
 test('executeSwap refuses to sign when Jupiter omits the real last valid block height', async () => {
   const { connection, calls } = fakeSwapConnection()
-  const tx = build([ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }), jupiterInstruction()])
+  const tx = executableSwapTransaction()
   await assert.rejects(
     () => executeSwap({ connection, keypair: user, built: { ...builtFor(tx), lastValidBlockHeight: null }, quote }),
     (error: unknown) => error instanceof SwapExecutionError && error.step === 'guard',
   )
   assert.deepEqual(calls, [])
+})
+
+test('prepared swap byte guard refuses a changed transaction before signing or broadcast', async () => {
+  const { connection, calls } = fakeSwapConnection()
+  const tx = executableSwapTransaction()
+  const prepared = await prepareSwap({ connection, keypair: user, built: builtFor(tx), quote })
+  assertMessageMatches(prepared.transaction, prepared.messageBytes)
+  let signCalls = 0
+  prepared.transaction.sign = () => { signCalls += 1 }
+  prepared.transaction.message.compiledInstructions[1].data[0] ^= 1
+  await assert.rejects(
+    () => signPreparedSwap({ connection, keypair: user, prepared, quote }),
+    /미리보기와 서명할 트랜잭션이 다릅니다/,
+  )
+  assert.equal(signCalls, 0)
+  assert.equal(calls.includes('send'), false)
+})
+
+test('swap preview fails closed when simulation accounts or invocation logs are missing', async () => {
+  for (const options of [{ omitAccounts: true }, { omitLogs: true }]) {
+    const { connection, calls } = fakeSwapConnection(options)
+    const tx = executableSwapTransaction()
+    await assert.rejects(() => prepareSwap({ connection, keypair: user, built: builtFor(tx), quote }))
+    assert.equal(calls.includes('send'), false)
+  }
+})
+
+test('swap preview is bound to the same wallet and quote and expires by age or block height', async () => {
+  const { connection, calls } = fakeSwapConnection()
+  const tx = executableSwapTransaction()
+  const prepared = await prepareSwap({ connection, keypair: user, built: builtFor(tx), quote })
+  let signCalls = 0
+  prepared.transaction.sign = () => { signCalls += 1 }
+  await assert.rejects(
+    () => signPreparedSwap({ connection, keypair: Keypair.generate(), prepared, quote }),
+    /미리보기 당시 지갑 또는 견적이 변경됐습니다/,
+  )
+  await assert.rejects(
+    () => signPreparedSwap({ connection, keypair: user, prepared, quote: { ...quote, otherAmountThreshold: '900001' } as any }),
+    /미리보기 당시 지갑 또는 견적이 변경됐습니다/,
+  )
+  prepared.createdAt = Date.now() - PREVIEW_TTL_MS - 1
+  await assert.rejects(() => signPreparedSwap({ connection, keypair: user, prepared, quote }), /미리보기가 만료됐습니다/)
+  prepared.createdAt = Date.now()
+  prepared.lastValidBlockHeight = 999
+  await assert.rejects(() => signPreparedSwap({ connection, keypair: user, prepared, quote }), /블록해시가 만료됐습니다/)
+  assert.equal(signCalls, 0)
+  assert.equal(calls.includes('send'), false)
 })

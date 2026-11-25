@@ -1,11 +1,3 @@
-/**
- * The only path that signs and broadcasts a Jupiter swap.
- *
- * Order is deliberate and must not be reordered: deserialize → structural
- * guard → simulate and verify the balance changes → sign → send → confirm.
- * A transaction that fails any step is never signed, so nothing irreversible
- * happens on the strength of a remote API response alone.
- */
 import {
   AddressLookupTableAccount,
   Connection,
@@ -24,6 +16,15 @@ import {
   resolveStaticAccountKeys,
   type SwapSimulationLike,
 } from './swapGuard'
+import {
+  PREVIEW_TTL_MS,
+  assertMessageMatches,
+  buildTransactionPreview,
+  captureMessageBytes,
+  simulateAndCapture,
+  toSwapSimulation,
+  type TransactionPreview,
+} from './transactionPreview'
 
 export type SwapStep = 'guard' | 'simulate' | 'sign' | 'send' | 'confirm'
 
@@ -34,6 +35,16 @@ export interface ExecuteSwapOptions {
   quote: SwapQuote
   onStep?: (step: SwapStep) => void
   hooks?: TransactionHooks
+}
+
+export interface PreparedSwapExecution {
+  transaction: VersionedTransaction
+  messageBytes: Uint8Array
+  preview: TransactionPreview
+  owner: string
+  quoteIdentity: string
+  lastValidBlockHeight: number
+  createdAt: number
 }
 
 export class SwapExecutionError extends Error {
@@ -73,6 +84,19 @@ function notifyTerminal(hooks?: TransactionHooks): void {
   }
 }
 
+function quoteIdentity(quote: SwapQuote): string {
+  return JSON.stringify({
+    base: quote.base,
+    inputMint: quote.inputMint,
+    outputMint: quote.outputMint,
+    inAmount: quote.inAmount,
+    outAmount: quote.outAmount,
+    otherAmountThreshold: quote.otherAmountThreshold,
+    slippageBps: quote.slippageBps,
+    raw: quote.raw,
+  })
+}
+
 /** Fetches the address lookup tables a v0 message references. */
 export async function resolveLookupKeys(
   connection: Connection,
@@ -105,16 +129,14 @@ export async function resolveLookupKeys(
   return accountKeysWithLookups(tx, tables)
 }
 
-export async function executeSwap({
+export async function prepareSwap({
   connection,
   keypair,
   built,
   quote,
   onStep,
-  hooks,
-}: ExecuteSwapOptions): Promise<string> {
+}: Omit<ExecuteSwapOptions, 'hooks'>): Promise<PreparedSwapExecution> {
   const user = keypair.publicKey.toBase58()
-
   let tx: VersionedTransaction
   try {
     tx = VersionedTransaction.deserialize(base64ToBytes(built.transaction))
@@ -123,35 +145,19 @@ export async function executeSwap({
   }
 
   onStep?.('guard')
-  if (!Number.isSafeInteger(built.lastValidBlockHeight) || (built.lastValidBlockHeight ?? -1) < 0) {
+  const lastValidBlockHeight = built.lastValidBlockHeight
+  if (typeof lastValidBlockHeight !== 'number' || !Number.isSafeInteger(lastValidBlockHeight) || lastValidBlockHeight < 0) {
     throw new SwapExecutionError(
       'guard',
       '스왑 트랜잭션의 실제 만료 높이를 확인할 수 없어 서명하지 않았습니다.',
     )
   }
   const keys = await resolveLookupKeys(connection, tx)
-  assertSwapTransaction(tx, user, keys)
+  const guardReport = assertSwapTransaction(tx, user, keys)
 
   onStep?.('simulate')
-  let simulation: SwapSimulationLike
-  try {
-    simulation = (await withTimeout(
-      connection.simulateTransaction(tx, {
-        sigVerify: false,
-        replaceRecentBlockhash: true,
-        commitment: 'confirmed',
-      }),
-      RPC_TIMEOUT_MS,
-      '스왑 시뮬레이션이 시간 초과되었습니다. 서명하지 않았습니다.',
-    )) as unknown as SwapSimulationLike
-  } catch (error) {
-    throw new SwapExecutionError(
-      'simulate',
-      `스왑 시뮬레이션에 실패했습니다. ${
-        error instanceof Error && error.message ? `(${error.message})` : ''
-      }`.trim(),
-    )
-  }
+  const snapshot = await simulateAndCapture(connection, tx, keys, guardReport.programs)
+  const simulation = toSwapSimulation(snapshot, keys, user) as SwapSimulationLike
   assertSwapSimulation(simulation, {
     owner: user,
     inputMint: quote.inputMint,
@@ -159,20 +165,77 @@ export async function executeSwap({
     outputMint: quote.outputMint,
     minOut: quote.otherAmountThreshold,
   })
+  const preview = buildTransactionPreview(snapshot, user, user, [user])
+  const currentHeight = await withTimeout(
+    connection.getBlockHeight('confirmed'),
+    RPC_TIMEOUT_MS,
+    '스왑 블록 높이를 확인하지 못했습니다. 서명하지 않았습니다.',
+  )
+  if (currentHeight > lastValidBlockHeight) {
+    throw new SwapExecutionError('simulate', '시뮬레이션 중 스왑 블록해시가 만료됐습니다. 새 견적부터 다시 확인하세요.')
+  }
 
+  return {
+    transaction: tx,
+    messageBytes: captureMessageBytes(tx),
+    preview,
+    owner: user,
+    quoteIdentity: quoteIdentity(quote),
+    lastValidBlockHeight,
+    createdAt: Date.now(),
+  }
+}
+
+export async function signPreparedSwap({
+  connection,
+  keypair,
+  prepared,
+  quote,
+  hooks,
+  onStep,
+}: {
+  connection: Connection
+  keypair: Keypair
+  prepared: PreparedSwapExecution
+  quote: SwapQuote
+  hooks?: TransactionHooks
+  onStep?: (step: SwapStep) => void
+}): Promise<string> {
+  const user = keypair.publicKey.toBase58()
+  if (prepared.owner !== user || prepared.quoteIdentity !== quoteIdentity(quote)) {
+    throw new SwapExecutionError('guard', '미리보기 당시 지갑 또는 견적이 변경됐습니다. 다시 시뮬레이션해 주세요.')
+  }
+  if (Date.now() - prepared.createdAt > PREVIEW_TTL_MS) {
+    throw new SwapExecutionError('guard', '스왑 미리보기가 만료됐습니다. 새 시뮬레이션을 확인해 주세요.')
+  }
+  const currentHeight = await withTimeout(
+    connection.getBlockHeight('confirmed'),
+    RPC_TIMEOUT_MS,
+    '스왑 블록 높이를 확인하지 못했습니다. 서명하지 않았습니다.',
+  )
+  if (currentHeight > prepared.lastValidBlockHeight) {
+    throw new SwapExecutionError('guard', '스왑 미리보기 블록해시가 만료됐습니다. 새 견적부터 다시 확인하세요.')
+  }
+
+  assertMessageMatches(prepared.transaction, prepared.messageBytes)
   onStep?.('sign')
-  tx.sign([keypair])
-  const localSignature = tx.signatures[0] ? bs58.encode(tx.signatures[0]) : ''
+  prepared.transaction.sign([keypair])
+  assertMessageMatches(prepared.transaction, prepared.messageBytes)
+  const signatureBytes = prepared.transaction.signatures[0]
+  const localSignature = signatureBytes ? bs58.encode(signatureBytes) : ''
   if (!localSignature) throw new SwapExecutionError('sign', '서명을 만들지 못해 스왑을 전송하지 않았습니다.')
-  const blockhash = tx.message.recentBlockhash
-  const lastValidBlockHeight = built.lastValidBlockHeight as number
-  hooks?.onSigned?.({ signature: localSignature, blockhash, lastValidBlockHeight })
+  const blockhash = prepared.transaction.message.recentBlockhash
+  hooks?.onSigned?.({
+    signature: localSignature,
+    blockhash,
+    lastValidBlockHeight: prepared.lastValidBlockHeight,
+  })
 
   onStep?.('send')
   let rpcSignature: string
   try {
     rpcSignature = await withTimeout(
-      connection.sendRawTransaction(tx.serialize(), {
+      connection.sendRawTransaction(prepared.transaction.serialize(), {
         skipPreflight: false,
         maxRetries: 3,
         preflightCommitment: 'confirmed',
@@ -181,7 +244,7 @@ export async function executeSwap({
       '스왑 RPC 응답이 시간 초과되었습니다.',
     )
   } catch {
-    const resolution = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    const resolution = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
     if (resolution === 'confirmed') {
       notifyTerminal(hooks)
       return localSignature
@@ -200,14 +263,14 @@ export async function executeSwap({
   }
 
   if (rpcSignature !== localSignature) {
-    const resolution = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    const resolution = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
     if (resolution === 'confirmed') {
       notifyTerminal(hooks)
       return localSignature
     }
     if (resolution === 'failed') {
       notifyTerminal(hooks)
-      throw new TxOutcomeError('failed', localSignature, '스왑 실패가 확인됐습니다. 같은 서명을 다시 보내지 않았습니다.')
+      throw new TxOutcomeError('failed', localSignature, '스왑 실패가 확인됐습니다. 같은 전송을 다시 보내지 않았습니다.')
     }
     if (resolution === 'expired') {
       throw new TxOutcomeError('expired', localSignature, 'RPC signature 불일치와 블록해시 만료가 확인됐지만 과거 포함 여부는 미확정입니다.')
@@ -222,7 +285,7 @@ export async function executeSwap({
   const startedAt = Date.now()
   let lastResolution: 'confirmed' | 'failed' | 'expired' | 'pending' | 'unknown' = 'unknown'
   while (Date.now() - startedAt < CONFIRM_TIMEOUT_MS) {
-    const resolution = await inspectTransaction(connection, localSignature, lastValidBlockHeight)
+    const resolution = await inspectTransaction(connection, localSignature, prepared.lastValidBlockHeight)
     lastResolution = resolution
     if (resolution === 'confirmed') {
       notifyTerminal(hooks)
@@ -241,4 +304,10 @@ export async function executeSwap({
     throw new TxOutcomeError('pending', localSignature, '같은 스왑 서명이 아직 확정되지 않았습니다. 상태 조회를 계속하세요.')
   }
   throw new TxOutcomeError('unknown', localSignature, '스왑 확정 응답이 지연되고 있습니다. 같은 전송을 다시 시작하지 말고 서명을 확인하세요.')
+}
+
+/** Compatibility wrapper: prepare and validate, then sign the exact previewed message. */
+export async function executeSwap(options: ExecuteSwapOptions): Promise<string> {
+  const prepared = await prepareSwap(options)
+  return signPreparedSwap({ ...options, prepared })
 }
