@@ -3,7 +3,8 @@
   "rewrites": [
     { "source": "/v1/config", "destination": "/api/v1/config" },
     { "source": "/v1/subscriptions", "destination": "/api/v1/subscriptions" },
-    { "source": "/v1/subscriptions/:id", "destination": "/api/v1/subscriptions/:id" }
+    { "source": "/v1/subscriptions/:id", "destination": "/api/v1/subscriptions/:id" },
+    { "source": "/v1/webhooks/helius", "destination": "/api/webhooks/helius" }
   ],
   "schedules": {
     "push-scan": {

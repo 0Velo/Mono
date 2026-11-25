@@ -12,6 +12,8 @@ const MAX_SOURCES = 3; // wallet plus at most two token accounts (one per token 
 const SIGNATURE_PAGE = 5;
 const MAX_NEW_SIGNATURES_PER_SOURCE = 2;
 const RESPONSE_LIMIT = 1_000_000;
+const SEEN_LIMIT = 40;
+const SEEN_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{60,100}$/;
 
 async function readBoundedText(response, maxBytes) {
   if (!response.body) return "";
@@ -39,6 +41,53 @@ export function createOutboundBudget(max = 50) {
     take() { if (used >= max) return false; used++; return true; },
     get used() { return used; },
     get remaining() { return max - used; }
+  };
+}
+
+/**
+ * Signatures already notified for one subscription.
+ *
+ * The webhook path and the 15-minute scan both see the same on-chain transfer.
+ * Without a shared record the second one to look would notify again, so every
+ * notification is written to `seen/{id}` before it goes out and both paths skip
+ * what is already there. The list is bounded (newest last) — the scan follows at
+ * most a handful of signatures per source, so a short window is enough.
+ */
+export function decodeSeen(raw) {
+  if (!raw) return [];
+  let value;
+  try { value = JSON.parse(raw); } catch { return []; }
+  if (!value || value.version !== 1 || !Array.isArray(value.signatures)) return [];
+  return value.signatures.filter(signature => typeof signature === "string" && SEEN_PATTERN.test(signature)).slice(-SEEN_LIMIT);
+}
+
+export async function loadSeenSignatures(kv, id) {
+  return new Set(decodeSeen(await kv.get(`seen/${id}`)));
+}
+
+export async function rememberSeenSignatures(kv, id, signatures) {
+  const fresh = signatures.filter(signature => typeof signature === "string" && SEEN_PATTERN.test(signature));
+  if (!fresh.length) return;
+  const key = `seen/${id}`;
+  const current = decodeSeen(await kv.get(key));
+  const known = new Set(current);
+  const merged = [...current];
+  for (const signature of fresh) if (!known.has(signature)) { known.add(signature); merged.push(signature); }
+  await kv.put(key, JSON.stringify({ version: 1, signatures: merged.slice(-SEEN_LIMIT) }));
+}
+
+function solscanUrl(network, signature) {
+  if (typeof signature !== "string" || !SEEN_PATTERN.test(signature)) return undefined;
+  return `https://solscan.io/tx/${signature}${network === "devnet" ? "?cluster=devnet" : ""}`;
+}
+
+/** Notification body shared by the webhook path and the scheduled scan. */
+export function depositPushPayload(record, assets, signature) {
+  return {
+    title: "Deposit detected",
+    body: `${record.network}: incoming balance change (${assets.join(", ")}).`,
+    tag: `mono-push-${record.id}`,
+    url: solscanUrl(record.network, signature)
   };
 }
 
@@ -192,13 +241,15 @@ async function scanSubscription(env, kv, record, budget, now) {
     for (const item of detectDeposits(tx, record.address, trackedTokenAccounts)) deposits.push({ ...item, signature });
   }
 
-  if (deposits.length) {
-    const assets = [...new Set(deposits.map(d => d.asset === "SPL" ? `token ${d.mint.slice(0, 6)}…` : "SOL"))];
-    const response = await sendWebPush(record, {
-      title: "Deposit detected",
-      body: `${network}: incoming balance change (${assets.join(", ")}).`,
-      tag: `mono-push-${record.id}`
-    }, env, env.FETCH || fetch, budget);
+  // Skip anything the real-time webhook already notified for this subscription.
+  const seen = await loadSeenSignatures(kv, record.id);
+  const fresh = deposits.filter(deposit => !seen.has(deposit.signature));
+
+  if (fresh.length) {
+    const assets = [...new Set(fresh.map(d => d.asset === "SPL" ? `token ${d.mint.slice(0, 6)}…` : "SOL"))];
+    const latest = fresh[fresh.length - 1].signature;
+    await rememberSeenSignatures(kv, record.id, [...new Set(fresh.map(d => d.signature))]);
+    const response = await sendWebPush(record, depositPushPayload(record, assets, latest), env, env.FETCH || fetch, budget);
     if (!response.ok || response.status >= 300) throw new Error("push delivery failed");
   }
 

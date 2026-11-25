@@ -1,5 +1,6 @@
 import { base64urlDecode, sha256hex, verifyWalletProof } from "./crypto.js";
 import { createOutboundBudget, scheduledScan } from "./monitor.js";
+import { syncHeliusWebhooks } from "./helius.js";
 
 const MAX_BODY = 8192;
 const MAX_SUBSCRIPTIONS = 6;
@@ -92,6 +93,16 @@ export async function reserveDailyOperation(kv, now) {
   return true;
 }
 
+/**
+ * Mirror the active subscriptions into the Helius webhooks after a change.
+ * Never throws: the webhook only makes delivery faster, and the 15-minute scan is
+ * the backstop, so a Helius outage must not fail a subscribe or revoke request.
+ */
+async function syncHeliusQuietly(env, kv, origin, now) {
+  if (!env.HELIUS_API_KEY) return;
+  try { await syncHeliusWebhooks(env, kv, { origin, now }); } catch { /* best effort */ }
+}
+
 async function handleSubscribe(request, env, kv, origin, now) {
   let body;
   try { body = await readJson(request); } catch { return response(400, { error: "invalid request" }, origin, env); }
@@ -134,6 +145,7 @@ async function handleSubscribe(request, env, kv, origin, now) {
   };
   try { await kv.put(key, JSON.stringify(record)); }
   catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
+  await syncHeliusQuietly(env, kv, origin, now);
   return response(previous ? 200 : 201, { id }, origin, env);
 }
 
@@ -155,6 +167,7 @@ async function handleDelete(request, id, env, kv, origin, now) {
     await kv.delete(key);
     await kv.delete(`state/${id}`);
   } catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
+  await syncHeliusQuietly(env, kv, origin, now);
   return response(200, { disabled: true }, origin, env);
 }
 
@@ -213,6 +226,9 @@ export async function scanHandler(request, env, kv, now = new Date()) {
     });
   }
   const result = await scheduledScan({ ...env, SUBSCRIPTIONS: kv }, createOutboundBudget(50), now.toISOString());
+  // The scheduled scan also re-syncs the webhook address list, so a change missed
+  // by an earlier best-effort sync is corrected within 15 minutes.
+  await syncHeliusQuietly(env, kv, new URL(request.url).origin, now);
   return new Response(JSON.stringify(result), {
     status: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" }
