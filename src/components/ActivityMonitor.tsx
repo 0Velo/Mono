@@ -1,20 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Connection } from '@solana/web3.js'
 import { useHistory } from '../hooks/useChainData'
 import { fetchTokenAccountAddresses } from '../lib/tokens'
 import { makeConnection } from '../lib/connection'
 import {
-  isIncomingDeposit,
-  readSeenDepositSignatures,
-  showDepositNotification,
-  writeSeenDepositSignatures,
-} from '../lib/depositNotifications'
+  activityToastMessage,
+  readSeenSignatures,
+  selectNewActivity,
+  showActivityNotification,
+  writeSeenSignatures,
+} from '../lib/activityNotifications'
 import type { NetworkId } from '../lib/rpc'
 import { showToast } from './Toast'
 
 const TOKEN_ACCOUNT_REFRESH_MS = 30_000
 
-export default function DepositMonitor({
+/**
+ * 입출금 알림을 만드는 감시자. 화면에는 아무것도 그리지 않고, 거래내역 조회
+ * 결과에서 "처음 보는 서명"만 골라 OS 알림과 토스트로 알린다.
+ *
+ * 중복 방지: 알림을 띄우기 전에 본 서명 목록을 먼저 저장한다. 저장이 먼저라
+ * 같은 항목이 다시 렌더되어도 두 번 알리지 못한다.
+ */
+export default function ActivityMonitor({
   address,
   network,
   rpc,
@@ -35,6 +43,8 @@ export default function DepositMonitor({
     ? accountsSnapshot.addresses
     : []
   const history = useHistory(connection, address, network, true, watchedAddresses)
+  // 같은 스냅샷을 두 번 처리하지 않도록 마지막으로 처리한 항목을 기억한다.
+  const processed = useRef<{ scope: string; items: unknown } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +53,7 @@ export default function DepositMonitor({
         const addresses = await fetchTokenAccountAddresses(connection, address, network)
         if (!cancelled) setAccountsSnapshot({ owner: address, network, rpc, addresses })
       } catch {
-        // Native SOL monitoring continues even when token-account RPC is unavailable.
+        // 토큰 계정 RPC가 막혀도 네이티브 SOL 감시는 계속된다.
       }
     }
     void refreshTokenAddresses()
@@ -62,23 +72,28 @@ export default function DepositMonitor({
   useEffect(() => {
     if (!history.ready || history.loading) return
     const scope = `${network}:${address}`
-    const previous = readSeenDepositSignatures(scope)
-    const detailed = history.items.filter((item) => item.detailed)
-    if (previous === null) {
-      // Establish a baseline on first use; do not announce old transactions.
-      writeSeenDepositSignatures(scope, history.items.map((item) => item.signature))
+    if (processed.current?.scope === scope && processed.current.items === history.items) return
+
+    const previous = readSeenSignatures(scope)
+    const selection = selectNewActivity(previous, history.items)
+    if (selection.baseline) {
+      // 첫 실행: 지금 보이는 거래는 기준선으로만 기록하고 알리지 않는다.
+      writeSeenSignatures(scope, selection.seen)
+      processed.current = { scope, items: history.items }
+      return
+    }
+    if (selection.events.length === 0) {
+      processed.current = { scope, items: history.items }
       return
     }
 
-    const seen = new Set(previous)
-    const newlyDetailed = detailed.filter((item) => !seen.has(item.signature))
-    for (const item of newlyDetailed) {
-      if (isIncomingDeposit(item)) {
-        showToast('새 입금이 확인됐습니다')
-        void showDepositNotification(item, network)
-      }
+    // 알림보다 기록이 먼저다. 여기서 실패해도 다음 조회가 기준선을 다시 만든다.
+    writeSeenSignatures(scope, selection.seen)
+    processed.current = { scope, items: history.items }
+    for (const event of selection.events) {
+      showToast(activityToastMessage(event.kind))
+      void showActivityNotification(event, network)
     }
-    writeSeenDepositSignatures(scope, [...previous, ...detailed.map((item) => item.signature)])
   }, [history.items, history.loading, history.ready, address, network])
 
   return null

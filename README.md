@@ -26,6 +26,8 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 - **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장)
 - **숨긴 토큰** — 에어드랍 스팸을 목록에서 숨기고 필요할 때만 다시 보기
 - **다크 모드** — 라이트 / 다크 / 시스템, 설정에 저장되고 첫 페인트 전에 적용
+- **첫 화면** — 앱을 열면 블랙 클레이 마스코트가 곧바로 뜨고, 금고를 읽는 동안 흰 화면이 보이지 않습니다. 준비가 끝나면 짧게 사라지고, 라이트·다크 모두에서 대비를 맞춥니다
+- **입출금 알림** — 설정에서 켜면 입금·출금·스왑을 OS 알림과 화면 안 토스트로 알립니다. 서버가 없어 기기가 20초마다 직접 조회하므로 **앱이 열려 있을 때만** 동작합니다(닫힌 앱 원격 푸시는 없음). iPhone은 홈 화면에 추가한 앱에서만 웹 알림 권한을 줄 수 있습니다
 
 ### 보안 구조
 
@@ -36,6 +38,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 | 잠금 해제 | 6자리 PIN (생체인증 로그인은 지원하지 않음) |
 | 잠금 시 | 복호화된 키페어의 `secretKey` 바이트를 `fill(0)`으로 덮어쓰고 메모리 참조 해제 |
 | 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음, `form-action 'none'`, `frame-src 'none'`) |
+| RPC 연결 | 지정한 RPC로 HTTPS와 WebSocket(wss)을 연결합니다. `connect-src`는 사용자 지정 RPC를 위해 `https:`·`wss:`를 허용합니다(스크립트는 `self`만) |
 | 스왑 서명 | Jupiter가 만든 트랜잭션을 **서명 전에** 검사: 수수료 지불자·서명자 확인, 허용 프로그램 목록, System/토큰 권한 명령 차단, 시뮬레이션 잔액 변화가 견적과 일치하는지 확인 |
 | RPC | 사용자 지정 RPC는 https만 허용(로컬 검증기용 localhost 예외) |
 | 백업 | PIN으로 암호화된 `.json` 한 개. 파일 안에 시드 문구 평문은 없음 |
@@ -99,6 +102,8 @@ happens client-side. There is no server component and no analytics.
 - **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions)
 - **Spam control** — hide any SPL token from the wallet list
 - **Theme** — light / dark / system, persisted and applied before first paint
+- **Splash** — the black clay mascot paints from plain HTML before any script runs, then fades once the vault is read (light and dark)
+- **Activity alerts** — optional deposit / withdrawal / swap notices as OS notifications plus in-app toasts. No backend: the device polls its own RPC every 20 seconds, so alerts exist only while the app is open. iPhone grants web notification permission only to the Home Screen app
 
 ### Security model
 
@@ -125,6 +130,8 @@ src/
 │  ├─ prefs.ts        hidden tokens, watchlist
 │  ├─ addressBook.ts  saved recipients
 │  ├─ theme.ts        light/dark/system, CSS-variable switching
+│  ├─ splash.ts       static splash hand-off (minimum on-screen time, one-shot fade)
+│  ├─ activityNotifications.ts  transaction → 입금/출금/스왑 classification, seen-signature baseline, permission + delivery
 │  ├─ tokens.ts       balances, SPL accounts, on-chain metadata
 │  └─ prices.ts       keyless price sources
 ├─ screens/           Onboarding, Lock, Home, Swap (lazy), Activity, Settings
@@ -146,6 +153,19 @@ Font subset regeneration (after adding Korean UI copy):
 
 ```bash
 python3 tmp/make-font-subset.py   # needs fonttools + brotli
+```
+
+Splash art regeneration (from the master in `design/masters/mono-alien-master.png`):
+
+```bash
+python3 - <<'PY'
+from PIL import Image
+im = Image.open('design/masters/mono-alien-master.png').convert('RGBA')
+box = im.split()[-1].getbbox()
+crop = im.crop((box[0]-10, box[1]-10, box[2]+10, box[3]+10))
+w, h = round(crop.width * 512 / max(crop.size)), round(crop.height * 512 / max(crop.size))
+crop.resize((w, h), Image.LANCZOS).save('public/assets/splash/mono-alien.webp', 'WEBP', quality=88, method=6)
+PY
 ```
 
 ---

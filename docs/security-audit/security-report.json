@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T01:14:03.804Z",
-  "node": "v24.22.1",
+  "startedAt": "2026-11-25T12:06:01.285Z",
+  "node": "v22.11.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T01:14:03.882Z",
+      "generatedAt": "2026-11-25T12:06:02.029Z",
       "checks": [
         {
           "id": "SS-01",
@@ -39,7 +39,7 @@
           "id": "SS-06",
           "title": "CSP blocks inline/external script, plugins, base-uri override, forms and frames",
           "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
         },
         {
           "id": "SS-07",
@@ -63,13 +63,13 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=10"
+          "detail": "cacheVersion=13"
         },
         {
           "id": "SS-11",
           "title": "localStorage key inventory (no plaintext secret keys expected)",
           "status": "INFO",
-          "detail": "key, mono.addressBook.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.theme.v1, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
+          "detail": "key, mono.activityNotifications.enabled.v1, mono.addressBook.v1, mono.depositNotifications.enabled.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.pushSubscriptions.credentials.v1, mono.theme.v1, mono.token-history-addresses.v1:, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
         },
         {
           "id": "SS-12",
@@ -93,7 +93,7 @@
           "id": "SS-15",
           "title": "Built dist/index.html carries the CSP",
           "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
         },
         {
           "id": "SS-16",
@@ -109,10 +109,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T01:14:04.634Z",
+      "generatedAt": "2026-11-25T12:06:07.111Z",
       "scanned": {
-        "trackedFiles": 125,
-        "commits": 32
+        "trackedFiles": 142,
+        "commits": 33
       },
       "workingTree": {
         "findings": [],
@@ -325,6 +325,76 @@
     "unit": {
       "tests": [
         {
+          "name": "a native SOL transfer in reads as an incoming deposit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an outgoing SOL transfer reports the amount without the network fee",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a fee-only transaction is not announced",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an SPL transfer in and out use the token symbol and decimals",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a token-to-token swap is one \"스왑 완료\" event, not a deposit plus a withdrawal",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a swap that spends SOL for a token is still a swap",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "an unknown mint falls back to a short uppercase tag, never a full address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "failed and not-yet-detailed transactions are never announced",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the first read only records a baseline and announces nothing",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "after the baseline, only a new signature is announced and it is announced once",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "several new transactions are announced oldest first",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a transaction whose details are not loaded yet is retried instead of being swallowed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the seen list stays bounded so localStorage cannot grow without limit",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "iPhone user agents are recognised so the UI can ask for a Home Screen install",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "an exported backup file contains no seed words, key material or PIN",
           "status": "PASS",
           "file": null
@@ -525,6 +595,46 @@
           "file": null
         },
         {
+          "name": "push API accepts one HTTPS base and rejects insecure or credential-bearing URLs",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "subscription serializer accepts only an HTTPS endpoint and the two required keys",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "association canonicalization hashes endpoint and management token and subscription ID hashes endpoint",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "Ed25519 association signature verifies against the synthetic wallet public key only",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "association sync posts only contract fields and persists the association after success",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "client registration payloads for both networks are accepted by the Worker contract",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "stale wallet/network sync stops after signing and never posts",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "activity monitor and token detail hold data to their current scopes and show unknown while loading",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "looksLikeRpc accepts https endpoints",
           "status": "PASS",
           "file": null
@@ -580,6 +690,31 @@
           "file": null
         },
         {
+          "name": "index.html paints the mascot splash before any script runs",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the mascot asset is a small transparent WebP, not a megabyte PNG",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the splash is held long enough to be seen, then never replayed",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker cache moved past the previous build",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "source contains no HTML injection sinks",
           "status": "PASS",
           "file": null
@@ -611,6 +746,11 @@
         },
         {
           "name": "the service worker is same-origin only and drops old caches on activate",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the service worker displays Web Push immediately and validates notification links",
           "status": "PASS",
           "file": null
         },
@@ -800,6 +940,16 @@
           "file": null
         },
         {
+          "name": "portfolio keeps zero-balance token account addresses for history lookup",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "token account discovery remembers seen addresses locally and isolates network",
+          "status": "PASS",
+          "file": null
+        },
+        {
           "name": "BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants",
           "status": "PASS",
           "file": null
@@ -851,6 +1001,11 @@
         },
         {
           "name": "RPC status lookup failure stays unknown",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "recent history merges and sorts signatures from the owner and token accounts",
           "status": "PASS",
           "file": null
         },
@@ -1025,161 +1180,11 @@
           "file": null
         }
       ],
-      "pass": 140,
+      "pass": 171,
       "fail": 0,
       "compileErrors": []
-    },
-    "ui": {
-      "status": "PASS",
-      "checks": [
-        {
-          "id": "UI-17",
-          "title": "A disposable browser context starts without pre-existing wallet material",
-          "status": "PASS",
-          "detail": "{\"presentLocalKeys\": [], \"presentSessionKeys\": [], \"hasIdbVault\": false, \"idbError\": \"\"}"
-        },
-        {
-          "id": "UI-01",
-          "title": "The production build renders the onboarding screen",
-          "status": "PASS",
-          "detail": "Mono"
-        },
-        {
-          "id": "UI-02",
-          "title": "The CSP meta tag is served and carries the required directives",
-          "status": "PASS",
-          "detail": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
-        },
-        {
-          "id": "UI-03",
-          "title": "An injected inline script and eval() are blocked by the CSP",
-          "status": "PASS",
-          "detail": "inline_ran=0 eval=NOT_RUN"
-        },
-        {
-          "id": "UI-04",
-          "title": "Every script is same-origin",
-          "status": "PASS",
-          "detail": "http://127.0.0.1:57383/assets/index-B3Yb8s6s.js"
-        },
-        {
-          "id": "UI-05",
-          "title": "A new wallet shows a 12-word phrase",
-          "status": "PASS",
-          "detail": "12 words"
-        },
-        {
-          "id": "UI-06",
-          "title": "The wallet unlocks after setting a PIN",
-          "status": "PASS",
-          "detail": ""
-        },
-        {
-          "id": "UI-07",
-          "title": "No seed word sequence is written to localStorage/sessionStorage/IndexedDB",
-          "status": "PASS",
-          "detail": "leaked_words=[] ordered_3word_runs=0"
-        },
-        {
-          "id": "UI-08",
-          "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
-          "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"J6nt1AANbwtz5cDl\", \"salt\": \"odKOUSjDceTp2ZDzX7fmLQ==\"}"
-        },
-        {
-          "id": "UI-09",
-          "title": "Biometric unlock UI and persisted state are absent",
-          "status": "PASS",
-          "detail": "ui_present=False storage_keys=[]"
-        },
-        {
-          "id": "UI-10",
-          "title": "pagehide locks the wallet and drops the decrypted key",
-          "status": "PASS",
-          "detail": ""
-        },
-        {
-          "id": "UI-11",
-          "title": "A wrong PIN is rejected",
-          "status": "PASS",
-          "detail": ""
-        },
-        {
-          "id": "UI-12",
-          "title": "A script-shaped recipient is treated as an invalid address and never executes",
-          "status": "PASS",
-          "detail": "executed=False invalid_warning=1"
-        },
-        {
-          "id": "UI-13",
-          "title": "An address-book label is stored and rendered as inert text",
-          "status": "PASS",
-          "detail": "executed=False label_saved=True"
-        },
-        {
-          "id": "UI-18",
-          "title": "Reload locks the persisted wallet and the correct PIN restores its original address",
-          "status": "PASS",
-          "detail": "locked=True unlocked=True original_address_restored=True"
-        },
-        {
-          "id": "UI-19",
-          "title": "A freshly created mnemonic wallet presents exactly one account",
-          "status": "PASS",
-          "detail": "{\"labels\": [\"메인\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2Xnh8yzkeL3KPjSSgSSyg4nAgdpX4dSKHov8Xhf3GmXE\"}}"
-        },
-        {
-          "id": "UI-20",
-          "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
-          "status": "PASS",
-          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"FxD5cHCpqkZpVWpCPZGqfK6gus2taLNLWiqVJaGL4W6L\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
-        },
-        {
-          "id": "UI-21",
-          "title": "Explicitly switching back selects the original account without removing account 2",
-          "status": "PASS",
-          "detail": "switched_back=True activeIndex=0 original_address_restored=True accountIndices=[1]"
-        },
-        {
-          "id": "UI-22",
-          "title": "The second account and selected main account persist through reload and unlock",
-          "status": "PASS",
-          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795569257058, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2Xnh8yzkeL3KPjSSgSSyg4nAgdpX4dSKHov8Xhf3GmXE\", \"accountIndices\": [1]}}}"
-        },
-        {
-          "id": "UI-14",
-          "title": "No uncaught page errors while driving the app",
-          "status": "PASS",
-          "detail": "[]"
-        },
-        {
-          "id": "UI-15",
-          "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
-          "status": "PASS",
-          "detail": "[]"
-        },
-        {
-          "id": "UI-16",
-          "title": "External origins contacted by the page",
-          "status": "INFO",
-          "detail": "127.0.0.1:57383, api.coingecko.com, api.mainnet-beta.solana.com, solana-rpc.publicnode.com"
-        }
-      ],
-      "counts": {
-        "PASS": 21,
-        "FAIL": 0,
-        "REVIEW": 0,
-        "INFO": 1
-      },
-      "requests": [
-        "127.0.0.1:57383",
-        "api.coingecko.com",
-        "api.mainnet-beta.solana.com",
-        "solana-rpc.publicnode.com"
-      ],
-      "generatedAt": "2026-11-25T10:14:26+0900"
     }
   },
-  "durationSeconds": 22.48,
+  "durationSeconds": 22.33,
   "blockingFailures": []
 }

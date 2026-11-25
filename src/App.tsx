@@ -4,7 +4,11 @@ import { Onboarding } from './screens/Onboarding'
 import { LockScreen } from './screens/LockScreen'
 import { ShellSkeleton } from './screens/ShellSkeleton'
 import { prefetchKeys } from './lib/keys'
-import { DEPOSIT_NOTIFICATION_SETTING_EVENT, isDepositNotificationsEnabled } from './lib/depositNotifications'
+import { hideAppSplash } from './lib/splash'
+import {
+  ACTIVITY_NOTIFICATION_SETTING_EVENT,
+  isActivityNotificationsEnabled,
+} from './lib/activityNotifications'
 
 /**
  * Everything behind the lock (web3.js, spl-token, the send flow) is one lazy
@@ -13,7 +17,7 @@ import { DEPOSIT_NOTIFICATION_SETTING_EVENT, isDepositNotificationsEnabled } fro
  * so unlocking still feels instant.
  */
 const Shell = lazy(() => import('./Shell'))
-const DepositMonitor = lazy(() => import('./components/DepositMonitor'))
+const ActivityMonitor = lazy(() => import('./components/ActivityMonitor'))
 
 function SecureContextGate({ children }: { children: React.ReactNode }) {
   const secure =
@@ -33,17 +37,24 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { ready, initializationError, vaultExists, unlocked, meta } = useWallet()
-  const [monitorEnabled, setMonitorEnabled] = useState(isDepositNotificationsEnabled)
+  const [monitorEnabled, setMonitorEnabled] = useState(isActivityNotificationsEnabled)
 
   useEffect(() => {
-    const syncPreference = () => setMonitorEnabled(isDepositNotificationsEnabled())
-    window.addEventListener(DEPOSIT_NOTIFICATION_SETTING_EVENT, syncPreference)
+    const syncPreference = () => setMonitorEnabled(isActivityNotificationsEnabled())
+    window.addEventListener(ACTIVITY_NOTIFICATION_SETTING_EVENT, syncPreference)
     document.addEventListener('visibilitychange', syncPreference)
     return () => {
-      window.removeEventListener(DEPOSIT_NOTIFICATION_SETTING_EVENT, syncPreference)
+      window.removeEventListener(ACTIVITY_NOTIFICATION_SETTING_EVENT, syncPreference)
       document.removeEventListener('visibilitychange', syncPreference)
     }
   }, [])
+
+  // The splash is plain HTML in index.html, so it paints before any script
+  // runs. It only leaves once the vault is read, so the app is never revealed
+  // half-built.
+  useEffect(() => {
+    if (ready) hideAppSplash()
+  }, [ready])
 
   // Warm the heavy chunks while the person is still on the lock screen or
   // reading the seed phrase: nothing blocks, and the swap is instant.
@@ -99,7 +110,7 @@ export default function App() {
       )}
       {vaultExists && meta?.address && monitorEnabled && (
         <Suspense fallback={null}>
-          <DepositMonitor
+          <ActivityMonitor
             address={meta.address}
             network={meta.network}
             rpc={meta.rpc[meta.network] ?? ''}
