@@ -153,6 +153,12 @@ async function handleSubscribe(request, env, kv, origin, now) {
   };
   try { await kv.put(key, JSON.stringify(record)); }
   catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
+  // A new wallet or network on the same browser endpoint must not inherit the
+  // signature window of the previous association: a transfer between two of the
+  // owner's wallets would otherwise be suppressed as already notified.
+  if (previous && (previous.address !== body.address || previous.network !== body.network)) {
+    try { await kv.delete(`seen/${id}`); } catch { /* the store trims it by count */ }
+  }
   await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return response(previous ? 200 : 201, { id }, origin, env);
 }
@@ -174,6 +180,7 @@ async function handleDelete(request, id, env, kv, origin, now) {
   try {
     await kv.delete(key);
     await kv.delete(`state/${id}`);
+    await kv.delete(`seen/${id}`);
   } catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
   await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return response(200, { disabled: true }, origin, env);

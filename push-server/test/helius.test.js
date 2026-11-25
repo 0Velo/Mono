@@ -293,6 +293,44 @@ test("the scheduled scan stays quiet for a signature the webhook already notifie
   assert.equal(calls.filter(call => call.url.startsWith("https://fcm.googleapis.com/")).length, 0);
 });
 
+test("revoking a subscription also drops its signature window, and a wallet switch resets it", async () => {
+  const wallet = await makeWallet();
+  const nextWallet = await makeWallet();
+  const pushKeys = await makePushKeys();
+  const kv = new FakeKV();
+  const fetcher = async () => new Response(null, { status: 200 });
+  const env = { SUBSCRIPTIONS: kv, APP_ORIGIN: "https://app.example.test", FETCH: fetcher };
+  const { fetchHandler } = await import("../src/handler.js");
+  const token = base64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
+  const subscription = { endpoint: "https://fcm.googleapis.com/fcm/send/synthetic", keys: { p256dh: pushKeys.p256dh, auth: pushKeys.auth } };
+  const register = async (walletToUse) => {
+    const issuedAt = String(Math.floor(Date.now() / 1000));
+    const message = `MONO-PUSH-V1\n${walletToUse.address}\nmainnet-beta\n${issuedAt}\n${await sha256hex(subscription.endpoint)}\n${await sha256hex(token)}`;
+    const signature = base64urlEncode(new Uint8Array(await crypto.subtle.sign("Ed25519", walletToUse.pair.privateKey, enc.encode(message))));
+    return fetchHandler(new Request("https://push.example/v1/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: env.APP_ORIGIN },
+      body: JSON.stringify({ subscription, address: walletToUse.address, network: "mainnet-beta", managementToken: token, issuedAt, signature })
+    }), env, kv);
+  };
+  const id = await sha256hex(subscription.endpoint);
+  assert.equal((await register(wallet)).status, 201);
+  await rememberSeenSignatures(kv, id, [SIGNATURE]);
+  assert.equal((await register(wallet)).status, 200);
+  assert.equal((await loadSeenSignatures(kv, id)).size, 1, "same wallet keeps its window");
+  assert.equal((await register(nextWallet)).status, 200);
+  assert.equal((await loadSeenSignatures(kv, id)).size, 0, "a new wallet starts clean");
+
+  await rememberSeenSignatures(kv, id, [SIGNATURE]);
+  const revoked = await fetchHandler(new Request(`https://push.example/v1/subscriptions/${id}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", Origin: env.APP_ORIGIN },
+    body: JSON.stringify({ managementToken: token })
+  }), env, kv);
+  assert.equal(revoked.status, 200);
+  assert.equal(kv.data.has(`seen/${id}`), false);
+});
+
 test("active wallets and their tracked token accounts are the desired webhook addresses", async () => {
   const mainnet = await makeSubscription();
   const devnet = await makeSubscription({ id: "e".repeat(64), network: "devnet", endpoint: "https://fcm.googleapis.com/fcm/send/devnet" });
