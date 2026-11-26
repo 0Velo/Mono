@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; worker-src 'self';"
+    />
+    <title>Mono</title>
+    <meta name="description" content="기기에만 키를 보관하는 개인 솔라나 지갑" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Mono" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
+    <!-- The mascot is the first thing on screen, so its 19 KB WebP starts
+         downloading while the module graph is still being fetched. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/webp"
+      href="./assets/splash/mono-alien.webp"
+      fetchpriority="high"
+    />
+    <style>
+      /* The splash is plain HTML and CSS, painted before any script runs, so
+         there is never a blank or half-drawn frame. Its colours come from the
+         OS until the saved theme is applied, and follow it afterwards through
+         the data-theme attribute that lives on <html>.
+
+         One ~2.8 s beat, in clay: the mascot rises and waits, a matte saucer
+         drops in over it, a light opens and lifts it aboard, the saucer
+         whooshes off to the upper right, and only then does the Mono wordmark
+         rise out of the space it left, hold, and fade with the splash. No
+         script and no outside image is involved — the saucer is inline SVG
+         painted with the same two colours as the mascot. */
+      html,
+      body {
+        margin: 0;
+        background: #ffffff;
+      }
+      #root {
+        min-height: 100%;
+      }
+
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        background: #ffffff;
+        opacity: 1;
+        transition: opacity 350ms ease;
+        will-change: opacity;
+        /* The saucer is clay too: a matte body, a glass dome and three
+           running lights. Repainted per theme below. */
+        --ufo-hull-hi: #6a727d;
+        --ufo-hull: #2c3238;
+        --ufo-hull-lo: #0c0f13;
+        --ufo-rim: #ffffff;
+        --ufo-dome-hi: #ffffff;
+        --ufo-dome-mid: #f1f4f7;
+        --ufo-dome-lo: #d3d9e0;
+        --ufo-light: #ffffff;
+        --ufo-glow: rgba(255, 255, 255, 0.9);
+        --ufo-beam: rgba(122, 135, 152, 0.24);
+        --ufo-flame: rgba(140, 152, 168, 0.62);
+        --ufo-flame-core: rgba(96, 108, 124, 0.55);
+        --splash-star: #c7cdd5;
+      }
+
+      /* A few specks so the empty screen after lift-off still breathes like
+         space. Barely there, and gone with the splash. */
+      #app-splash .splash-space {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      #app-splash .splash-star {
+        position: absolute;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--splash-star);
+        opacity: 0;
+        animation: splash-twinkle 3.6s ease-in-out 600ms infinite;
+      }
+      #app-splash .splash-star:nth-child(1) {
+        left: 16%;
+        top: 30%;
+      }
+      #app-splash .splash-star:nth-child(2) {
+        left: 82%;
+        top: 23%;
+        animation-delay: 1500ms;
+      }
+      #app-splash .splash-star:nth-child(3) {
+        left: 73%;
+        top: 71%;
+        animation-delay: 2400ms;
+      }
+
+      /* The stage carries both actors, so lift-off moves them as one. */
+      #app-splash .splash-stage {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform-origin: 55% 45%;
+        animation: splash-launch 420ms cubic-bezier(0.2, 0.5, 0.35, 1) 1820ms forwards;
+        will-change: transform, opacity;
+      }
+
+      /* Two layers so the float and the entrance never fight over transform:
+         the wrapper drifts, the mascot itself scales in and breathes, and a
+         third layer is free to lift it into the saucer. */
+      #app-splash .splash-mark {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: splash-float 4.8s cubic-bezier(0.45, 0, 0.55, 1) 900ms infinite;
+        will-change: transform;
+      }
+      #app-splash .splash-alien {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform-origin: 50% 22%;
+        animation: splash-board 420ms cubic-bezier(0.5, 0.02, 0.7, 0.55) 1400ms forwards;
+        will-change: transform, opacity;
+      }
+      #app-splash img {
+        display: block;
+        width: clamp(148px, 44vw, 208px);
+        height: auto;
+        opacity: 0;
+        transform: translateY(10px) scale(0.94);
+        animation:
+          splash-enter 760ms cubic-bezier(0.22, 1, 0.36, 1) 90ms forwards,
+          splash-breathe 5.4s cubic-bezier(0.45, 0, 0.55, 1) 1000ms infinite;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+             user-select: none;
+      }
+
+      /* Positioning only; the saucer's own entrance lives on the SVG so the
+         centring translate never has to share a transform. */
+      #app-splash .splash-ship {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 26px);
+        width: 118%;
+        transform: translateX(-50%);
+        z-index: 3;
+        pointer-events: none;
+      }
+      #app-splash .splash-ufo {
+        display: block;
+        width: 100%;
+        height: auto;
+        opacity: 0;
+        filter: drop-shadow(0 16px 22px rgba(14, 18, 24, 0.18));
+        animation: splash-ship-in 560ms cubic-bezier(0.22, 1, 0.36, 1) 1030ms forwards;
+      }
+      #app-splash .splash-beam {
+        position: absolute;
+        left: 50%;
+        top: 64%;
+        width: 104%;
+        height: 168%;
+        margin-left: -52%;
+        background: linear-gradient(to bottom, var(--ufo-beam), rgba(0, 0, 0, 0) 78%);
+        clip-path: polygon(43% 0%, 57% 0%, 98% 100%, 2% 100%);
+        filter: blur(7px);
+        opacity: 0;
+        animation: splash-beam 720ms ease 1180ms forwards;
+      }
+      #app-splash .ufo-light {
+        opacity: 0.15;
+        animation: splash-light 1.5s ease-in-out 1300ms infinite;
+      }
+      #app-splash .ufo-light:nth-of-type(2) {
+        animation-delay: 1500ms;
+      }
+      #app-splash .ufo-light:nth-of-type(3) {
+        animation-delay: 1700ms;
+      }
+      #app-splash .ufo-flame {
+        opacity: 0;
+        animation: splash-flame 420ms ease-out 1790ms forwards;
+      }
+
+      /* The wordmark is the payoff, not the opening act: it stays invisible
+         under the mascot and the saucer, then rises into the empty space the
+         saucer leaves behind at lift-off and is still legible before the
+         splash fades. It is placed over the mascot's own spot rather than
+         under it, so the eye stays where the alien was. */
+      #app-splash .splash-word {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+          'Helvetica Neue', system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.4em;
+        text-indent: 0.4em;
+        text-transform: uppercase;
+        color: #3d4652;
+        opacity: 0;
+        transform: translate(-50%, calc(-50% + 14px));
+        filter: blur(6px);
+        animation: splash-word 480ms cubic-bezier(0.16, 1, 0.3, 1) 1860ms forwards;
+        will-change: opacity, transform, filter;
+      }
+      #app-splash[data-state='leaving'] {
+        opacity: 0;
+        pointer-events: none;
+      }
+      @keyframes splash-enter {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes splash-float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-7px);
+        }
+      }
+      @keyframes splash-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.018);
+        }
+      }
+      /* Revealed from below, out of focus, and settling sharp: the splash of
+         air the saucer just left. */
+      @keyframes splash-word {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, calc(-50% + 14px));
+          filter: blur(6px);
+        }
+        55% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+          filter: blur(0);
+        }
+      }
+      /* The saucer settles in from above, once the mascot has had its moment. */
+      @keyframes splash-ship-in {
+        0% {
+          opacity: 0;
+          transform: translateY(-28px) scale(0.72);
+        }
+        62% {
+          opacity: 1;
+          transform: translateY(3px) scale(1.02);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      /* Lift-off: a small dip, then away to the upper right and out. */
+      @keyframes splash-launch {
+        0% {
+          opacity: 1;
+          transform: translate(0, 0) rotate(0deg) scale(1);
+        }
+        10% {
+          opacity: 1;
+          transform: translate(-4px, 6px) rotate(-1.5deg) scale(0.985);
+        }
+        62% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translate(165px, -330px) rotate(-16deg) scale(0.38);
+        }
+      }
+      /* Abducted: up into the light, shrinking around the head. It keeps its
+         colour until the saucer is over it, then dissolves. */
+      @keyframes splash-board {
+        0% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        15% {
+          opacity: 1;
+          transform: translateY(-10px) scale(0.95);
+        }
+        70% {
+          opacity: 1;
+          transform: translateY(-104px) scale(0.3);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-152px) scale(0.1);
+        }
+      }
+      @keyframes splash-beam {
+        0% {
+          opacity: 0;
+        }
+        20% {
+          opacity: 1;
+        }
+        64% {
+          opacity: 0.95;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      @keyframes splash-flame {
+        0% {
+          opacity: 0;
+        }
+        35% {
+          opacity: 0.85;
+        }
+        60% {
+          opacity: 0.45;
+        }
+        100% {
+          opacity: 0.9;
+        }
+      }
+      @keyframes splash-light {
+        0%,
+        100% {
+          opacity: 0.15;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      @keyframes splash-twinkle {
+        0%,
+        100% {
+          opacity: 0.05;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme='light']),
+        html:not([data-theme='light']) body {
+          background: #090a0c;
+        }
+        html:not([data-theme='light']) #app-splash {
+          background: #090a0c;
+          --ufo-hull-hi: #646c77;
+          --ufo-hull: #2d333a;
+          --ufo-hull-lo: #14181d;
+          --ufo-dome-hi: #ffffff;
+          --ufo-dome-mid: #d9dfe6;
+          --ufo-dome-lo: #a9b2bd;
+          --ufo-beam: rgba(255, 255, 255, 0.17);
+          --ufo-flame: rgba(255, 255, 255, 0.5);
+          --ufo-flame-core: rgba(255, 255, 255, 0.9);
+          --splash-star: #7e8793;
+        }
+        html:not([data-theme='light']) #app-splash .splash-word {
+          color: #c8d0da;
+        }
+        /* A matte black mascot on a near-black plate needs a little light
+           around its silhouette, the same rim the dark mark is cut with. */
+        html:not([data-theme='light']) #app-splash img {
+          filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.11));
+        }
+        html:not([data-theme='light']) #app-splash .splash-ufo {
+          filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.12))
+            drop-shadow(0 0 4px rgba(255, 255, 255, 0.08));
+        }
+      }
+      @media (prefers-color-scheme: dark) and (prefers-reduced-motion: reduce) {
+        #app-splash img {
+          animation-duration: 1ms;
+          animation-delay: 0ms;
+        }
+      }
+      html[data-theme='dark'],
+      html[data-theme='dark'] body {
+        background: #090a0c;
+      }
+      html[data-theme='dark'] #app-splash {
+        background: #090a0c;
+        --ufo-hull-hi: #646c77;
+        --ufo-hull: #2d333a;
+        --ufo-hull-lo: #14181d;
+        --ufo-dome-hi: #ffffff;
+        --ufo-dome-mid: #d9dfe6;
+        --ufo-dome-lo: #a9b2bd;
+        --ufo-beam: rgba(255, 255, 255, 0.17);
+        --ufo-flame: rgba(255, 255, 255, 0.5);
+        --ufo-flame-core: rgba(255, 255, 255, 0.9);
+        --splash-star: #7e8793;
+      }
+      html[data-theme='dark'] #app-splash .splash-word {
+        color: #c8d0da;
+      }
+      html[data-theme='dark'] #app-splash img {
+        filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.11));
+      }
+      html[data-theme='dark'] #app-splash .splash-ufo {
+        filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.12))
+          drop-shadow(0 0 4px rgba(255, 255, 255, 0.08));
+      }
+      html[data-theme='light'] #app-splash {
+        background: #ffffff;
+      }
+      html[data-theme='light'] #app-splash .splash-word {
+        color: #3d4652;
+      }
+      html[data-theme='light'] #app-splash img {
+        filter: none;
+      }
+
+      /* Carried down to the mark: a small lift off the spot the alien has
+         been hovering on, then down onto the lock screen's own mark, shrinking
+         to that mark's size on the way (--land-s is measured from the artwork). */
+      @keyframes splash-land-carry {
+        0% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        18% {
+          transform: translate3d(
+              calc(var(--land-dx, 0px) * 0.14),
+              calc(var(--land-dy, 0px) * 0.14 - 22px),
+              0
+            )
+            scale(0.9);
+        }
+        100% {
+          transform: translate3d(var(--land-dx, 0px), var(--land-dy, 0px), 0) scale(var(--land-s, 1));
+        }
+      }
+      /* Let go, and away: up over the shoulder and out, the way it came in. */
+      @keyframes splash-land-ship-out {
+        0% {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+        }
+        22% {
+          opacity: 1;
+          transform: translate3d(0, -16px, 0) rotate(-3deg) scale(1.04);
+        }
+        100% {
+          opacity: 0;
+          transform: translate3d(190px, -210px, 0) rotate(10deg) scale(0.76);
+        }
+      }
+      @keyframes splash-land-set {
+        0% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      /* ── 착륙: 잠금 화면으로 이어질 때 ──────────────────────────────────
+
+         지갑이 있어 잠금 화면으로 들어가는 경우, 이야기는 우주선이 날아가고
+         마는 것으로 끝나지 않는다. 우주선이 외계인을 키패드 위 `MonoMark`
+         자리까지 데려가, 그 마크의 실제 크기로 줄이며 내려놓고, 자리를 비켜
+         위로 사라진다 — 그리고 그 자리에 진짜 `MonoMark`가 남는다.
+
+         React는 지갑이 있다는 것을 알게 되는 순간 `data-mode="land"`를 붙이고,
+         잰 거리(--land-dx/--land-dy), 줄어들 비율(--land-s), 박자(--land-*)를
+         커스텀 속성으로 넘긴다. 그래서 스플래시는 여전히 스크립트 없이 첫
+         페인트를 그리고, 착륙만 좌표를 아는 쪽이 조종한다. 아래 규칙은 모두
+         그 속성이 있을 때만 적용되므로, 지갑이 없는 온보딩 첫 방문은 지금처럼
+         우주선 발진 + `Mono` 워드마크로 끝난다. 모션을 줄여 달라고 한 경우에는
+         이 블록 자체가 적용되지 않는다(정적 표시 후 그대로 페이드). */
+      #app-splash[data-mode='land'] {
+        pointer-events: none;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        /* The sheet lifts to show the lock screen already standing behind it. */
+        html #app-splash[data-mode='land'] {
+          background-color: transparent;
+          transition:
+            opacity 350ms ease,
+            background-color 460ms cubic-bezier(0.33, 0, 0.24, 1) var(--land-delay, 0ms);
+        }
+        #app-splash[data-mode='land'] .splash-space {
+          opacity: 0;
+          transition: opacity 420ms ease var(--land-delay, 0ms);
+        }
+        /* The wordmark belongs to the other ending. */
+        #app-splash[data-mode='land'] .splash-word {
+          animation: none;
+          opacity: 0;
+        }
+        /* The float would fight the landing for the same transform. */
+        #app-splash[data-mode='land'] .splash-mark {
+          animation: none;
+        }
+        #app-splash[data-mode='land'] img {
+          animation: splash-enter 760ms cubic-bezier(0.22, 1, 0.36, 1) 90ms forwards;
+        }
+        /* Ship and alien move as one: the saucer stays over the alien's head
+           all the way down, and both shrink with the distance. */
+        #app-splash[data-mode='land'] .splash-stage {
+          transform-origin: 50% 50%;
+          animation: splash-land-carry 560ms cubic-bezier(0.36, 0.05, 0.16, 1)
+            var(--land-delay, 0ms) forwards;
+          will-change: transform;
+        }
+        /* The light is open for the whole descent, not for an abduction. */
+        #app-splash[data-mode='land'] .splash-beam {
+          animation: splash-beam 560ms ease var(--land-delay, 0ms) forwards;
+        }
+        /* A little more air under the hull so that, at the mark's size, the
+           saucer hovers over the alien instead of sitting on its antenna. */
+        #app-splash[data-mode='land'] .splash-ship {
+          bottom: calc(100% + 46px);
+        }
+        #app-splash[data-mode='land'] .splash-ufo {
+          animation:
+            splash-ship-in 560ms cubic-bezier(0.22, 1, 0.36, 1) 1030ms forwards,
+            splash-land-ship-out 460ms cubic-bezier(0.4, 0, 0.55, 1)
+              var(--land-ship-out, 1700ms) forwards;
+        }
+        /* Handing the spot over: the lock screen's own mark stands up first,
+           then the flown-in alien dissolves on top of it — two translucent
+           copies of the same character would read as a washed-out ghost. */
+        #app-splash[data-mode='land'] .splash-alien {
+          animation: splash-land-set 150ms ease var(--land-handoff, 1700ms) forwards;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-splash {
+          transition-duration: 1ms;
+        }
+        #app-splash .splash-mark {
+          animation: none;
+        }
+        #app-splash img {
+          animation-duration: 1ms;
+          animation-delay: 0ms;
+        }
+        /* No saucer means nothing to make room for: the wordmark simply sits
+           under the mascot from the first frame, sharp and readable. */
+        #app-splash .splash-word {
+          position: static;
+          animation: none;
+          opacity: 1;
+          filter: none;
+          transform: none;
+        }
+        /* No flight, no beam, no twinkle: the mascot simply waits, and the
+           splash still leaves on the same clock. */
+        #app-splash .splash-stage,
+        #app-splash .splash-alien,
+        #app-splash .ufo-light,
+        #app-splash .ufo-flame,
+        #app-splash .splash-star {
+          animation: none;
+        }
+        #app-splash .splash-ship,
+        #app-splash .splash-star {
+          display: none;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-B_GMOAg4.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/react-COYzCnqK.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-Besv815s.css">
+  </head>
+  <body>
+    <div id="app-splash" aria-hidden="true">
+      <div class="splash-space">
+        <span class="splash-star"></span>
+        <span class="splash-star"></span>
+        <span class="splash-star"></span>
+      </div>
+      <div class="splash-stage">
+        <div class="splash-ship">
+          <div class="splash-beam"></div>
+          <svg class="splash-ufo" viewBox="0 0 240 152" aria-hidden="true" focusable="false">
+            <defs>
+              <radialGradient id="monoUfoHull" cx="0.34" cy="0.02" r="0.98">
+                <stop offset="0" stop-color="var(--ufo-hull-hi)" />
+                <stop offset="0.45" stop-color="var(--ufo-hull)" />
+                <stop offset="1" stop-color="var(--ufo-hull-lo)" />
+              </radialGradient>
+              <radialGradient id="monoUfoDome" cx="0.36" cy="0.2" r="0.92">
+                <stop offset="0" stop-color="var(--ufo-dome-hi)" />
+                <stop offset="0.62" stop-color="var(--ufo-dome-mid)" />
+                <stop offset="1" stop-color="var(--ufo-dome-lo)" />
+              </radialGradient>
+              <linearGradient id="monoUfoFlame" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="var(--ufo-flame)" />
+                <stop offset="1" stop-color="rgba(0, 0, 0, 0)" />
+              </linearGradient>
+            </defs>
+            <!-- propulsion, only once the ship leaves -->
+            <g class="ufo-flame">
+              <path
+                d="M106 106 C106 130 114 145 120 154 C126 145 134 130 134 106 Z"
+                fill="url(#monoUfoFlame)"
+              />
+              <path
+                d="M115 120 C115 134 118 146 120 152 C122 146 125 134 125 120 Z"
+                fill="var(--ufo-flame-core)"
+                opacity="0.75"
+              />
+              <ellipse cx="120" cy="110" rx="24" ry="9" fill="var(--ufo-glow)" opacity="0.18" />
+            </g>
+            <!-- saucer: one clay lens, lit from the upper left, with a soft lip -->
+            <path
+              d="M20 90 A100 27 0 0 1 220 90 A100 33 0 0 1 20 90 Z"
+              fill="url(#monoUfoHull)"
+            />
+            <path
+              d="M34 99 A92 26 0 0 0 206 99 A100 33 0 0 1 34 99 Z"
+              fill="var(--ufo-hull-lo)"
+              opacity="0.85"
+            />
+            <path
+              d="M20 90 A100 27 0 0 1 220 90"
+              fill="none"
+              stroke="var(--ufo-rim)"
+              stroke-opacity="0.45"
+              stroke-width="1.4"
+            />
+            <path
+              d="M52 82 A86 22 0 0 1 196 74"
+              fill="none"
+              stroke="var(--ufo-rim)"
+              stroke-opacity="0.16"
+              stroke-width="5"
+              stroke-linecap="round"
+            />
+            <!-- dome -->
+            <ellipse cx="120" cy="79" rx="48" ry="9" fill="var(--ufo-dome-lo)" opacity="0.6" />
+            <path
+              d="M72 79 C72 45 93 27 120 27 C147 27 168 45 168 79 Z"
+              fill="url(#monoUfoDome)"
+            />
+            <ellipse
+              cx="101"
+              cy="51"
+              rx="13"
+              ry="6.5"
+              fill="#ffffff"
+              opacity="0.72"
+              transform="rotate(-26 101 51)"
+            />
+            <path
+              d="M72 79 C72 45 93 27 120 27 C147 27 168 45 168 79"
+              fill="none"
+              stroke="#ffffff"
+              stroke-opacity="0.55"
+              stroke-width="1.2"
+            />
+            <!-- running lights on the front lip -->
+            <circle class="ufo-light" cx="84" cy="98" r="3" fill="var(--ufo-light)" />
+            <circle class="ufo-light" cx="120" cy="103" r="3" fill="var(--ufo-light)" />
+            <circle class="ufo-light" cx="156" cy="98" r="3" fill="var(--ufo-light)" />
+          </svg>
+        </div>
+        <div class="splash-mark">
+          <div class="splash-alien">
+            <img
+              src="./assets/splash/mono-alien.webp"
+              width="356"
+              height="512"
+              alt=""
+              decoding="async"
+              fetchpriority="high"
+              draggable="false"
+            />
+          </div>
+        </div>
+      </div>
+      <div class="splash-word">Mono</div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>
