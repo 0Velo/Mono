@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T04:36:30.407Z",
+  "generatedAt": "2026-11-26T06:06:54.032Z",
   "checks": [
     {
       "id": "SS-01",
@@ -59,13 +59,13 @@
       "id": "SS-10",
       "title": "Service worker caches same-origin assets only and prunes old caches",
       "status": "PASS",
-      "detail": "cacheVersion=20"
+      "detail": "cacheVersion=21"
     },
     {
       "id": "SS-11",
       "title": "localStorage key inventory (no plaintext secret keys expected)",
       "status": "INFO",
-      "detail": "key, mono.activityNotifications.enabled.v1, mono.addressBook.v1, mono.depositNotifications.enabled.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.pushSubscriptions.credentials.v1, mono.theme.v1, mono.token-history-addresses.v1:, mono.vault.fallback.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
+      "detail": "key, mono.activityNotifications.enabled.v1, mono.addressBook.v1, mono.depositNotifications.enabled.v1, mono.meta.v1, mono.pending-tx.v1, mono.prefs.v1, mono.pushSubscriptions.credentials.v1, mono.theme.v1, mono.token-history-addresses.v1:, mono.vault.fallback.v1, mono.watchWallets.v1, solwallet.meta.v1, solwallet.vault.v1, storageKey"
     },
     {
       "id": "SS-12",

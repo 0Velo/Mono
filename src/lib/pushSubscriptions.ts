@@ -439,6 +439,47 @@ export async function syncExistingPushAssociation(
   }
 }
 
+export interface RemoteWatchEntry {
+  address: string
+  label: string
+  enabled: boolean
+}
+
+/**
+ * Replace the whale wallet list this device's push subscription watches.
+ *
+ * Only public addresses and labels leave the device. The management token
+ * authenticates the write, so the list can be kept current in a read-only
+ * auto-login session; when the person has not enabled background push (or the
+ * server is unreachable) this returns false and nothing is stored remotely.
+ */
+export async function syncWatchList(entries: RemoteWatchEntry[], network: NetworkId): Promise<boolean> {
+  const apiUrl = configuredPushApiUrl()
+  const credentials = readStoredCredentials()
+  if (!apiUrl || !credentials?.active) return false
+  try {
+    const id = await pushSubscriptionId(credentials.endpoint)
+    const response = await fetch(`${apiUrl}/v1/watch`, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      referrerPolicy: 'no-referrer',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        id,
+        managementToken: credentials.managementToken,
+        network: backendNetwork(network),
+        entries,
+      }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 /** Explicit user gesture only: asks permission and, if accepted, creates the browser subscription. */
 export async function enableRemotePush(
   address: string,

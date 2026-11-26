@@ -766,6 +766,71 @@ def main():
             "PASS" if push_state in {"끔", "켜짐", "홈 화면 설치 필요"} and push_actionable else "FAIL",
             json.dumps({"state": push_state, "actionable": push_actionable}, ensure_ascii=False),
         )
+        # --- whale wallet watch list (고래 지갑 알림) ---------------------------
+        watch_state = {"added": None, "toggled": None, "renamed": None, "removed": None}
+        reset_watch_state = {"added": None, "toggled": None, "renamed": None, "removed": None}
+        try:
+            page.evaluate("() => localStorage.removeItem('mono.watchWallets.v1')")
+            page.locator("button", has_text="고래 지갑 알림").first.click()
+            dialog = page.get_by_role("dialog")
+            dialog.wait_for(state="visible", timeout=10000)
+            dialog.get_by_role("button", name=re.compile("고래 지갑 추가")).click()
+            dialog.get_by_text("Solana 주소").wait_for(timeout=10000)
+            dialog.locator("input").nth(0).fill("고래 1")
+            dialog.locator("input").nth(1).fill("5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1")
+            dialog.get_by_role("button", name="추가", exact=True).click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === 1",
+                timeout=10000,
+            )
+            watch_state["added"] = page.evaluate(
+                "() => { const e = JSON.parse(localStorage.getItem('mono.watchWallets.v1'))[0];"
+                " return { label: e.label, address: e.address, enabled: e.enabled }; }"
+            )
+            dialog.get_by_role("button", name="알림 끄기").click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]')[0]?.enabled === false",
+                timeout=10000,
+            )
+            watch_state["toggled"] = page.evaluate("() => JSON.parse(localStorage.getItem('mono.watchWallets.v1'))[0].enabled")
+            dialog.get_by_role("button", name="별명 수정").click()
+            rename_input = dialog.locator("input").first
+            rename_input.fill("고래 2")
+            dialog.get_by_role("button", name="저장", exact=True).click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]')[0]?.label === '고래 2'",
+                timeout=10000,
+            )
+            watch_state["renamed"] = page.evaluate("() => JSON.parse(localStorage.getItem('mono.watchWallets.v1'))[0].label")
+            dialog.get_by_role("button", name="삭제").click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === 0",
+                timeout=10000,
+            )
+            watch_state["removed"] = page.evaluate("() => JSON.parse(localStorage.getItem('mono.watchWallets.v1')).length")
+            dialog.locator('button[aria-label="닫기"]').click()
+            page.wait_for_timeout(400)
+        except Exception as error:
+            watch_state["error"] = str(error)[:200]
+            try:
+                page.get_by_role("dialog").locator('button[aria-label="닫기"]').click()
+                page.wait_for_timeout(300)
+            except Exception:
+                pass
+        record(
+            "UI-46",
+            "A whale wallet can be added with a label, muted, renamed and deleted from the settings sheet",
+            "PASS"
+            if watch_state.get("added")
+            and watch_state["added"] == {"label": "고래 1", "address": "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1", "enabled": True}
+            and watch_state.get("toggled") is False
+            and watch_state.get("renamed") == "고래 2"
+            and watch_state.get("removed") == 0
+            else "FAIL",
+            json.dumps(watch_state, ensure_ascii=False),
+        )
+        page.evaluate("() => localStorage.removeItem('mono.watchWallets.v1')")
+
         page.get_by_role("button", name="지갑", exact=True).first.click()
         page.wait_for_timeout(400)
 

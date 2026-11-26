@@ -22,14 +22,17 @@ import {
   createOutboundBudget,
   depositPushPayload,
   loadSeenSignatures,
-  rememberSeenSignatures
+  rememberSeenSignatures,
+  watchPushPayload
 } from "./monitor.js";
+import { MAX_WATCH_WALLETS, loadWatchEntries } from "./watch.js";
 
 const API_BASE = "https://api.helius.xyz";
 const MAX_BODY = 512 * 1024;
 const MAX_EVENTS = 50;
 const MAX_SUBSCRIPTIONS = 6;
 const MAX_TRACKED_SOURCES = 3;
+const MAX_PUSHES_PER_DELIVERY = MAX_SUBSCRIPTIONS * (1 + MAX_WATCH_WALLETS);
 const API_TIMEOUT_MS = 8000;
 const NETWORKS = Object.freeze(["mainnet-beta", "devnet"]);
 const WEBHOOK_TYPES = Object.freeze({ "mainnet-beta": "enhanced", devnet: "enhancedDevnet" });
@@ -204,7 +207,8 @@ async function loadSubscriptions(kv, hint) {
     if (!NETWORKS.includes(record.network) || !isValidAddress(record.address)) continue;
     if (hint && record.network !== hint) continue;
     const tokenAccounts = await subscriptionTokenAccounts(kv, record);
-    subscriptions.push({ record, id: record.id, address: record.address, network: record.network, tokenAccounts });
+    const watch = await loadWatchEntries(kv, record);
+    subscriptions.push({ record, id: record.id, address: record.address, network: record.network, tokenAccounts, watch });
   }
   return subscriptions;
 }
@@ -230,6 +234,9 @@ export async function desiredWebhookAddresses(kv) {
     const bucket = desired.get(record.network);
     bucket.add(record.address);
     for (const tokenAccount of await subscriptionTokenAccounts(kv, record)) bucket.add(tokenAccount);
+    // Whale wallets live on the mainnet webhook only: a devnet subscription has
+    // no watch record, and loadWatchEntries refuses anything but mainnet-beta.
+    for (const entry of await loadWatchEntries(kv, record)) bucket.add(entry.address);
   }
   return desired;
 }
@@ -396,8 +403,9 @@ export async function heliusWebhookHandler(request, env, kv, now = new Date()) {
   try { subscriptions = await loadSubscriptions(kv, hint); }
   catch { return jsonResponse(503, { error: "temporarily unavailable" }); }
 
-  const budget = createOutboundBudget(MAX_SUBSCRIPTIONS + 1);
+  const budget = createOutboundBudget(MAX_PUSHES_PER_DELIVERY);
   let pushed = 0;
+  let watchPushed = 0;
   let duplicates = 0;
   let matched = 0;
   for (const subscription of subscriptions) {
@@ -430,5 +438,52 @@ export async function heliusWebhookHandler(request, env, kv, now = new Date()) {
       if (response.ok || response.status < 300) pushed += 1;
     } catch { /* delivery is best effort; the scan remains the backstop */ }
   }
-  return jsonResponse(200, { ok: true, received: events.length, matched, pushed, duplicates });
+  // Whale wallets: any movement (swap, send or receive) is worth a push, and the
+  // title carries the wallet's label so it reads as someone else's wallet.
+  watchPushed = await pushWatchMatches(kv, subscriptions, events, env, budget);
+  return jsonResponse(200, { ok: true, received: events.length, matched, pushed, watchPushed, duplicates });
+}
+
+/**
+ * One push per watched wallet per delivery, again marking signatures before
+ * sending. Watch dedupe uses its own `seen/{id}:watch` window so a whale alert
+ * can never swallow the deposit alert for the same subscription.
+ */
+async function pushWatchMatches(kv, subscriptions, events, env, budget) {
+  let sent = 0;
+  for (const subscription of subscriptions) {
+    if (!subscription.watch?.length) continue;
+    let seen;
+    try { seen = await loadSeenSignatures(kv, `${subscription.id}:watch`); }
+    catch { continue; }
+    const hits = new Map();
+    for (const watch of subscription.watch) {
+      let hit = hits.get(watch.address);
+      if (!hit) { hit = { watch, assets: new Set(), signatures: new Set(), swap: false }; hits.set(watch.address, hit); }
+      for (const event of events) {
+        if (seen.has(event.signature)) continue;
+        const match = classifyEvent(event, watch.address, []);
+        if (!match.incoming && !match.outgoing && !match.swap) continue;
+        hit.signatures.add(event.signature);
+        hit.swap = hit.swap || match.swap;
+        for (const asset of match.assets) hit.assets.add(asset);
+      }
+    }
+    for (const hit of hits.values()) {
+      if (!hit.signatures.size) continue;
+      const signatures = [...hit.signatures];
+      try { await rememberSeenSignatures(kv, `${subscription.id}:watch`, signatures); } catch { /* best effort */ }
+      try {
+        const response = await sendWebPush(
+          subscription.record,
+          watchPushPayload(subscription.record, hit.watch, [...hit.assets], signatures[signatures.length - 1], hit.swap),
+          env,
+          env.FETCH || fetch,
+          budget
+        );
+        if (response.status < 300) sent += 1;
+      } catch { /* delivery is best effort */ }
+    }
+  }
+  return sent;
 }

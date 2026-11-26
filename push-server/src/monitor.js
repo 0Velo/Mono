@@ -91,6 +91,25 @@ export function depositPushPayload(record, assets, signature) {
   };
 }
 
+function networkLabel(network) {
+  return network === "mainnet-beta" ? "Mainnet" : "Devnet";
+}
+
+/**
+ * Whale wallet alert — the same delivery path, but the title names the wallet's
+ * own label so it is never mistaken for a deposit into the person's wallet.
+ * Amounts stay out, exactly like the deposit payload.
+ */
+export function watchPushPayload(record, watch, assets, signature, swap) {
+  const detail = Array.isArray(assets) && assets.length ? assets.join(" · ") : "SOL·토큰 이동 내역";
+  return {
+    title: `[${watch.label}] ${swap ? "스왑 감지" : "송금 감지"}`,
+    body: `${networkLabel(record.network)} · ${detail}`,
+    tag: `mono-watch-${record.id.slice(0, 4)}-${watch.address.slice(0, 4)}`,
+    url: solscanUrl(record.network, signature)
+  };
+}
+
 async function rpc(env, network, budget, method, params) {
   const endpoint = RPC[network];
   if (!endpoint) throw new Error("unsupported network");
