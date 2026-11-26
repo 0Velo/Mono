@@ -24,12 +24,16 @@
  * 감지해 `[별명] 스왑 감지` 알림을 보낸다(공개 주소만, 키·서명 없음).
  * v22 (Mono): 고래 지갑 시트에 추천 고래 15명 프리셋 — 칩 하나로 1명, `전체 추가`로
  * 15명을 한 번에(이미 등록된 주소는 건너뛰고 `/v1/watch` 동기화 1회) 넣는다.
+ * v23 (Mono): 앱 전체에 모션 — 총 자산 숫자 롤링(requestAnimationFrame 보간,
+ * 520ms cubic-out), 송금·스왑 완료 체크 드로잉과 링 펄스, 버튼·바텀시트·탭
+ * 전환의 iOS 스프링 이징, 자산·내역 목록의 22ms 순차 등장. 동작 줄이기는 그대로
+ * 존중하고 가린 잔액은 굴리지 않는다.
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v22`
+const CACHE = `${CACHE_PREFIX}v23`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

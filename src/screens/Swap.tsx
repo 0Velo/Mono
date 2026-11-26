@@ -3,6 +3,7 @@ import type { Connection, Keypair } from '@solana/web3.js'
 import { ArrowDownUp, Check, ChevronDown, ExternalLink, Info, Loader2 } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
+import { SuccessMark } from '../components/SuccessMark'
 import { TokenIcon } from '../components/ui'
 
 import {
@@ -996,9 +997,7 @@ export default function Swap({
 
       <Sheet open={step === 'done'} onClose={() => setStep('form')} title={undefined}>
         <div className="flex flex-col items-center py-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-mintSoft text-mint">
-            <Check size={28} strokeWidth={2.6} />
-          </div>
+          <SuccessMark />
           <div className="mt-5 text-[19px] font-bold tracking-[-0.03em] text-ink">스왑 완료</div>
           <div className="mt-2 text-[13px] text-muted">
             {outAmount !== null

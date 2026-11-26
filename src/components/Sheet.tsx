@@ -90,7 +90,7 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, tall }
             </button>
           </div>
         )}
-        <div className="no-scrollbar flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-2">
+        <div className="animate-sheet-body no-scrollbar flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-2">
           {children}
         </div>
         {footer && (

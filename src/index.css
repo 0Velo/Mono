@@ -17,6 +17,8 @@
   /* The standard iOS sheet curve — fast in, soft landing. */
   --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A hair past the target before settling: the release of a pressed control. */
+  --ease-spring: cubic-bezier(0.34, 1.42, 0.64, 1);
 
   --base: 255 255 255;
   --card: 255 255 255;
@@ -143,24 +145,49 @@ textarea {
 
 /* --------------------------------------------------------------- motion */
 
-/* Every tappable surface compresses a hair instead of flashing a colour. */
+/*
+ * Every tappable surface compresses a hair instead of flashing a colour.
+ *
+ * Pressing is quick and direct (110ms, iOS curve); releasing springs back with
+ * a slight overshoot, which is what the finger reads as physical. The two
+ * timings differ on purpose — a slow press feels unresponsive, a hard release
+ * feels dead.
+ */
 .press {
   transition:
-    transform 170ms var(--ease-ios),
-    opacity 170ms var(--ease-ios),
-    background-color 170ms var(--ease-ios);
+    transform 300ms var(--ease-spring),
+    opacity 300ms var(--ease-spring),
+    background-color 180ms var(--ease-ios);
   will-change: transform;
 }
 .press:active {
-  transform: scale(0.97);
+  transform: scale(0.965);
   opacity: 0.92;
+  transition-duration: 110ms;
+  transition-timing-function: var(--ease-ios);
+}
+@media (hover: hover) {
+  /* Desktop pointers get the same spring without the touch-opacity dip. */
+  .press:active {
+    opacity: 0.96;
+  }
 }
 
 @keyframes sheet-up {
   from {
-    transform: translate3d(0, 100%, 0);
+    transform: translate3d(0, 101%, 0);
   }
   to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes sheet-body-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
     transform: translate3d(0, 0, 0);
   }
 }
@@ -201,11 +228,33 @@ textarea {
 @keyframes tab-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 7px, 0);
+    transform: translate3d(0, 10px, 0) scale(0.988);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes success-ring {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.88);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
   }
 }
 @keyframes rise {
@@ -313,10 +362,15 @@ textarea {
 }
 
 .animate-sheet {
-  animation: sheet-up 380ms var(--ease-ios);
+  animation: sheet-up 400ms var(--ease-ios) both;
+  will-change: transform;
 }
 .animate-sheet-out {
-  animation: sheet-down 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: sheet-down 230ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform;
+}
+.animate-sheet-body {
+  animation: sheet-body-in 320ms var(--ease-out-soft) 70ms both;
 }
 .animate-backdrop {
   animation: fade-in 220ms ease-out;
@@ -328,7 +382,7 @@ textarea {
   animation: fade-in 200ms ease-out;
 }
 .animate-tab {
-  animation: tab-in 280ms var(--ease-out-soft);
+  animation: tab-in 340ms var(--ease-ios) both;
 }
 .animate-rise {
   animation: rise 320ms var(--ease-out-soft) both;
@@ -348,6 +402,18 @@ textarea {
 }
 .animate-halo {
   animation: halo 1.8s ease-out infinite;
+}
+/*
+ * The tick is ~21.2 viewBox units long, so one 24-unit dash covers it whole;
+ * the keyframe walks the offset to zero and the stroke draws itself.
+ */
+.animate-check {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: check-draw 440ms var(--ease-out-soft) 140ms forwards;
+}
+.animate-success-ring {
+  animation: success-ring 1150ms var(--ease-out-soft) both;
 }
 
 .skeleton {
