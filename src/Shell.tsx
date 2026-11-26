@@ -10,6 +10,7 @@ import { BackupSheet } from './sheets/BackupSheet'
 import { ResetSheet } from './sheets/ResetSheet'
 import { AccountsSheet } from './sheets/AccountsSheet'
 import { AddressBookSheet } from './sheets/AddressBookSheet'
+import { WatchSheet } from './sheets/WatchSheet'
 import { showToast, ToastHost } from './components/Toast'
 import { Spinner } from './components/Spinner'
 import { usePortfolio, useHistory } from './hooks/useChainData'
@@ -34,6 +35,7 @@ import {
   syncExistingPushAssociation,
   type PushUiState,
 } from './lib/pushSubscriptions'
+import { syncWatchWallets, useWatchWallets } from './lib/watchWallets'
 
 /**
  * Three of the four screens are cheap; swap and token detail carry the Jupiter
@@ -52,6 +54,7 @@ type SheetState =
   | { type: 'reset' }
   | { type: 'accounts' }
   | { type: 'addressBook' }
+  | { type: 'watch' }
   | { type: 'token'; key: string }
   | null
 
@@ -90,6 +93,8 @@ export default function Shell() {
   const [activityAlerts, setActivityAlerts] = useState(() => readActivityAlerts())
   const [pushUiState, setPushUiState] = useState<PushUiState>(getPushUiState)
   const [pushIdentityRef] = useState(() => ({ address: '', network: 'mainnet' as NetworkId, generation: 0 }))
+  const watches = useWatchWallets()
+  const watchSyncKey = watches.map((entry) => `${entry.id}:${entry.enabled ? 1 : 0}:${entry.label}`).join('|')
   // Which token the swap screen should start from when opened from detail.
   const [swapSeed, setSwapSeed] = useState<string | null>(null)
 
@@ -146,6 +151,13 @@ export default function Shell() {
       if (pushIdentityRef.generation === generation) pushIdentityRef.generation += 1
     }
   }, [keypair, meta?.address, network])
+
+  // Whales are a mainnet feature and ride on this device's push subscription:
+  // push the list whenever it changes, once push is on, and clear it on devnet.
+  useEffect(() => {
+    if (pushUiState !== 'enabled') return
+    void syncWatchWallets(network)
+  }, [pushUiState, network, watchSyncKey])
 
   if (!meta) {
     return (
@@ -314,6 +326,8 @@ export default function Shell() {
               onToggleActivityNotifications={toggleActivityAlerts}
               pushUiState={pushUiState}
               onToggleRemotePush={toggleRemotePush}
+              watchCount={watches.length}
+              onWatch={() => setSheet({ type: 'watch' })}
             />
           )}
         </div>
@@ -378,6 +392,13 @@ export default function Shell() {
         onClose={() => setSheet(null)}
       />
       <AddressBookSheet open={sheet?.type === 'addressBook'} onClose={() => setSheet(null)} />
+      <WatchSheet
+        open={sheet?.type === 'watch'}
+        onClose={() => setSheet(null)}
+        network={network}
+        pushEnabled={pushUiState === 'enabled'}
+        ownAddress={meta.address}
+      />
 
       {sheet?.type === 'token' && (
         <Suspense fallback={null}>

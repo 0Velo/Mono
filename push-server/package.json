@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Mono background Web Push server (Vercel Serverless Functions + Neon Postgres)",
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check src/crypto.js && node --check src/monitor.js && node --check src/handler.js && node --check src/helius.js && node --check src/store.js && node --check src/request.js && node --check src/runtime.js && node --test test/*.test.js"
+    "check": "node --check src/crypto.js && node --check src/monitor.js && node --check src/handler.js && node --check src/helius.js && node --check src/watch.js && node --check src/store.js && node --check src/request.js && node --check src/runtime.js && node --test test/*.test.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2"

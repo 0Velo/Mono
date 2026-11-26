@@ -200,31 +200,31 @@ test("authorized delivery pushes once, dedupes a retry, and ignores unrelated or
 
   const delivered = await heliusWebhookHandler(webhookRequest([event()]), env, kv);
   assert.equal(delivered.status, 200);
-  assert.deepEqual(await delivered.json(), { ok: true, received: 1, matched: 1, pushed: 1, duplicates: 0 });
+  assert.deepEqual(await delivered.json(), { ok: true, received: 1, matched: 1, pushed: 1, watchPushed: 0, duplicates: 0 });
   assert.equal(recorder.pushes().length, 1);
   assert.equal(recorder.pushes()[0].init.headers["Content-Encoding"], "aes128gcm");
   assert.ok((await loadSeenSignatures(kv, record.id)).has(SIGNATURE));
 
   const retried = await heliusWebhookHandler(webhookRequest([event()]), env, kv);
   assert.equal(retried.status, 200);
-  assert.deepEqual(await retried.json(), { ok: true, received: 1, matched: 0, pushed: 0, duplicates: 1 });
+  assert.deepEqual(await retried.json(), { ok: true, received: 1, matched: 0, pushed: 0, watchPushed: 0, duplicates: 1 });
   assert.equal(recorder.pushes().length, 1);
 
   const unrelated = await heliusWebhookHandler(webhookRequest([event({
     signature: "4".repeat(80),
     nativeTransfers: [{ fromUserAccount: OTHER, toUserAccount: OTHER, amount: 1 }]
   })]), env, kv);
-  assert.deepEqual(await unrelated.json(), { ok: true, received: 1, matched: 0, pushed: 0, duplicates: 0 });
+  assert.deepEqual(await unrelated.json(), { ok: true, received: 1, matched: 0, pushed: 0, watchPushed: 0, duplicates: 0 });
 
   const outgoing = await heliusWebhookHandler(webhookRequest([event({
     signature: "5".repeat(80),
     nativeTransfers: [{ fromUserAccount: WALLET, toUserAccount: OTHER, amount: 1 }]
   })]), env, kv);
-  assert.deepEqual(await outgoing.json(), { ok: true, received: 1, matched: 0, pushed: 0, duplicates: 0 });
+  assert.deepEqual(await outgoing.json(), { ok: true, received: 1, matched: 0, pushed: 0, watchPushed: 0, duplicates: 0 });
   assert.equal(recorder.pushes().length, 1);
 
   const devnetOnly = await heliusWebhookHandler(webhookRequest([event({ signature: "6".repeat(80) })], { network: "devnet" }), env, kv);
-  assert.deepEqual(await devnetOnly.json(), { ok: true, received: 1, matched: 0, pushed: 0, duplicates: 0 });
+  assert.deepEqual(await devnetOnly.json(), { ok: true, received: 1, matched: 0, pushed: 0, watchPushed: 0, duplicates: 0 });
   assert.equal(recorder.pushes().length, 1);
 });
 
@@ -238,7 +238,7 @@ test("a batch touching one wallet twice sends a single push", async () => {
     event({ signature: "7".repeat(80) }),
     event({ signature: "8".repeat(80) })
   ]), env, kv);
-  assert.deepEqual(await response.json(), { ok: true, received: 2, matched: 1, pushed: 1, duplicates: 0 });
+  assert.deepEqual(await response.json(), { ok: true, received: 2, matched: 1, pushed: 1, watchPushed: 0, duplicates: 0 });
   assert.equal(recorder.pushes().length, 1);
   const seen = await loadSeenSignatures(kv, record.id);
   assert.equal(seen.size, 2);

@@ -1,6 +1,7 @@
 import { base64urlDecode, sha256hex, verifyWalletProof } from "./crypto.js";
 import { createOutboundBudget, scheduledScan } from "./monitor.js";
 import { syncHeliusWebhooks } from "./helius.js";
+import { parseWatchEntries, watchRecord } from "./watch.js";
 
 const MAX_BODY = 8192;
 const MAX_SUBSCRIPTIONS = 6;
@@ -181,9 +182,54 @@ async function handleDelete(request, id, env, kv, origin, now) {
     await kv.delete(key);
     await kv.delete(`state/${id}`);
     await kv.delete(`seen/${id}`);
+    await kv.delete(`seen/${id}:watch`);
+    await kv.delete(`watch/${id}`);
   } catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
   await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
   return response(200, { disabled: true }, origin, env);
+}
+
+/**
+ * POST /v1/watch — replace this subscription's whale wallet list.
+ *
+ * Only public addresses and labels travel here. The management token (never
+ * the wallet signature) authenticates the write, so a read-only auto-login
+ * session can keep the list current without unlocking the wallet. An empty list
+ * removes the record, which is also how a switch to devnet stops the mainnet
+ * webhook from watching anything.
+ */
+async function handleWatch(request, env, kv, origin, now) {
+  let body;
+  try { body = await readJson(request); } catch { return response(400, { error: "invalid request" }, origin, env); }
+  if (!exactKeys(body, ["id", "managementToken", "network", "entries"]) ||
+      typeof body.id !== "string" || !/^[a-f0-9]{64}$/.test(body.id) ||
+      typeof body.network !== "string" || !NETWORKS.has(body.network) || !Array.isArray(body.entries)) {
+    return response(400, { error: "invalid request" }, origin, env);
+  }
+  const digest = await tokenDigest(body.managementToken);
+  if (!digest) return response(400, { error: "invalid request" }, origin, env);
+  const key = `sub/${body.id}`;
+  const raw = await kv.get(key);
+  if (!raw) return response(404, { error: "not found" }, origin, env);
+  let record;
+  try { record = JSON.parse(raw); } catch { return response(404, { error: "not found" }, origin, env); }
+  if (record?.tokenDigest !== digest) return response(403, { error: "forbidden" }, origin, env);
+  // Whale alerts live on the mainnet webhook; devnet only accepts an empty list (clearing).
+  if (body.network !== record.network) return response(409, { error: "subscription conflict" }, origin, env);
+  if (body.entries.length && body.network !== "mainnet-beta") return response(400, { error: "invalid request" }, origin, env);
+  const entries = parseWatchEntries(body.entries, record.address);
+  if (!entries) return response(400, { error: "invalid request" }, origin, env);
+  if (!await reserveDailyOperation(kv, now)) return response(429, { error: "temporary capacity reached" }, origin, env);
+  const watchKey = `watch/${body.id}`;
+  try {
+    if (entries.length) await kv.put(watchKey, watchRecord(entries, now));
+    else {
+      await kv.delete(watchKey);
+      await kv.delete(`seen/${body.id}:watch`);
+    }
+  } catch { return response(503, { error: "temporarily unavailable" }, origin, env); }
+  await syncHeliusQuietly(env, kv, deploymentOrigin(request), now);
+  return response(200, { watchCount: entries.filter(entry => entry.enabled).length }, origin, env);
 }
 
 /** HTTP contract shared by every deployment target: the browser-facing API. */
@@ -214,6 +260,7 @@ export async function fetchHandler(request, env, kv, now = new Date()) {
     return response(200, { vapidPublicKey: env.VAPID_PUBLIC_KEY }, origin, env);
   }
   if (request.method === "POST" && path === "/v1/subscriptions") return handleSubscribe(request, env, kv, origin, now);
+  if (request.method === "POST" && path === "/v1/watch") return handleWatch(request, env, kv, origin, now);
   const match = request.method === "DELETE" && path.match(/^\/v1\/subscriptions\/([a-f0-9]{64})$/);
   if (match) return handleDelete(request, match[1], env, kv, origin, now);
   return response(404, { error: "not found" }, origin, env);

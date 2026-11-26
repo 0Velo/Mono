@@ -1,10 +1,26 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/v1/config", "destination": "/api/v1/config" },
-    { "source": "/v1/subscriptions", "destination": "/api/v1/subscriptions" },
-    { "source": "/v1/subscriptions/:id", "destination": "/api/v1/subscriptions/:id" },
-    { "source": "/v1/webhooks/helius", "destination": "/api/webhooks/helius" }
+    {
+      "source": "/v1/config",
+      "destination": "/api/v1/config"
+    },
+    {
+      "source": "/v1/subscriptions",
+      "destination": "/api/v1/subscriptions"
+    },
+    {
+      "source": "/v1/subscriptions/:id",
+      "destination": "/api/v1/subscriptions/:id"
+    },
+    {
+      "source": "/v1/watch",
+      "destination": "/api/v1/watch"
+    },
+    {
+      "source": "/v1/webhooks/helius",
+      "destination": "/api/webhooks/helius"
+    }
   ],
   "schedules": {
     "push-scan": {
@@ -14,6 +30,9 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/scan", "schedule": "0 1 * * *" }
+    {
+      "path": "/api/cron/scan",
+      "schedule": "0 1 * * *"
+    }
   ]
 }

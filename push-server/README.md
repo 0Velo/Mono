@@ -20,9 +20,26 @@ Vercel 프로젝트로 올립니다(Root Directory: `push-server`). 정적 사�
 | `GET` | `/v1/config` | `{ "vapidPublicKey": "<base64url P-256 공개키 65바이트>" }` |
 | `POST` | `/v1/subscriptions` | 구독 등록/갱신. 최초 `201 {"id"}`, 갱신 `200 {"id"}` |
 | `DELETE` | `/v1/subscriptions/{id}` | `{"managementToken"}` 로 해지. 성공 `200 {"disabled":true}` |
+| `POST` | `/v1/watch` | 이 기기가 지켜볼 **고래(외부) 지갑 목록** 교체. `200 {"watchCount":N}` |
 | `OPTIONS` | 위 경로 | `APP_ORIGIN`에 대한 프리플라이트만 허용 |
 
 `{id}`는 구독 endpoint의 소문자 SHA-256 hex(64자)입니다.
+
+고래 지갑 목록 본문(`src/lib/watchWallets.ts`와 동일) — 공개 주소·별명·알림 여부만 보냅니다:
+
+```json
+{
+  "id": "<구독 id 64자>",
+  "managementToken": "<구독 등록 때 쓴 32바이트 base64url>",
+  "network": "mainnet-beta",
+  "entries": [{ "address": "<base58 Solana 주소>", "label": "고래 1", "enabled": true }]
+}
+```
+
+관리 토큰 해시가 구독 레코드와 같아야 하며(`403`), 지갑 서명은 쓰지 않으므로 조회 전용
+세션에서도 갱신할 수 있습니다. 최대 8개, 주소 중복·빈 별명·내 지갑 주소는 `400`,
+`network`가 구독 네트워크와 다르면 `409`입니다. 빈 배열은 목록과 중복 방지 창을 지웁니다
+(Devnet으로 바꿀 때 이 경로로 정리).
 
 등록 본문(클라이언트 `src/lib/pushSubscriptions.ts`와 동일):
 
@@ -76,6 +93,10 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
   대상입니다(입금, 스왑의 수령분). 순수 출금은 알림을 만들지 않습니다.
 - 활성 구독과 매칭되면 기존 VAPID 발송 경로(`sendWebPush`)로 **즉시** 보냅니다. 한 번의
   배달에서 같은 구독에 여러 건이 걸려도 푸시는 한 번만 갑니다.
+- **고래 지갑**은 같은 배달에서 `watch/{id}`의 켜진 주소마다 따로 판정합니다. 스왑·송금
+  어느 쪽이든 움직임이 있으면 `[별명] 스왑 감지` / `[별명] 송금 감지` 제목으로 한 번만
+  보내고(금액 없음, 탭하면 Solscan), 서명은 `seen/{id}:watch`에 먼저 기록해 재배달에도
+  중복되지 않습니다.
 - 중복 방지: 알림을 보낸 서명은 `seen/{id}`(최근 40개)에 먼저 기록되고, 15분 스캔도 같은
   목록을 확인합니다. 따라서 웹훅과 스캔이 같은 입금을 두 번 알리지 않습니다.
 - 알림 payload는 스캔과 동일하며(`Deposit detected`, 금액 없음), 탭하면 해당 트랜잭션의
@@ -133,6 +154,8 @@ Vercel의 Web 표준(Edge) 함수는 동적 세그먼트를 **쿼리**로 넘깁
 - `sub/{id}` — 구독 레코드(endpoint, p256dh, auth, address, network, tokenDigest)
 - `state/{id}` — 감시 커서(기준선 포함)
 - `seen/{id}` — 이미 알린 서명(최근 40개, 웹훅·스캔 공유)
+- `watch/{id}` — 고래 지갑 목록(주소·별명·켜짐 여부, 최대 8개). 해지 시 함께 삭제
+- `seen/{id}:watch` — 고래 알림으로 이미 보낸 서명(입금 창과 분리해 서로를 가리지 않음)
 - `control/rotation` — 다음에 볼 구독 순번
 - `control/helius-{network}` — Helius 웹훅 ID와 마지막으로 동기화한 주소 목록
 - `control/daily-{YYYY-MM-DD}` — 일일 API 조작 소프트 상한(250)
@@ -158,6 +181,9 @@ npm run check   # 문법 검사 + 위 테스트
 - 잔액 증가는 외부 입금의 완전한 의미 증명이 아닙니다(렌트 환급·계정 폐쇄 등도 증가로 보임).
 - 푸시 전달 보장은 없습니다(중복·지연·누락 가능). 벤더가 404/410을 주면 해당 구독을
   수동으로 해지해야 합니다.
+- 고래 지갑 알림은 **Helius 메인넷 웹훅 경로만** 씁니다(15분 스캔은 내 지갑만 봅니다).
+  Helius가 이벤트를 보내지 않으면 고래 알림도 오지 않으며, 그 대체 경로는 없습니다.
+  Devnet 구독에서는 목록을 비워 두며(고래 알림은 메인넷 전용), 주소는 최대 8개입니다.
 - Vercel Schedules는 현재 Beta이고 Hobby는 지터 15분이 붙습니다. 웹훅이 도착하지 않으면
   알림은 입금 후 대략 15~30분 안에 도착합니다.
 - Helius 웹훅은 `accountAddresses` 기준으로 매칭하므로, 스캔이 아직 학습하지 못한 세 번째

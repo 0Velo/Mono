@@ -7,6 +7,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Fish,
   Lock,
   Moon,
   ShieldCheck,
@@ -59,6 +60,8 @@ interface SettingsProps {
   onToggleActivityNotifications: () => void | Promise<void>
   pushUiState: PushUiState
   onToggleRemotePush: () => void | Promise<void>
+  watchCount: number
+  onWatch: () => void
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -100,6 +103,8 @@ export function Settings({
   onToggleActivityNotifications,
   pushUiState,
   onToggleRemotePush,
+  watchCount,
+  onWatch,
 }: SettingsProps) {
   const {
     vault,
@@ -389,6 +394,21 @@ export function Settings({
                   : pushUiState === 'enabled'
                     ? '닫힌 상태의 전달은 푸시 서버와 운영체제에 의존하며 보장되지 않습니다. 지갑 키/시드는 전송되지 않고, 계정 연결은 잠금 해제 중에만 서명합니다.'
                     : '설정 버튼을 누르면 브라우저 권한을 확인한 뒤 기기를 등록합니다. 서버가 설정되지 않았거나 사용할 수 없으면 앱 종료 중 푸시는 제공되지 않습니다.'}
+        </p>
+        <button
+          onClick={onWatch}
+          className="flex w-full items-center justify-between border-t border-line2 px-4 py-4 text-left transition-colors active:bg-press"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <Fish size={16} strokeWidth={1.9} /> 고래 지갑 알림
+          </span>
+          <span className="flex items-center gap-1 text-[13px] text-muted">
+            {watchCount}개 <ChevronRight size={16} className="text-faint2" />
+          </span>
+        </button>
+        <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
+          추적할 외부 지갑을 별명으로 저장하고, 스왑·송금이 감지되면 실시간으로 알려 줍니다. 공개
+          주소만 사용하며 지갑 키는 필요 없습니다.
         </p>
       </Group>
 
