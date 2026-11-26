@@ -28,12 +28,18 @@
  * 520ms cubic-out), 송금·스왑 완료 체크 드로잉과 링 펄스, 버튼·바텀시트·탭
  * 전환의 iOS 스프링 이징, 자산·내역 목록의 22ms 순차 등장. 동작 줄이기는 그대로
  * 존중하고 가린 잔액은 굴리지 않는다.
+ * v24 (Mono): 잠금 화면의 외계인 마스코트가 표정으로 반응한다 — 기본은 숨쉬기,
+ * PIN 입력 중에는 키패드 쪽으로 기울고, 오답이면 좌우로 흔들리며 눈을 찡그리고
+ * 땀방울이 맺히며, 정답 직후에는 두 번 뛰며 민트 별이 반짝인 뒤 홈이 그 자리를
+ * 받는다. PIN 점의 탄성, 토큰 차트 선 드로잉(pathLength), 홈 당겨서 새로고침,
+ * 스켈레톤 쉬머, 스왑 방향 180° 회전과 수량 롤링, 위에서 내려오는 토스트,
+ * 홈 총 자산의 정수부/소수부 강약도 함께 들어갔다.
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v23`
+const CACHE = `${CACHE_PREFIX}v24`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

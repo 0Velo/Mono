@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useWallet } from './state/WalletProvider'
 import { Onboarding } from './screens/Onboarding'
 import { LockScreen } from './screens/LockScreen'
@@ -37,9 +37,38 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { ready, initializationError, vaultExists, unlocked, canView, meta } = useWallet()
+  const { ready, initializationError, vaultExists, unlocked, canView, viewOnly, meta } = useWallet()
   const [monitorEnabled, setMonitorEnabled] = useState(isActivityNotificationsEnabled)
   const [updateAvailable, setUpdateAvailable] = useState(false)
+  /*
+   * 정답을 넣고 키가 풀린 직후, 잠금 화면을 반 박자만 더 붙잡아 둔다. 마스코트가
+   * 반기고 나머지 글자가 흐려진 뒤에야 홈이 그 자리를 받는다. 조회 전용(자동
+   * 로그인)으로 열린 경우는 잠금을 푼 적이 없으니 이 박자를 쓰지 않는다.
+   */
+  const [unlockBeat, setUnlockBeat] = useState(false)
+  const wasCanView = useRef(canView)
+  const lockWasShown = useRef(false)
+
+  if (vaultExists && !canView) lockWasShown.current = true
+
+  /*
+   * 잠금 화면이 실제로 떠 있던 상태에서 키가 풀렸을 때만 반 박자를 준다.
+   *
+   * 상태를 effect에서 올리면 "키는 풀렸는데 박자는 아직"인 중간 커밋이 한 번
+   * 생기면서 잠금 화면이 홈으로 바꿔졌다가 다시 마운트된다(PIN 점도 초기화된다).
+   * 렌더 중에 올리면 React가 그 렌더를 버리고 즉시 다시 그리므로, 마스코트는
+   * 한 프레임도 끊기지 않고 그 자리에서 반긴다.
+   */
+  const openedNow =
+    ready && canView && !wasCanView.current && !viewOnly && lockWasShown.current
+  if (openedNow && !unlockBeat) setUnlockBeat(true)
+  wasCanView.current = canView
+
+  useEffect(() => {
+    if (!unlockBeat) return
+    const timer = window.setTimeout(() => setUnlockBeat(false), 640)
+    return () => window.clearTimeout(timer)
+  }, [unlockBeat])
 
   // A home-screen app can resume from a page iOS kept suspended for days, still
   // running the JavaScript it loaded back then. Check the deployed build id on
@@ -137,8 +166,8 @@ export default function App() {
     <SecureContextGate>
       {!vaultExists ? (
         <Onboarding />
-      ) : !canView ? (
-        <LockScreen />
+      ) : !canView || unlockBeat ? (
+        <LockScreen celebrating={canView} />
       ) : (
         <Suspense fallback={<ShellSkeleton />}>
           <Shell />

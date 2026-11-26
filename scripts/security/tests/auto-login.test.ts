@@ -236,7 +236,12 @@ test('every sensitive action goes through requestAuth before it signs', () => {
 
 test('the app shows the shell when read-only and never leaves the seed on screen', () => {
   const app = readRepoFile('src/App.tsx')
-  assert.match(app, /\) : !canView \? \(\s*<LockScreen \/>/)
+  // After a real unlock the lock screen keeps its place for one short beat so
+  // the mascot can react; a read-only launch never gets that beat, because it
+  // never held a key to release.
+  assert.match(app, /!canView \|\| unlockBeat/g)
+  assert.match(app, /<LockScreen celebrating=\{canView\} \/>/)
+  assert.match(app, /canView && !wasCanView\.current && !viewOnly/)
   assert.match(app, /<Shell \/>/)
   // The splash lands on a lock screen; auto-login has no keypad to land on.
   assert.match(app, /if \(vaultExists && !canView\) beginSplashLanding\(\)/)

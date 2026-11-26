@@ -274,6 +274,7 @@ export function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
+        pathLength={1}
         className="animate-draw"
       />
     </svg>

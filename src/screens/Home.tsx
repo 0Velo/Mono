@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Check, ChevronRight, Copy, EyeOff, RefreshCw, Settings2, Star } from 'lucide-react'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { Sparkline, SolMark, TokenIcon } from '../components/ui'
 import { TxRow, type TokenSymbolMap } from '../components/TxRow'
 import { showToast } from '../components/Toast'
+import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { usePrefs, toggleHideBalance } from '../lib/prefs'
 import { buildAssets } from '../lib/assets'
 import {
@@ -49,6 +52,60 @@ function formatSolRoll(value: number | null): string {
   return `${formatAmount(BigInt(Math.round(value * 1e9)), 9, 4)} SOL`
 }
 
+/**
+ * 총 자산 숫자.
+ *
+ * The integer part is the number people read at a glance, so it stays at full
+ * weight; the cents sit a step smaller and in the muted tone, which keeps a
+ * seven-digit balance from turning into a wall of digits. Both parts roll
+ * through the same interpolator as the rest of the app, and because they are
+ * rendered as one run of text (no whitespace between the spans) the value still
+ * reads as a single number to anything that looks at the text.
+ */
+function HeroAmount({
+  value,
+  format,
+  snapKey,
+}: {
+  value: number | null
+  format: (value: number | null) => string
+  snapKey?: string
+}) {
+  const shown = useAnimatedNumber(value, { snapKey })
+  const text = format(shown)
+  const dot = text.indexOf('.')
+  if (dot < 0) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, dot)}
+      <span className="text-[0.64em] font-semibold tracking-[-0.03em] text-muted">
+        {text.slice(dot)}
+      </span>
+    </>
+  )
+}
+
+/** 자산·관심 목록·최근 활동의 같은 제목 규칙. */
+function SectionHeader({
+  label,
+  icon,
+  action,
+}: {
+  label: string
+  icon?: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <div className="mt-9 flex items-center justify-between px-5">
+      <h2 className="flex items-center gap-1.5 text-[12.5px] font-medium text-muted">
+        {icon}
+        {label}
+      </h2>
+      {action}
+    </div>
+  )
+}
+
 export function Home({
   address,
   accountName,
@@ -73,6 +130,7 @@ export function Home({
   const [currency, setCurrency] = useState<'usd' | 'krw'>('usd')
   const [copied, setCopied] = useState(false)
   const prefs = usePrefs()
+  const { hostRef, pull, pulling, progress, refreshing } = usePullToRefresh(onRefresh)
 
   const assets = buildAssets(portfolio)
   const tokens = assets.filter((asset) => !asset.isSol)
@@ -120,7 +178,40 @@ export function Home({
   const heroAmount = currency === 'usd' ? totalUsd : krw
 
   return (
-    <div className="animate-fade flex flex-1 flex-col">
+    <div ref={hostRef} className="animate-fade relative flex flex-1 flex-col">
+      {/*
+       * 당겨서 새로고침 인디케이터. 화면 맨 위에서 당긴 거리에 비례해 내려오고,
+       * 임계치를 넘기면 색이 바뀌어 "놓으면 새로고침"을 알린다. 평소에는 화면
+       * 밖에 있어 레이아웃도 스크롤도 건드리지 않는다.
+       */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}
+        aria-hidden="true"
+        data-pull-indicator={refreshing ? 'refreshing' : pulling ? 'pulling' : 'idle'}
+      >
+        <div
+          className={cx(
+            'flex h-8 items-center gap-1.5 rounded-full bg-card/95 px-3 text-[11px] font-medium shadow-[0_8px_22px_-14px_rgba(13,14,18,0.6)] ring-1 backdrop-blur',
+            progress >= 1 || refreshing ? 'text-ink ring-line2' : 'text-muted ring-line',
+          )}
+          style={{
+            transform: `translate3d(0, ${refreshing ? 0 : pull - 40}px, 0)`,
+            opacity: refreshing ? 1 : progress,
+            transition: pulling
+              ? 'none'
+              : 'transform 320ms var(--ease-out-soft), opacity 220ms ease',
+          }}
+        >
+          <RefreshCw
+            size={12}
+            className={refreshing ? 'animate-spin-slow' : ''}
+            style={refreshing ? undefined : { transform: `rotate(${progress * 220}deg)` }}
+          />
+          {refreshing ? '새로고침 중' : progress >= 1 ? '놓아서 새로고침' : '당겨서 새로고침'}
+        </div>
+      </div>
+
       <div
         className="flex items-center justify-between px-5"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 14px)' }}
@@ -209,7 +300,7 @@ export function Home({
                 '••••'
               ) : (
                 /* 탭해서 가린 상태는 모션이 없다: 가린 잔액이 굴러가면 가린 의미가 없다. */
-                <AnimatedNumber
+                <HeroAmount
                   value={heroAmount}
                   format={currency === 'usd' ? formatUsd : formatKrw}
                   snapKey={currency}
@@ -297,10 +388,7 @@ export function Home({
 
       {watched.length > 0 && (
         <>
-          <div className="mt-9 flex items-center gap-1.5 px-5">
-            <Star size={12} className="text-faint" />
-            <h2 className="text-[12.5px] font-medium text-muted">관심 목록</h2>
-          </div>
+          <SectionHeader label="관심 목록" icon={<Star size={12} className="text-faint" />} />
           <div className="mt-1.5 px-5">
             {watched.map((token, index) => (
               <div
@@ -336,17 +424,19 @@ export function Home({
         </>
       )}
 
-      <div className="mt-9 flex items-end justify-between px-5">
-        <h2 className="text-[12.5px] font-medium text-muted">자산</h2>
-        <button
-          onClick={onRefresh}
-          aria-label="새로고침"
-          className="press flex items-center gap-1 pb-0.5 text-[11.5px] font-medium text-muted"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin-slow' : ''} />
-          {loading ? '불러오는 중' : '새로고침'}
-        </button>
-      </div>
+      <SectionHeader
+        label="자산"
+        action={
+          <button
+            onClick={onRefresh}
+            aria-label="새로고침"
+            className="press flex items-center gap-1 pb-0.5 text-[11.5px] font-medium text-muted"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin-slow' : ''} />
+            {loading ? '불러오는 중' : '새로고침'}
+          </button>
+        }
+      />
 
       <div className="mt-1.5 px-5">
         <button
@@ -445,17 +535,19 @@ export function Home({
         )}
       </div>
 
-      <div className="mt-8 flex items-center justify-between px-5">
-        <h2 className="text-[12.5px] font-medium text-muted">최근 활동</h2>
-        <button
-          onClick={onActivity}
-          className="flex items-center gap-0.5 pb-0.5 text-[11.5px] font-medium text-muted active:opacity-60"
-        >
-          전체 보기 <ChevronRight size={12} />
-        </button>
-      </div>
+      <SectionHeader
+        label="최근 활동"
+        action={
+          <button
+            onClick={onActivity}
+            className="flex items-center gap-0.5 px-1 py-1 text-[11.5px] font-medium text-muted active:opacity-60"
+          >
+            전체 보기 <ChevronRight size={12} />
+          </button>
+        }
+      />
 
-      <div className="mt-1">
+      <div className="mt-1.5">
         {recent.slice(0, 3).map((item, index) => (
           <div
             key={item.signature}
