@@ -4,6 +4,7 @@ import { ArrowDownUp, Check, ChevronDown, ExternalLink, Info, Loader2 } from 'lu
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { SuccessMark } from '../components/SuccessMark'
+import { AnimatedNumber } from '../components/AnimatedNumber'
 import { TokenIcon } from '../components/ui'
 
 import {
@@ -125,6 +126,13 @@ export default function Swap({
   const [pendingTx, setPendingTx] = useState<PendingTransaction | null>(null)
   const [resolution, setResolution] = useState<TransactionResolution | null>(null)
   const [checking, setChecking] = useState(false)
+  /** 방향을 바꾼 횟수 × 180° — 버튼이 제자리에서 한 바퀴씩 돈다. */
+  const [flips, setFlips] = useState(0)
+  /**
+   * 견적은 입력이 멈출 때마다 새로 오고, 오는 동안에는 이전 값이 화면에 남는다.
+   * 그 값이 있어야 새 견적이 0이 아닌 "방금 전 숫자"에서 굴러 올라간다.
+   */
+  const [lastOut, setLastOut] = useState<number | null>(null)
   const requestId = useRef(0)
   const previewGeneration = useRef(0)
   const inFlightRef = useRef(false)
@@ -283,6 +291,20 @@ export default function Swap({
   const rate =
     quote && amountUi > 0 ? Number(fromBaseUnits(BigInt(quote.outAmount), outDecimals)) / amountUi : null
 
+  /* 마지막으로 받은 견적 수량을 들고 있는다: 새 견적이 오는 동안에도 화면에 남아
+   * 있다가, 도착하면 그 값에서 새 값으로 굴러 올라간다. */
+  useEffect(() => {
+    if (quote) setLastOut(Number(quote.outAmount))
+  }, [quote])
+
+  useEffect(() => {
+    if (baseUnits <= 0n) setLastOut(null)
+  }, [baseUnits])
+
+  const outText = (base: number | null) =>
+    base === null ? '—' : formatAmount(BigInt(Math.round(base)), outDecimals, 6)
+  const shownOut = baseUnits > 0n ? (quote ? Number(quote.outAmount) : lastOut) : null
+
   /* ------------------------------------------------------------- quoting */
 
   useEffect(() => {
@@ -325,6 +347,7 @@ export default function Swap({
   }, [connection, network, inputAsset, outputAsset, sameToken, baseUnits, insufficient, slippageBps])
 
   const flip = () => {
+    setFlips((count) => count + 1)
     setInputKey(outputAsset?.key ?? 'SOL')
     setOutputKey(inputAsset?.key ?? 'SOL')
     setAmount('')
@@ -632,7 +655,11 @@ export default function Swap({
             aria-label="방향 바꾸기"
             className="press flex h-9 w-9 items-center justify-center rounded-full bg-card text-ink shadow-[0_2px_10px_rgba(13,14,18,0.10)] ring-1 ring-line"
           >
-            <ArrowDownUp size={16} />
+            <ArrowDownUp
+              size={16}
+              className="transition-transform duration-500 ease-[cubic-bezier(0.34,1.42,0.64,1)]"
+              style={{ transform: `rotate(${flips * 180}deg)` }}
+            />
           </button>
         </div>
 
@@ -649,15 +676,29 @@ export default function Swap({
             <div
               className={cx(
                 'tnum min-w-0 flex-1 truncate text-[30px] font-bold tracking-[-0.035em]',
-                outAmount === null ? 'text-faint2' : 'text-ink',
+                shownOut === null ? 'text-faint2' : 'text-ink',
               )}
             >
-              {quoting ? (
-                <Loader2 size={22} className="animate-spin-slow text-muted" />
-              ) : outAmount === null ? (
-                '0'
+              {shownOut === null ? (
+                quoting ? (
+                  <Loader2 size={22} className="animate-spin-slow text-muted" />
+                ) : (
+                  '0'
+                )
               ) : (
-                formatAmount(BigInt(quote!.outAmount), outDecimals, 6)
+                <span
+                  className={cx(
+                    'inline-flex items-baseline gap-1.5 transition-opacity duration-200',
+                    quoting && 'opacity-45',
+                  )}
+                >
+                  <AnimatedNumber
+                    value={shownOut}
+                    format={outText}
+                    snapKey={outputAsset?.key}
+                  />
+                  {quoting && <Loader2 size={14} className="animate-spin-slow text-muted" />}
+                </span>
               )}
             </div>
             <button

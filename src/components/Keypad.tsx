@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Delete } from 'lucide-react'
 import { cx } from '../lib/format'
 
@@ -29,10 +29,19 @@ export function PinDots({
         const filled = index < value.length
         return (
           <div
-            key={index}
+            /*
+             * 채워지는 점은 자기 자리에서 살짝 커졌다 앉는다. 빈 점과
+             * 채워진 점을 다른 요소로 만들어 주는 `key` 덕분에, 애니메이션은
+             * 몇 번째 점이든 채워지는 순간에만 한 번 돈다.
+             */
+            key={`${index}-${filled ? 'on' : 'off'}`}
             className={cx(
-              'h-[9px] w-[9px] rounded-full transition-all duration-200',
-              error ? 'bg-danger' : filled ? 'scale-100 bg-ink' : 'scale-[0.86] bg-faint2',
+              'h-[9px] w-[9px] rounded-full',
+              error
+                ? 'bg-danger'
+                : filled
+                  ? 'animate-pin-pop bg-ink'
+                  : 'scale-[0.86] bg-faint2',
             )}
           />
         )
@@ -50,14 +59,26 @@ export function Keypad({
   disabled,
   compact,
 }: KeypadProps) {
+  /*
+   * `onComplete`는 화면이 다시 그려질 때마다 새 함수일 수 있다. 그것까지
+   * 의존성에 넣으면 같은 PIN으로 다시 호출되거나(락 화면이 열려 있는 동안)
+   * 예약된 호출이 취소된다(애니메이션 한 번에 다시 그려질 때) — 그래서 콜백은
+   * ref로만 읽고, "이 값은 이미 넘겼다"를 값 자체로 기억한다.
+   */
+  const onCompleteRef = useRef(onComplete)
+  onCompleteRef.current = onComplete
+  const completedRef = useRef<string | null>(null)
+
   useEffect(() => {
-    if (!onComplete) return
-    if (value.length === length) {
-      const timer = setTimeout(() => onComplete(value), 90)
-      return () => clearTimeout(timer)
+    if (value.length < length) {
+      completedRef.current = null
+      return undefined
     }
-    return undefined
-  }, [value, length, onComplete])
+    if (!onCompleteRef.current || completedRef.current === value) return undefined
+    completedRef.current = value
+    const timer = setTimeout(() => onCompleteRef.current?.(value), 90)
+    return () => clearTimeout(timer)
+  }, [value, length])
 
   useEffect(() => {
     if (disabled) return

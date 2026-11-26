@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import type { Connection } from '@solana/web3.js'
 import {
   ArrowLeftRight,
@@ -55,6 +55,7 @@ function PriceChart({
   height?: number
   positive: boolean
 }) {
+  const revealId = `reveal-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const geometry = useMemo(() => {
     if (!points || points.length < 2) return null
     const step = Math.max(1, Math.ceil(points.length / 90))
@@ -99,18 +100,48 @@ function PriceChart({
           <stop offset="0%" stopColor={stroke} stopOpacity="0.18" />
           <stop offset="100%" stopColor={stroke} stopOpacity="0" />
         </linearGradient>
+        {/*
+         *  The wash under the line is revealed by the same hand that draws it:
+         *  a clip that grows left to right on the line's own curve, so the fill
+         *  never runs ahead of the stroke.
+         */}
+        <clipPath id={revealId}>
+          <rect
+            x="0"
+            y="0"
+            width="320"
+            height="130"
+            className="animate-reveal"
+            style={{ transformBox: 'fill-box', transformOrigin: 'left center' }}
+          />
+        </clipPath>
       </defs>
-      <path d={geometry.area} fill={`url(#${gradientId})`} />
+      <g clipPath={`url(#${revealId})`}>
+        <path d={geometry.area} fill={`url(#${gradientId})`} />
+      </g>
+      {/*
+       * `key`는 선의 좌표 자체다: 1일/7일을 바꾸거나 새 시세가 도착해 path가
+       * 달라지면 이 요소가 새로 붙으면서 왼쪽에서 오른쪽으로 다시 그려진다.
+       */}
       <path
+        key={geometry.line}
         d={geometry.line}
         stroke={stroke}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
+        pathLength={1}
         className="animate-draw"
       />
-      <circle cx={geometry.last[0]} cy={geometry.last[1]} r={3.5} fill={stroke} />
+      <circle
+        cx={geometry.last[0]}
+        cy={geometry.last[1]}
+        r={3.5}
+        fill={stroke}
+        className="animate-dot-in"
+        style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+      />
     </svg>
   )
 }

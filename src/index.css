@@ -292,18 +292,167 @@ textarea {
 }
 @keyframes shimmer {
   0% {
-    background-position: -300px 0;
+    background-position: 160% 0;
   }
   100% {
-    background-position: 300px 0;
+    background-position: -60% 0;
   }
 }
+/*
+ * The line is drawn, not faded in: the path carries `pathLength="1"`, so a
+ * one-unit dash is the whole series and walking its offset to zero draws it
+ * left to right at whatever length the data turns out to be. (A fixed dash
+ * length used to leave long series half-drawn.)
+ */
 @keyframes draw {
   from {
-    stroke-dashoffset: 620;
+    stroke-dashoffset: 1;
   }
   to {
     stroke-dashoffset: 0;
+  }
+}
+@keyframes reveal {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+/*
+ * 잠금 화면의 마스코트.
+ *
+ * 표정은 `MonoFace`가 그리는 반투명 레이어라서 몸통 자체는 움직이기만 한다:
+ * 기본은 아주 느린 숨쉬기, PIN을 누르는 동안은 키패드 쪽으로 살짝 기울고,
+ * 오답은 좌우로 흔들리며, 정답 직전에는 두 번 가볍게 뛴다. 모두 transform
+ * 만 쓰므로 92px 마스코트의 자리(래스터 크기·좌표)는 그대로다.
+ */
+@keyframes mono-breathe {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -1.6px, 0) scale(1.012);
+  }
+}
+@keyframes mono-listen {
+  from {
+    transform: translate3d(0, -1px, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(0, 1.5px, 0) rotate(1.4deg);
+  }
+}
+@keyframes mono-ouch {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  15% {
+    transform: translate3d(-5px, 0, 0) rotate(-3.2deg);
+  }
+  35% {
+    transform: translate3d(5px, 0, 0) rotate(3.2deg);
+  }
+  55% {
+    transform: translate3d(-3px, 0, 0) rotate(-2deg);
+  }
+  78% {
+    transform: translate3d(2px, 0, 0) rotate(1.2deg);
+  }
+}
+@keyframes mono-cheer {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1, 1);
+  }
+  20% {
+    transform: translate3d(0, 2px, 0) scale(1.045, 0.955);
+  }
+  46% {
+    transform: translate3d(0, -9px, 0) scale(0.965, 1.05);
+  }
+  66% {
+    transform: translate3d(0, 0, 0) scale(1.03, 0.97);
+  }
+  84% {
+    transform: translate3d(0, -3px, 0) scale(0.99, 1.01);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1, 1);
+  }
+}
+@keyframes mono-sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-18deg);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.55) rotate(14deg);
+  }
+}
+@keyframes mono-sweat {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -3px, 0) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0) scale(0.9);
+  }
+}
+@keyframes pin-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.34);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes toast-drop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -128%, 0) scale(0.96);
+  }
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes toast-lift {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -120%, 0) scale(0.97);
   }
 }
 @keyframes halo {
@@ -397,8 +546,25 @@ textarea {
   animation: spin 0.9s linear infinite;
 }
 .animate-draw {
-  stroke-dasharray: 620;
+  stroke-dasharray: 1;
   animation: draw 900ms var(--ease-out-soft) both;
+}
+.animate-reveal {
+  animation: reveal 900ms var(--ease-out-soft) both;
+}
+.animate-dot-in {
+  animation: dot-in 260ms var(--ease-spring) 620ms both;
+}
+.animate-pin-pop {
+  animation: pin-pop 320ms var(--ease-spring) both;
+}
+.animate-toast-in {
+  animation: toast-drop 420ms var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+.animate-toast-out {
+  animation: toast-lift 210ms cubic-bezier(0.4, 0, 1, 1) both;
+  will-change: transform, opacity;
 }
 .animate-halo {
   animation: halo 1.8s ease-out infinite;
@@ -416,10 +582,66 @@ textarea {
   animation: success-ring 1150ms var(--ease-out-soft) both;
 }
 
+/*
+ * Loading placeholders sweep a soft highlight left → right. The gradient is a
+ * percentage of the element's own box, so one rule covers a 40px dot and the
+ * full-width hero bar without the highlight running out on wide blocks.
+ */
 .skeleton {
-  background: linear-gradient(90deg, var(--skel-a) 0%, var(--skel-b) 42%, var(--skel-a) 84%);
-  background-size: 300px 100%;
-  animation: shimmer 1.35s infinite linear;
+  background: linear-gradient(
+    100deg,
+    var(--skel-a) 18%,
+    var(--skel-b) 46%,
+    var(--skel-a) 74%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+/* --- mascot moods ------------------------------------------------------- */
+
+.mono-mood-idle {
+  animation: mono-breathe 5.4s var(--ease-out-soft) infinite;
+}
+.mono-mood-typing {
+  animation: mono-listen 520ms var(--ease-out-soft) both;
+}
+.mono-mood-error {
+  animation: mono-ouch 520ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.mono-mood-success {
+  animation: mono-cheer 720ms var(--ease-out-soft) both;
+}
+.mono-cheer-ring {
+  animation: success-ring 900ms var(--ease-out-soft) both;
+}
+.mono-sparkle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mono-sparkle 720ms var(--ease-out-soft) both;
+}
+.mono-sparkle-a {
+  animation-delay: 40ms;
+}
+.mono-sparkle-b {
+  animation-delay: 160ms;
+}
+.mono-sparkle-c {
+  animation-delay: 260ms;
+}
+.mono-sweat {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mono-sweat 620ms var(--ease-out-soft) 60ms both;
+}
+
+/*
+ * 정답 뒤의 아주 짧은 인사: 마스코트만 남고 나머지 잠금 화면은 아래로 흐려져
+ * 사라진다. 이 박자(약 0.6초)가 끝나면 Shell이 그 자리를 받는다.
+ */
+.mono-lock-celebrating .mono-lock-fade {
+  animation: fade-out 240ms ease 300ms forwards;
 }
 
 /* hide number input spinners */
