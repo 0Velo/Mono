@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Sheet } from '../components/Sheet'
 import { MAX_ACCOUNTS, useWallet } from '../state/WalletProvider'
@@ -18,12 +18,26 @@ interface AccountsSheetProps {
  * (`accountIndices`): nothing here assumes a fixed number of accounts.
  */
 export function AccountsSheet({ open, onClose }: AccountsSheetProps) {
-  const { accounts, activeIndex, switchAccount, addAccount, removeAccount, renameAccount, meta } =
-    useWallet()
+  const {
+    accounts,
+    activeIndex,
+    switchAccount,
+    addAccount,
+    removeAccount,
+    renameAccount,
+    meta,
+    requestAuth,
+    endAuthSession,
+  } = useWallet()
   const [editing, setEditing] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Any key a PIN check supplied for account work is dropped when the sheet closes.
+  useEffect(() => {
+    if (!open) endAuthSession()
+  }, [open, endAuthSession])
 
   const used = new Set(accounts.map((account) => account.index))
   let nextIndex = 1
@@ -37,6 +51,10 @@ export function AccountsSheet({ open, onClose }: AccountsSheetProps) {
     }
     setBusy(true)
     try {
+      // Accounts are derived from the seed phrase: the address alone cannot be
+      // listed, so switching asks for the PIN when the app is read-only.
+      const signer = await requestAuth('account')
+      if (!signer) return
       await switchAccount(index)
       showToast('계정을 바꿨습니다')
       onClose()
@@ -50,6 +68,8 @@ export function AccountsSheet({ open, onClose }: AccountsSheetProps) {
   const add = async () => {
     setBusy(true)
     try {
+      const signer = await requestAuth('account')
+      if (!signer) return
       const index = await addAccount()
       showToast(`계정 ${index + 1}을 추가했습니다`)
     } catch (error) {
@@ -62,6 +82,8 @@ export function AccountsSheet({ open, onClose }: AccountsSheetProps) {
   const remove = async (index: number) => {
     setBusy(true)
     try {
+      const signer = await requestAuth('account')
+      if (!signer) return
       await removeAccount(index)
       setDeleting(null)
       showToast('계정을 목록에서 삭제했습니다')

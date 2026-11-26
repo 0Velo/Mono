@@ -76,6 +76,14 @@ export function LockScreen() {
         >
           PIN을 잊으셨나요?
         </button>
+
+        {meta && !meta.autoLogin && (
+          <p className="mt-2 text-center text-[11px] leading-[1.6] text-faint">
+            잠금 없이 잔액만 보려면 설정 → 보안에서
+            <br />
+            자동 로그인 (조회 전용)을 켜세요.
+          </p>
+        )}
       </div>
 
       <Sheet open={showReset} onClose={() => setShowReset(false)} title="지갑 초기화">

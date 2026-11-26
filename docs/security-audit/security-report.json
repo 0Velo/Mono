@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-11-25T16:56:43.396Z",
-  "node": "v22.20.0",
+  "startedAt": "2026-11-26T04:36:29.189Z",
+  "node": "v22.11.0",
   "sections": {
     "static": {
-      "generatedAt": "2026-11-25T16:56:44.377Z",
+      "generatedAt": "2026-11-26T04:36:30.407Z",
       "checks": [
         {
           "id": "SS-01",
@@ -63,7 +63,7 @@
           "id": "SS-10",
           "title": "Service worker caches same-origin assets only and prunes old caches",
           "status": "PASS",
-          "detail": "cacheVersion=19"
+          "detail": "cacheVersion=20"
         },
         {
           "id": "SS-11",
@@ -121,10 +121,10 @@
       }
     },
     "secrets": {
-      "generatedAt": "2026-11-25T16:56:59.987Z",
+      "generatedAt": "2026-11-26T04:36:49.926Z",
       "scanned": {
-        "trackedFiles": 183,
-        "commits": 72
+        "trackedFiles": 185,
+        "commits": 74
       },
       "workingTree": {
         "findings": [],
@@ -403,6 +403,81 @@
         },
         {
           "name": "iPhone user agents are recognised so the UI can ask for a Home Screen install",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "auto-login is off unless the stored value is exactly true",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the choice survives a metadata round trip and junk keeps it off",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a launch opens the read-only home only with a vault and the setting on",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "wiping a key leaves the read-only home when auto-login is on, else the lock screen",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "every action that needs the key asks for the PIN, and unknown asks too",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "each gated action explains itself in one line",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "a PIN grant expires on its own",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "releasing the key zeroes the secret bytes in place",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "accounts are listed from public metadata alone",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the stored address registry rejects anything that is not a derived address",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the provider enters read-only mode without decrypting anything",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "every sensitive action goes through requestAuth before it signs",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the app shows the shell when read-only and never leaves the seed on screen",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "token detail offers 보내기·받기·스왑 in one row and wires 받기 to the receive sheet",
+          "status": "PASS",
+          "file": null
+        },
+        {
+          "name": "the receive screen names the network the way an exchange does",
           "status": "PASS",
           "file": null
         },
@@ -1487,7 +1562,7 @@
           "file": null
         }
       ],
-      "pass": 230,
+      "pass": 245,
       "fail": 0,
       "compileErrors": []
     },
@@ -1522,7 +1597,7 @@
           "id": "UI-04",
           "title": "Every script is same-origin",
           "status": "PASS",
-          "detail": "http://127.0.0.1:41413/assets/index-QySKr18j.js"
+          "detail": "http://127.0.0.1:33029/assets/index-DEP_A9yD.js"
         },
         {
           "id": "UI-05",
@@ -1546,7 +1621,7 @@
           "id": "UI-08",
           "title": "The persisted secret is the encrypted vault (PBKDF2 210k + AES-GCM), not plaintext",
           "status": "PASS",
-          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"rHAXQgvQ//FSxHqS\", \"salt\": \"//7zO5jIOiy1QG7gZ7vjgg==\"}"
+          "detail": "{\"v\": 1, \"kdf\": \"PBKDF2-SHA256\", \"iter\": 210000, \"iv\": \"+Rpbhl0b9v6e3YqF\", \"salt\": \"HbW8Khdj0XVfAzUug46G/w==\"}"
         },
         {
           "id": "UI-09",
@@ -1588,13 +1663,13 @@
           "id": "UI-19",
           "title": "A freshly created mnemonic wallet presents exactly one account",
           "status": "PASS",
-          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795625846338, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\"}}"
+          "detail": "{\"labels\": [\"메인\"], \"addresses\": [\"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795667838136, \"activeIndex\": 0, \"accountNames\": {}, \"autoLogin\": false, \"address\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"accountAddresses\": {\"0\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\"}}}"
         },
         {
           "id": "UI-20",
           "title": "Explicit account creation adds account 2 and switches to its distinct derived address",
           "status": "PASS",
-          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\", \"7Vkb1kJDEyBNyT4WpAvJv3xo6gKmkD9usmkhSbbtmDMm\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795625846338, \"activeIndex\": 1, \"accountNames\": {}, \"address\": \"7Vkb1kJDEyBNyT4WpAvJv3xo6gKmkD9usmkhSbbtmDMm\", \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
+          "detail": "{\"added\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795667838136, \"activeIndex\": 1, \"accountNames\": {}, \"autoLogin\": false, \"address\": \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\", \"accountAddresses\": {\"0\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"1\": \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\"}, \"accountIndices\": [1]}}, \"mainAddressDistinct\": true, \"addSwitched\": true}"
         },
         {
           "id": "UI-21",
@@ -1606,7 +1681,7 @@
           "id": "UI-22",
           "title": "The second account and selected main account persist through reload and unlock",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\", \"7Vkb1kJDEyBNyT4WpAvJv3xo6gKmkD9usmkhSbbtmDMm\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795625846338, \"activeIndex\": 0, \"accountNames\": {}, \"address\": \"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\", \"accountIndices\": [1]}}}"
+          "detail": "{\"locked\": true, \"unlocked\": true, \"accounts\": {\"labels\": [\"메인\", \"계정 2\"], \"addresses\": [\"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795667838136, \"activeIndex\": 0, \"accountNames\": {}, \"autoLogin\": false, \"address\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"accountAddresses\": {\"0\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"1\": \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\"}, \"accountIndices\": [1]}}}"
         },
         {
           "id": "UI-23",
@@ -1630,7 +1705,7 @@
           "id": "UI-26",
           "title": "The six-to-five account list, the rename and the remaining active account survive a reload",
           "status": "PASS",
-          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795625846338, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"address\": \"2YaXawkfqEEg1RqciUEoCy6T4T698bP6oksep1rhyVuV\", \"accountIndices\": [1, 2, 3, 4]}}"
+          "detail": "{\"locked\": true, \"labels\": [\"메인\", \"계정 2\", \"투빗\", \"계정 4\", \"계정 5\"], \"meta\": {\"name\": \"Mono\", \"network\": \"mainnet\", \"rpc\": {\"mainnet\": \"\", \"devnet\": \"\"}, \"autoLockMinutes\": 5, \"createdAt\": 1795667838136, \"activeIndex\": 0, \"accountNames\": {\"2\": \"투빗\"}, \"autoLogin\": false, \"address\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"accountAddresses\": {\"0\": \"BtUzC3iXJGWm4GYVuFzuaPQe1ATUk549B8v4xbEDertG\", \"1\": \"AKfReoiAi5YQQ6soQPRwbQWKFkynY4Q9n2A2pHCme2Gv\", \"2\": \"9XVmcA8qF4q3ReXF8BioxN5uPY6He3zRGvCFh1ZA6HpM\", \"3\": \"3sxCBXJKUrv74bJapfAWp6m3AQvgTyD6HyZkSfWebUG6\", \"4\": \"E8wu4E4JFR1Y1vUsTiF5CQ2AXNQKTWcqhV9XYAFRzSGW\", \"5\": \"7ay11qm2pvm2QePGJkd2D6ymJ7J1LfCHiNBmfvXdY8GV\"}, \"accountIndices\": [1, 2, 3, 4]}}"
         },
         {
           "id": "UI-27",
@@ -1642,7 +1717,7 @@
           "id": "UI-28",
           "title": "The lock screen path lands the splash mascot on the MonoMark slot and hands the spot over",
           "status": "PASS",
-          "detail": "{\"landing\": {\"mounted\": true, \"mode\": \"land\", \"state\": \"\", \"dx\": 0.5, \"dy\": -232.1, \"scale\": 0.307, \"targetSize\": [92, 92], \"stageSize\": [189, 272], \"markOpacity\": 0, \"landingClass\": true}, \"settled\": {\"mounted\": false, \"mode\": \"\", \"state\": \"\", \"dx\": null, \"dy\": null, \"scale\": null, \"targetSize\": [92, 92], \"stageSize\": null, \"markOpacity\": 1, \"landingClass\": false}}"
+          "detail": "{\"landing\": {\"mounted\": true, \"mode\": \"land\", \"state\": \"\", \"dx\": 0.5, \"dy\": -253.7, \"scale\": 0.307, \"targetSize\": [92, 92], \"stageSize\": [189, 272], \"markOpacity\": 0, \"landingClass\": true}, \"settled\": {\"mounted\": false, \"mode\": \"\", \"state\": \"\", \"dx\": null, \"dy\": null, \"scale\": null, \"targetSize\": [92, 92], \"stageSize\": null, \"markOpacity\": 1, \"landingClass\": false}}"
         },
         {
           "id": "UI-29",
@@ -1693,6 +1768,54 @@
           "detail": "{\"row\": \"빈 토큰 계정 2개 정리 약 +0.0029 SOL\", \"sheet\": \"빈 토큰 계정 정리 약 +0.0029 SOL 회수 잔액 0 · 동결되지 않은 계정 2개 Ccuq2…8H7DE +0.00148844 SOL HXwhn…XYvzm +0.00148844 SOL  계정을 닫으면 묶여 있던 SOL rent가 이 지갑으로 돌아옵니다. 잔액이 생기거나 동결된 계정은 목록에 없고, 서명 전 시뮬레이션에서 한 번 더 확인합니다.  빈 계정\"}"
         },
         {
+          "id": "UI-38",
+          "title": "Auto-login is off by default and the settings row stores the choice",
+          "status": "PASS",
+          "detail": "{\"defaultOff\": true, \"saved\": true}"
+        },
+        {
+          "id": "UI-39",
+          "title": "With auto-login on, a launch opens the home screen with no PIN and no key material",
+          "status": "PASS",
+          "detail": "{\"viewOnlyChip\": true, \"lockScreen\": 0, \"balanceArea\": true, \"vaultEncrypted\": true, \"seedRuns\": 0}"
+        },
+        {
+          "id": "UI-40",
+          "title": "Token detail offers 보내기·받기·스왑 in one row and 받기 opens the receive screen",
+          "status": "PASS",
+          "detail": "{\"buttons\": [\"token-send\", \"token-receive\", \"token-swap\"], \"labels\": [\"보내기\", \"받기\", \"스왑\"]}"
+        },
+        {
+          "id": "UI-41",
+          "title": "The receive screen names the chain as an exchange does and warns about BEP20/ERC20",
+          "status": "PASS",
+          "detail": "{\"subtitle\": \"Solana (SOL · SPL)\", \"hint\": \"거래소 출금 시 반드시 Solana(SOL) 네트워크 · BEP20/ERC20 불가\", \"addressShown\": true}"
+        },
+        {
+          "id": "UI-42",
+          "title": "Sending from the read-only session asks for the PIN and cancelling builds nothing",
+          "status": "PASS",
+          "detail": "{\"gate\": true, \"title\": \"인증이 필요합니다\", \"confirmBeforePin\": 0, \"cancelled\": true}"
+        },
+        {
+          "id": "UI-43",
+          "title": "A wrong PIN is refused and the right one unlocks the send preview",
+          "status": "PASS",
+          "detail": "{\"wrongRefused\": true, \"preview\": true, \"state\": \"인증이 필요합니다  송금  잔액을 보내려면 PIN으로 본인 확인이 필요합니다. 확인한 뒤에만 키를 복호화해 서명합니다.  1 2 3 4 5 6 7 8 9 0 취소\"}"
+        },
+        {
+          "id": "UI-44",
+          "title": "The key released after one send is gone: the next send asks for the PIN again",
+          "status": "PASS",
+          "detail": "{\"askedAgain\": true}"
+        },
+        {
+          "id": "UI-45",
+          "title": "Turning auto-login off needs the PIN, and the next launch is locked again",
+          "status": "PASS",
+          "detail": "{\"gate\": true, \"savedOff\": true, \"lockedNow\": true, \"lockedAfterReload\": true}"
+        },
+        {
           "id": "UI-37",
           "title": "The bundled QR decoder turns a real Solana Pay code into its exact payload",
           "status": "PASS",
@@ -1708,32 +1831,32 @@
           "id": "UI-15",
           "title": "No unexpected console errors (CSP block and RPC 403s are expected)",
           "status": "REVIEW",
-          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:41413' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"ws error: undefined\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:41413' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\"]"
+          "detail": "[\"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:33029' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\", \"Access to fetch at 'https://mono-push-server.vercel.app/v1/config' from origin 'http://127.0.0.1:33029' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.\", \"WebSocket connection to 'wss://api.mainnet-beta.solana.com/' failed: Error during WebSocket handshake: Unexpected response code: 403\", \"ws error: undefined\"]"
         },
         {
           "id": "UI-16",
           "title": "External origins contacted by the page",
           "status": "INFO",
-          "detail": "127.0.0.1:41413, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
+          "detail": "127.0.0.1:33029, api.coingecko.com, api.mainnet-beta.solana.com, mono-push-server.vercel.app, solana-rpc.publicnode.com, solana.drpc.org"
         }
       ],
       "counts": {
-        "PASS": 35,
+        "PASS": 43,
         "FAIL": 0,
         "REVIEW": 1,
         "INFO": 1
       },
       "requests": [
-        "127.0.0.1:41413",
+        "127.0.0.1:33029",
         "api.coingecko.com",
         "api.mainnet-beta.solana.com",
         "mono-push-server.vercel.app",
         "solana-rpc.publicnode.com",
         "solana.drpc.org"
       ],
-      "generatedAt": "2026-11-26T01:57:53+0900"
+      "generatedAt": "2026-11-26T13:37:59+0900"
     }
   },
-  "durationSeconds": 70.29,
+  "durationSeconds": 90.54,
   "blockingFailures": []
 }

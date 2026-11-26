@@ -18,6 +18,21 @@ export const NETWORK_LABEL: Record<NetworkId, string> = {
   devnet: 'Devnet',
 }
 
+/**
+ * The network name an exchange's withdraw screen shows. "Solana Mainnet" is a
+ * developer's label; on a withdrawal form the same chain is listed as
+ * `Solana (SOL)` — next to ERC20/BEP20 choices, which this address cannot take.
+ * Devnet keeps its own name because it is a different, test-only chain.
+ */
+export const NETWORK_DISPLAY_NAME: Record<NetworkId, string> = {
+  mainnet: 'Solana (SOL · SPL)',
+  devnet: 'Solana Devnet',
+}
+
+export function networkDisplayName(network: NetworkId): string {
+  return NETWORK_DISPLAY_NAME[network] ?? NETWORK_DISPLAY_NAME.mainnet
+}
+
 /** Copy-paste example shown in Settings so nobody has to guess the format. */
 export const RPC_EXAMPLE: Record<NetworkId, string> = {
   mainnet: 'https://mainnet.helius-rpc.com/?api-key=YOUR_KEY',

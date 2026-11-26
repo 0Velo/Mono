@@ -4,7 +4,7 @@ import { ArrowDownUp, Check, ChevronDown, ExternalLink, Info, Loader2 } from 'lu
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { TokenIcon } from '../components/ui'
-import { showToast } from '../components/Toast'
+
 import {
   cx,
   formatAmount,
@@ -34,6 +34,7 @@ import {
   withPendingTransactionLock,
   type PendingTransaction,
 } from '../lib/pendingTx'
+import { useWallet } from '../state/WalletProvider'
 
 interface SwapProps {
   portfolio: Portfolio | null
@@ -133,6 +134,23 @@ export default function Swap({
   const statusCheckRef = useRef(false)
   const reportedSignatureRef = useRef<string | null>(null)
   const owner = keypair?.publicKey.toBase58() ?? ''
+
+  // A swap signs with a key that the PIN check released for this action only.
+  const { requestAuth, endAuthSession } = useWallet()
+  const signerRef = useRef<Keypair | null>(null)
+  const endAuthRef = useRef(endAuthSession)
+  endAuthRef.current = endAuthSession
+  useEffect(() => () => endAuthRef.current(), [])
+
+  useEffect(() => {
+    if (step !== 'done') return
+    signerRef.current = null
+    endAuthRef.current()
+  }, [step])
+
+  useEffect(() => {
+    if (step === 'form') signerRef.current = null
+  }, [step])
 
   const discardPrepared = () => {
     previewGeneration.current += 1
@@ -323,15 +341,18 @@ export default function Swap({
   }
 
   const preparePreview = useCallback(async () => {
-    if (!connection || !keypair || !quote || preparing || inFlightRef.current) return
-    const activeOwner = keypair.publicKey.toBase58()
+    if (!connection || !quote || preparing || inFlightRef.current) return
+    const signer = keypair ?? signerRef.current ?? (await requestAuth('swap'))
+    if (!signer) return
+    signerRef.current = signer
+    const activeOwner = signer.publicKey.toBase58()
     const generation = ++previewGeneration.current
     inFlightRef.current = true
     setPreparing(true)
     setSendError(null)
     try {
       const built = await fetchSwapTransaction(quote, activeOwner)
-      const prepared = await prepareSwap({ connection, keypair, built, quote })
+      const prepared = await prepareSwap({ connection, keypair: signer, built, quote })
       if (generation !== previewGeneration.current) return
       preparedRef.current = prepared
       preparedNetworkRef.current = network
@@ -346,12 +367,15 @@ export default function Swap({
       setPreparing(false)
       inFlightRef.current = false
     }
-  }, [connection, keypair, quote, preparing, network])
+  }, [connection, keypair, quote, preparing, network, requestAuth])
 
   const execute = useCallback(async () => {
-    if (!connection || !keypair || !quote || sending || inFlightRef.current) return
+    if (!connection || !quote || sending || inFlightRef.current) return
+    const signer = keypair ?? signerRef.current ?? (await requestAuth('swap'))
+    if (!signer) return
+    signerRef.current = signer
     const prepared = preparedRef.current
-    const activeOwner = keypair.publicKey.toBase58()
+    const activeOwner = signer.publicKey.toBase58()
     if (
       !prepared ||
       !preview ||
@@ -396,7 +420,7 @@ export default function Swap({
           onTerminal: () => clearPendingTransaction(activeOwner, network, persistedSignature),
         }
         try {
-          const sig = await signPreparedSwap({ connection, keypair, prepared, quote, hooks })
+          const sig = await signPreparedSwap({ connection, keypair: signer, prepared, quote, hooks })
           discardPrepared()
           setSignature(sig)
           setResolution('confirmed')
@@ -453,7 +477,7 @@ export default function Swap({
       setSending(false)
       inFlightRef.current = false
     }
-  }, [connection, keypair, quote, sending, onDone, network, checkPending, inputAsset, outputAsset, baseUnits, preview])
+  }, [connection, keypair, quote, sending, onDone, network, checkPending, inputAsset, outputAsset, baseUnits, preview, requestAuth])
 
   const canQuote = Boolean(
     quote && !quoting && baseUnits > 0n && !insufficient && !sameToken && network === 'mainnet' && !pendingTx,
@@ -713,8 +737,8 @@ export default function Swap({
 
         <div className="mt-5">
           {!keypair ? (
-            <Button full variant="secondary" onClick={() => showToast('지갑이 잠겨 있습니다')}>
-              잠금 해제가 필요합니다
+            <Button full variant="secondary" onClick={() => void requestAuth('swap')} id="swap-auth">
+              PIN 확인하고 계속
             </Button>
           ) : (
             <Button

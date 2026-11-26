@@ -38,7 +38,7 @@ import {
   TxOutcomeError,
 } from '../lib/tx'
 import type { TransactionPreview } from '../lib/transactionPreview'
-import { explorerTx, type NetworkId } from '../lib/rpc'
+import { explorerTx, networkDisplayName, type NetworkId } from '../lib/rpc'
 import {
   clearPendingTransaction,
   readPendingTransaction,
@@ -123,8 +123,11 @@ export function SendSheet({
   const reportedSignatureRef = useRef<string | null>(null)
 
   const book = useAddressBook()
-  const { accounts } = useWallet()
+  const { accounts, requestAuth, endAuthSession } = useWallet()
   const owner = keypair?.publicKey.toBase58() ?? ''
+  // The key that a PIN check supplied for this send. It is released as soon as
+  // the send reaches a result or the sheet closes.
+  const signerRef = useRef<Keypair | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -172,6 +175,20 @@ export function SendSheet({
     preparedConnectionRef.current = null
     setPreview(null)
   }
+
+  // Leaving the send screen always drops a key that the PIN check supplied.
+  useEffect(() => {
+    if (open) return
+    signerRef.current = null
+    endAuthSession()
+  }, [open, endAuthSession])
+
+  // A finished send needs no key any more.
+  useEffect(() => {
+    if (step !== 'done') return
+    signerRef.current = null
+    endAuthSession()
+  }, [step, endAuthSession])
 
   const asset = assets.find((item) => item.key === mint) ?? assets[0]
   const baseUnits = asset ? toBaseUnits(amount, asset.decimals) : 0n
@@ -382,7 +399,7 @@ export function SendSheet({
   }
 
   const goConfirm = async () => {
-    if (!connection || !asset || !keypair) return
+    if (!connection || !asset) return
     if (!recipientValid) {
       setError('받는 주소가 올바르지 않습니다.')
       return
@@ -401,12 +418,17 @@ export function SendSheet({
     }
     setError(null)
     discardPrepared()
+    // With auto-login on this sheet opened without a key: sending is the action
+    // that asks for the PIN, and only then is the vault decrypted.
+    const signer = keypair ?? (await requestAuth('send'))
+    if (!signer) return
+    signerRef.current = signer
     setStep('preparing')
     try {
       const estimate = await estimateFee(
         connection,
         asset.isSol ? 'sol' : 'spl',
-        keypair.publicKey,
+        signer.publicKey,
         asset.isSol ? null : asset.mint,
         recipient,
       )
@@ -429,10 +451,10 @@ export function SendSheet({
         return
       }
       const prepared = asset.isSol
-        ? await prepareSolSend(connection, keypair, recipient.trim(), baseUnits, normalizedMemo)
+        ? await prepareSolSend(connection, signer, recipient.trim(), baseUnits, normalizedMemo)
         : await prepareSplSend(
             connection,
-            keypair,
+            signer,
             asset.mint,
             recipient.trim(),
             baseUnits,
@@ -478,10 +500,11 @@ export function SendSheet({
   }
 
   const submit = async () => {
-    if (!connection || !keypair || !asset) return
+    const signer = keypair ?? signerRef.current
+    if (!connection || !signer || !asset) return
     if (inFlightRef.current) return
     const prepared = preparedRef.current
-    const activeOwner = keypair.publicKey.toBase58()
+    const activeOwner = signer.publicKey.toBase58()
     if (
       !prepared ||
       !preview ||
@@ -553,7 +576,7 @@ export function SendSheet({
         try {
           let sig: string
           sig = await Promise.race([
-            signPreparedSend(connection, prepared, keypair, hooks),
+            signPreparedSend(connection, prepared, signer, hooks),
             overallDeadline,
           ])
           setSignature(sig)
@@ -626,6 +649,8 @@ export function SendSheet({
       return
     }
     discardPrepared()
+    signerRef.current = null
+    endAuthSession()
     onClose()
   }
 
@@ -978,7 +1003,7 @@ export function SendSheet({
             <div className="flex items-center justify-between">
               <span className="text-[12.5px] text-muted">네트워크</span>
               <span className="text-[12.5px] text-ink">
-                {network === 'mainnet' ? 'Solana Mainnet' : 'Solana Devnet'}
+                {networkDisplayName(network)}
               </span>
             </div>
             <div className="flex items-center justify-between">

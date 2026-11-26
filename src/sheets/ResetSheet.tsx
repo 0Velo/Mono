@@ -11,7 +11,7 @@ interface ResetSheetProps {
 }
 
 export function ResetSheet({ open, onClose }: ResetSheetProps) {
-  const { resetWallet } = useWallet()
+  const { resetWallet, requestAuth } = useWallet()
   const [ack, setAck] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +53,10 @@ export function ResetSheet({ open, onClose }: ResetSheetProps) {
             setBusy(true)
             setError(null)
             try {
+              // Deleting the wallet is destructive: prove the PIN first when the
+              // app is open in the read-only auto-login mode.
+              const signer = await requestAuth('reset')
+              if (!signer) return
               await resetWallet()
               onClose()
             } catch (reason) {

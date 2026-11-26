@@ -37,7 +37,7 @@ function SecureContextGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { ready, initializationError, vaultExists, unlocked, meta } = useWallet()
+  const { ready, initializationError, vaultExists, unlocked, canView, meta } = useWallet()
   const [monitorEnabled, setMonitorEnabled] = useState(isActivityNotificationsEnabled)
   const [updateAvailable, setUpdateAvailable] = useState(false)
 
@@ -86,7 +86,9 @@ export default function App() {
     // 우주선이 외계인을 키패드 위 마스코트 자리로 내려놓고 떠나고, 잠금
     // 화면의 진짜 `MonoMark`가 그 자리를 이어받는다. 온보딩 첫 방문(지갑 없음)
     // 이거나 모션을 줄여 달라고 한 경우에는 기존 마무리(발진 + 워드마크) 그대로.
-    if (vaultExists && !unlocked) beginSplashLanding()
+    // 조회 자동 로그인으로 바로 홈에 들어가는 경우에는 착륙할 키패드가 없으니
+    // 기본 마무리를 쓴다.
+    if (vaultExists && !canView) beginSplashLanding()
     hideAppSplash()
   }, [ready])
 
@@ -135,7 +137,7 @@ export default function App() {
     <SecureContextGate>
       {!vaultExists ? (
         <Onboarding />
-      ) : !unlocked ? (
+      ) : !canView ? (
         <LockScreen />
       ) : (
         <Suspense fallback={<ShellSkeleton />}>

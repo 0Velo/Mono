@@ -1,1415 +1,1262 @@
 TAP version 13
-# (node:524) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:543) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: a native SOL transfer in reads as an incoming deposit
 ok 1 - a native SOL transfer in reads as an incoming deposit
   ---
-  duration_ms: 1.144295
-  type: 'test'
+  duration_ms: 1.426901
   ...
 # Subtest: an outgoing SOL transfer reports the amount without the network fee
 ok 2 - an outgoing SOL transfer reports the amount without the network fee
   ---
-  duration_ms: 0.146268
-  type: 'test'
+  duration_ms: 0.25132
   ...
 # Subtest: a fee-only transaction is not announced
 ok 3 - a fee-only transaction is not announced
   ---
-  duration_ms: 0.136281
-  type: 'test'
+  duration_ms: 0.120731
   ...
 # Subtest: an SPL transfer in and out use the token symbol and decimals
 ok 4 - an SPL transfer in and out use the token symbol and decimals
   ---
-  duration_ms: 0.38132
-  type: 'test'
+  duration_ms: 0.341182
   ...
 # Subtest: a token-to-token swap is one "스왑 완료" event, not a deposit plus a withdrawal
 ok 5 - a token-to-token swap is one "스왑 완료" event, not a deposit plus a withdrawal
   ---
-  duration_ms: 0.255525
-  type: 'test'
+  duration_ms: 0.320876
   ...
 # Subtest: a swap that spends SOL for a token is still a swap
 ok 6 - a swap that spends SOL for a token is still a swap
   ---
-  duration_ms: 0.184365
-  type: 'test'
+  duration_ms: 0.116748
   ...
 # Subtest: an unknown mint falls back to a short uppercase tag, never a full address
 ok 7 - an unknown mint falls back to a short uppercase tag, never a full address
   ---
-  duration_ms: 0.162067
-  type: 'test'
+  duration_ms: 0.131382
   ...
 # Subtest: failed and not-yet-detailed transactions are never announced
 ok 8 - failed and not-yet-detailed transactions are never announced
   ---
-  duration_ms: 0.090087
-  type: 'test'
+  duration_ms: 0.076562
   ...
 # Subtest: the first read only records a baseline and announces nothing
 ok 9 - the first read only records a baseline and announces nothing
   ---
-  duration_ms: 1.03304
-  type: 'test'
+  duration_ms: 0.680963
   ...
 # Subtest: after the baseline, only a new signature is announced and it is announced once
 ok 10 - after the baseline, only a new signature is announced and it is announced once
   ---
-  duration_ms: 0.440036
-  type: 'test'
+  duration_ms: 0.353646
   ...
 # Subtest: several new transactions are announced oldest first
 ok 11 - several new transactions are announced oldest first
   ---
-  duration_ms: 0.209948
-  type: 'test'
+  duration_ms: 0.172812
   ...
 # Subtest: a transaction whose details are not loaded yet is retried instead of being swallowed
 ok 12 - a transaction whose details are not loaded yet is retried instead of being swallowed
   ---
-  duration_ms: 0.115661
-  type: 'test'
+  duration_ms: 0.103146
   ...
 # Subtest: the seen list stays bounded so localStorage cannot grow without limit
 ok 13 - the seen list stays bounded so localStorage cannot grow without limit
   ---
-  duration_ms: 0.209984
-  type: 'test'
+  duration_ms: 0.19988
   ...
 # Subtest: iPhone user agents are recognised so the UI can ask for a Home Screen install
 ok 14 - iPhone user agents are recognised so the UI can ask for a Home Screen install
   ---
-  duration_ms: 0.134888
-  type: 'test'
+  duration_ms: 0.119062
   ...
-# (node:531) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# Subtest: auto-login is off unless the stored value is exactly true
+ok 15 - auto-login is off unless the stored value is exactly true
+  ---
+  duration_ms: 1.12211
+  ...
+# Subtest: the choice survives a metadata round trip and junk keeps it off
+ok 16 - the choice survives a metadata round trip and junk keeps it off
+  ---
+  duration_ms: 0.923238
+  ...
+# Subtest: a launch opens the read-only home only with a vault and the setting on
+ok 17 - a launch opens the read-only home only with a vault and the setting on
+  ---
+  duration_ms: 0.529963
+  ...
+# Subtest: wiping a key leaves the read-only home when auto-login is on, else the lock screen
+ok 18 - wiping a key leaves the read-only home when auto-login is on, else the lock screen
+  ---
+  duration_ms: 0.485983
+  ...
+# Subtest: every action that needs the key asks for the PIN, and unknown asks too
+ok 19 - every action that needs the key asks for the PIN, and unknown asks too
+  ---
+  duration_ms: 0.30987
+  ...
+# Subtest: each gated action explains itself in one line
+ok 20 - each gated action explains itself in one line
+  ---
+  duration_ms: 0.227453
+  ...
+# Subtest: a PIN grant expires on its own
+ok 21 - a PIN grant expires on its own
+  ---
+  duration_ms: 1.089055
+  ...
+# Subtest: releasing the key zeroes the secret bytes in place
+ok 22 - releasing the key zeroes the secret bytes in place
+  ---
+  duration_ms: 0.269522
+  ...
+# Subtest: accounts are listed from public metadata alone
+ok 23 - accounts are listed from public metadata alone
+  ---
+  duration_ms: 0.814098
+  ...
+# Subtest: the stored address registry rejects anything that is not a derived address
+ok 24 - the stored address registry rejects anything that is not a derived address
+  ---
+  duration_ms: 0.423566
+  ...
+# Subtest: the provider enters read-only mode without decrypting anything
+ok 25 - the provider enters read-only mode without decrypting anything
+  ---
+  duration_ms: 2.409541
+  ...
+# Subtest: every sensitive action goes through requestAuth before it signs
+ok 26 - every sensitive action goes through requestAuth before it signs
+  ---
+  duration_ms: 21.298486
+  ...
+# Subtest: the app shows the shell when read-only and never leaves the seed on screen
+ok 27 - the app shows the shell when read-only and never leaves the seed on screen
+  ---
+  duration_ms: 2.896904
+  ...
+# Subtest: token detail offers 보내기·받기·스왑 in one row and wires 받기 to the receive sheet
+ok 28 - token detail offers 보내기·받기·스왑 in one row and wires 받기 to the receive sheet
+  ---
+  duration_ms: 5.202697
+  ...
+# Subtest: the receive screen names the network the way an exchange does
+ok 29 - the receive screen names the network the way an exchange does
+  ---
+  duration_ms: 6.025631
+  ...
+# (node:565) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: an exported backup file contains no seed words, key material or PIN
-ok 15 - an exported backup file contains no seed words, key material or PIN
+ok 30 - an exported backup file contains no seed words, key material or PIN
   ---
-  duration_ms: 116.992084
-  type: 'test'
+  duration_ms: 131.517413
   ...
 # Subtest: export → parse → decrypt reproduces the original secret payload
-ok 16 - export → parse → decrypt reproduces the original secret payload
+ok 31 - export → parse → decrypt reproduces the original secret payload
   ---
-  duration_ms: 110.709635
-  type: 'test'
+  duration_ms: 112.805726
   ...
 # Subtest: optional account metadata survives backup parsing without exposing secret material
-ok 17 - optional account metadata survives backup parsing without exposing secret material
+ok 32 - optional account metadata survives backup parsing without exposing secret material
   ---
-  duration_ms: 41.34736
-  type: 'test'
+  duration_ms: 38.644409
   ...
 # Subtest: a wrong PIN cannot restore a backup file
-ok 18 - a wrong PIN cannot restore a backup file
+ok 33 - a wrong PIN cannot restore a backup file
   ---
-  duration_ms: 67.978416
-  type: 'test'
+  duration_ms: 90.637556
   ...
 # Subtest: a tampered backup ciphertext is rejected on restore
-ok 19 - a tampered backup ciphertext is rejected on restore
+ok 34 - a tampered backup ciphertext is rejected on restore
   ---
-  duration_ms: 63.318233
-  type: 'test'
+  duration_ms: 75.71978
   ...
 # Subtest: a backup whose iteration count was lowered to speed up brute force still fails
-ok 20 - a backup whose iteration count was lowered to speed up brute force still fails
+ok 35 - a backup whose iteration count was lowered to speed up brute force still fails
   ---
-  duration_ms: 30.908256
-  type: 'test'
+  duration_ms: 38.011106
   ...
 # Subtest: non-backup files are rejected with a readable message
-ok 21 - non-backup files are rejected with a readable message
+ok 36 - non-backup files are rejected with a readable message
   ---
-  duration_ms: 0.390876
-  type: 'test'
+  duration_ms: 0.305855
   ...
 # Subtest: the backup file name is date-stamped and .json
-ok 22 - the backup file name is date-stamped and .json
+ok 37 - the backup file name is date-stamped and .json
   ---
-  duration_ms: 1.899311
-  type: 'test'
+  duration_ms: 1.420038
   ...
 # Subtest: bigint-buffer replacement preserves little- and big-endian conversions
-ok 23 - bigint-buffer replacement preserves little- and big-endian conversions
+ok 38 - bigint-buffer replacement preserves little- and big-endian conversions
   ---
-  duration_ms: 1.372187
-  type: 'test'
+  duration_ms: 2.626703
   ...
 # Subtest: ESM and CommonJS entry points produce the same results
-ok 24 - ESM and CommonJS entry points produce the same results
+ok 39 - ESM and CommonJS entry points produce the same results
   ---
-  duration_ms: 0.338878
-  type: 'test'
+  duration_ms: 0.30346
   ...
 # Subtest: bigint-buffer replacement rejects non-Buffer inputs before conversion
-ok 25 - bigint-buffer replacement rejects non-Buffer inputs before conversion
+ok 40 - bigint-buffer replacement rejects non-Buffer inputs before conversion
   ---
-  duration_ms: 0.495241
-  type: 'test'
+  duration_ms: 0.416651
   ...
 # Subtest: bigint-buffer replacement safely converts large valid buffers without native code
-ok 26 - bigint-buffer replacement safely converts large valid buffers without native code
+ok 41 - bigint-buffer replacement safely converts large valid buffers without native code
   ---
-  duration_ms: 2.660858
-  type: 'test'
+  duration_ms: 2.298483
   ...
 # Subtest: bigint-buffer replacement rejects invalid widths, negative values, and overflow
-ok 27 - bigint-buffer replacement rejects invalid widths, negative values, and overflow
+ok 42 - bigint-buffer replacement rejects invalid widths, negative values, and overflow
   ---
-  duration_ms: 0.206743
-  type: 'test'
+  duration_ms: 0.271797
   ...
-# (node:549) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:587) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path
-ok 28 - DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path
+ok 43 - DEFAULT_DERIVATION_PATH is the Phantom-compatible hardened path
   ---
-  duration_ms: 0.672604
-  type: 'test'
+  duration_ms: 0.52913
   ...
 # Subtest: derived addresses match the independent Python oracle for 12 and 24 words
-ok 29 - derived addresses match the independent Python oracle for 12 and 24 words
+ok 44 - derived addresses match the independent Python oracle for 12 and 24 words
   ---
-  duration_ms: 172.079586
-  type: 'test'
+  duration_ms: 146.188922
   ...
 # Subtest: the well-known BIP39 test phrase derives the published Phantom address
-ok 30 - the well-known BIP39 test phrase derives the published Phantom address
+ok 45 - the well-known BIP39 test phrase derives the published Phantom address
   ---
-  duration_ms: 8.105828
-  type: 'test'
+  duration_ms: 7.240409
   ...
 # Subtest: accountPath hardens both the 501 and the account index
-ok 31 - accountPath hardens both the 501 and the account index
+ok 46 - accountPath hardens both the 501 and the account index
   ---
-  duration_ms: 0.220449
-  type: 'test'
+  duration_ms: 0.20776
   ...
 # Subtest: deriveAccounts derives exactly what keypairForAccount derives, per index
-ok 32 - deriveAccounts derives exactly what keypairForAccount derives, per index
+ok 47 - deriveAccounts derives exactly what keypairForAccount derives, per index
   ---
-  duration_ms: 43.925342
-  type: 'test'
+  duration_ms: 41.417506
   ...
 # Subtest: parseDerivationPath rejects non-numeric and out-of-range segments
-ok 33 - parseDerivationPath rejects non-numeric and out-of-range segments
+ok 48 - parseDerivationPath rejects non-numeric and out-of-range segments
   ---
-  duration_ms: 0.442995
-  type: 'test'
+  duration_ms: 0.335338
   ...
 # Subtest: ed25519 derivation refuses non-hardened segments (SLIP-0010 has no public derivation)
-ok 34 - ed25519 derivation refuses non-hardened segments (SLIP-0010 has no public derivation)
+ok 49 - ed25519 derivation refuses non-hardened segments (SLIP-0010 has no public derivation)
   ---
-  duration_ms: 0.645571
-  type: 'test'
+  duration_ms: 1.740436
   ...
 # Subtest: secretPayloadFromMnemonic stores the hardened Phantom path
-ok 35 - secretPayloadFromMnemonic stores the hardened Phantom path
+ok 50 - secretPayloadFromMnemonic stores the hardened Phantom path
   ---
-  duration_ms: 0.163629
-  type: 'test'
+  duration_ms: 0.190073
   ...
 # Subtest: security gate passes a clean dependency audit
-ok 36 - security gate passes a clean dependency audit
+ok 51 - security gate passes a clean dependency audit
   ---
-  duration_ms: 75.126801
-  type: 'test'
+  duration_ms: 73.076052
   ...
 # Subtest: security gate blocks a direct high advisory even when its ID is listed as accepted
-ok 37 - security gate blocks a direct high advisory even when its ID is listed as accepted
+ok 52 - security gate blocks a direct high advisory even when its ID is listed as accepted
   ---
-  duration_ms: 64.942197
-  type: 'test'
+  duration_ms: 67.478635
   ...
 # Subtest: security gate blocks transitive high advisories as well as direct advisories
-ok 38 - security gate blocks transitive high advisories as well as direct advisories
+ok 53 - security gate blocks transitive high advisories as well as direct advisories
   ---
-  duration_ms: 66.031591
-  type: 'test'
+  duration_ms: 65.728415
   ...
 # Subtest: security gate blocks audit evidence whose reported high count disagrees with its records
-ok 39 - security gate blocks audit evidence whose reported high count disagrees with its records
+ok 54 - security gate blocks audit evidence whose reported high count disagrees with its records
   ---
-  duration_ms: 67.319808
-  type: 'test'
+  duration_ms: 66.092713
   ...
 # Subtest: security gate blocks an expired exception
-ok 40 - security gate blocks an expired exception
+ok 55 - security gate blocks an expired exception
   ---
-  duration_ms: 68.55427
-  type: 'test'
+  duration_ms: 69.22388
   ...
 # Subtest: security gate blocks missing or malformed audit evidence
-ok 41 - security gate blocks missing or malformed audit evidence
+ok 56 - security gate blocks missing or malformed audit evidence
   ---
-  duration_ms: 67.988402
-  type: 'test'
+  duration_ms: 68.508364
   ...
 # Subtest: security gate blocks when built-app UI evidence is missing
-ok 42 - security gate blocks when built-app UI evidence is missing
+ok 57 - security gate blocks when built-app UI evidence is missing
   ---
-  duration_ms: 69.991262
-  type: 'test'
+  duration_ms: 67.433184
   ...
 # Subtest: database upgrade preserves old authentication records and read aborts reject
-ok 43 - database upgrade preserves old authentication records and read aborts reject
+ok 58 - database upgrade preserves old authentication records and read aborts reject
   ---
-  duration_ms: 2.10337
-  type: 'test'
+  duration_ms: 1.610065
   ...
-# (node:619) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:697) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: no memo means no instruction at all
-ok 44 - no memo means no instruction at all
+ok 59 - no memo means no instruction at all
   ---
-  duration_ms: 1.015083
-  type: 'test'
+  duration_ms: 0.96059
   ...
 # Subtest: the memo instruction targets the Memo program and touches no account
-ok 45 - the memo instruction targets the Memo program and touches no account
+ok 60 - the memo instruction targets the Memo program and touches no account
   ---
-  duration_ms: 1.2059
-  type: 'test'
+  duration_ms: 1.069987
   ...
 # Subtest: memo text is sanitised and bounded before it reaches the chain
-ok 46 - memo text is sanitised and bounded before it reaches the chain
+ok 61 - memo text is sanitised and bounded before it reaches the chain
   ---
-  duration_ms: 0.283165
-  type: 'test'
+  duration_ms: 0.264964
   ...
 # Subtest: the memo program id is a real 32-byte public key
-ok 47 - the memo program id is a real 32-byte public key
+ok 62 - the memo program id is a real 32-byte public key
   ---
-  duration_ms: 0.183752
-  type: 'test'
+  duration_ms: 0.34648
   ...
 # Subtest: pending transaction records round-trip by owner and network
-ok 48 - pending transaction records round-trip by owner and network
+ok 63 - pending transaction records round-trip by owner and network
   ---
-  duration_ms: 3.049389
-  type: 'test'
+  duration_ms: 2.559509
   ...
 # Subtest: corrupt pending JSON blocks a new transaction
-ok 49 - corrupt pending JSON blocks a new transaction
+ok 64 - corrupt pending JSON blocks a new transaction
   ---
-  duration_ms: 0.521727
-  type: 'test'
+  duration_ms: 0.477811
   ...
 # Subtest: unavailable storage blocks reads and writes rather than allowing a broadcast
-ok 50 - unavailable storage blocks reads and writes rather than allowing a broadcast
+ok 65 - unavailable storage blocks reads and writes rather than allowing a broadcast
   ---
-  duration_ms: 0.319775
-  type: 'test'
+  duration_ms: 0.276301
   ...
 # Subtest: a failed marker deletion is surfaced so the next send remains blocked
-ok 51 - a failed marker deletion is surfaced so the next send remains blocked
+ok 66 - a failed marker deletion is surfaced so the next send remains blocked
   ---
-  duration_ms: 0.351386
-  type: 'test'
+  duration_ms: 0.262019
   ...
 # Subtest: an existing uncertain signature cannot be overwritten by a later attempt
-ok 52 - an existing uncertain signature cannot be overwritten by a later attempt
+ok 67 - an existing uncertain signature cannot be overwritten by a later attempt
   ---
-  duration_ms: 0.573221
-  type: 'test'
+  duration_ms: 0.556296
   ...
 # Subtest: a stale terminal check cannot delete a newer signature marker
-ok 53 - a stale terminal check cannot delete a newer signature marker
+ok 68 - a stale terminal check cannot delete a newer signature marker
   ---
-  duration_ms: 0.317103
-  type: 'test'
+  duration_ms: 0.317981
   ...
 # Subtest: the same owner/network lock excludes concurrent send and swap workflows
-ok 54 - the same owner/network lock excludes concurrent send and swap workflows
+ok 69 - the same owner/network lock excludes concurrent send and swap workflows
   ---
-  duration_ms: 0.576922
-  type: 'test'
+  duration_ms: 0.478975
   ...
 # Subtest: a pending signature is returned without running another operation
-ok 55 - a pending signature is returned without running another operation
+ok 70 - a pending signature is returned without running another operation
   ---
-  duration_ms: 0.384081
-  type: 'test'
+  duration_ms: 0.377643
   ...
 # Subtest: an error after signature persistence releases the lock but preserves the blocking signature
-ok 56 - an error after signature persistence releases the lock but preserves the blocking signature
+ok 71 - an error after signature persistence releases the lock but preserves the blocking signature
   ---
-  duration_ms: 1.673125
-  type: 'test'
+  duration_ms: 1.382581
   ...
 # Subtest: browsers without Web Locks fail closed instead of starting a send
-ok 57 - browsers without Web Locks fail closed instead of starting a send
+ok 72 - browsers without Web Locks fail closed instead of starting a send
   ---
-  duration_ms: 0.474619
-  type: 'test'
+  duration_ms: 0.377163
   ...
 # Subtest: tampered owner, network, or missing validity height is rejected
-ok 58 - tampered owner, network, or missing validity height is rejected
+ok 73 - tampered owner, network, or missing validity height is rejected
   ---
-  duration_ms: 0.295713
-  type: 'test'
+  duration_ms: 0.252226
   ...
-# (node:633) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:719) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: push API accepts one HTTPS base and rejects insecure or credential-bearing URLs
-ok 59 - push API accepts one HTTPS base and rejects insecure or credential-bearing URLs
+ok 74 - push API accepts one HTTPS base and rejects insecure or credential-bearing URLs
   ---
-  duration_ms: 1.875871
-  type: 'test'
+  duration_ms: 0.859767
   ...
 # Subtest: subscription serializer accepts only an HTTPS endpoint and the two required keys
-ok 60 - subscription serializer accepts only an HTTPS endpoint and the two required keys
+ok 75 - subscription serializer accepts only an HTTPS endpoint and the two required keys
   ---
-  duration_ms: 1.084558
-  type: 'test'
+  duration_ms: 0.495958
   ...
+# (node:719) ExperimentalWarning: The Ed25519 Web Crypto API algorithm is an experimental feature and might change at any time
 # Subtest: association canonicalization hashes endpoint and management token and subscription ID hashes endpoint
-ok 61 - association canonicalization hashes endpoint and management token and subscription ID hashes endpoint
+ok 76 - association canonicalization hashes endpoint and management token and subscription ID hashes endpoint
   ---
-  duration_ms: 79.718656
-  type: 'test'
+  duration_ms: 52.823715
   ...
 # Subtest: Ed25519 association signature verifies against the synthetic wallet public key only
-ok 62 - Ed25519 association signature verifies against the synthetic wallet public key only
+ok 77 - Ed25519 association signature verifies against the synthetic wallet public key only
   ---
-  duration_ms: 5.273203
-  type: 'test'
+  duration_ms: 4.154154
   ...
 # Subtest: association sync posts only contract fields and persists the association after success
-ok 63 - association sync posts only contract fields and persists the association after success
+ok 78 - association sync posts only contract fields and persists the association after success
   ---
-  duration_ms: 2.168338
-  type: 'test'
+  duration_ms: 1.470777
   ...
 # Subtest: client registration payloads for both networks are accepted by the Worker contract
-ok 64 - client registration payloads for both networks are accepted by the Worker contract
+ok 79 - client registration payloads for both networks are accepted by the Worker contract
   ---
-  duration_ms: 26.354972
-  type: 'test'
+  duration_ms: 22.8984
   ...
 # Subtest: stale wallet/network sync stops after signing and never posts
-ok 65 - stale wallet/network sync stops after signing and never posts
+ok 80 - stale wallet/network sync stops after signing and never posts
   ---
-  duration_ms: 1.909401
-  type: 'test'
+  duration_ms: 1.373102
   ...
 # Subtest: activity monitor and token detail hold data to their current scopes and show unknown while loading
-ok 66 - activity monitor and token detail hold data to their current scopes and show unknown while loading
+ok 81 - activity monitor and token detail hold data to their current scopes and show unknown while loading
   ---
-  duration_ms: 8.013442
-  type: 'test'
+  duration_ms: 6.043584
   ...
-# (node:644) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:730) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: deployed server answers the client config probe with a 65-byte VAPID key
-ok 67 - deployed server answers the client config probe with a 65-byte VAPID key
+ok 82 - deployed server answers the client config probe with a 65-byte VAPID key
   ---
-  duration_ms: 16.738589
-  type: 'test'
+  duration_ms: 14.601979
   ...
+# (node:730) ExperimentalWarning: The Ed25519 Web Crypto API algorithm is an experimental feature and might change at any time
 # Subtest: a real client-signed registration is accepted and can be revoked by its management token
-ok 68 - a real client-signed registration is accepted and can be revoked by its management token
+ok 83 - a real client-signed registration is accepted and can be revoked by its management token
   ---
-  duration_ms: 78.248539
-  type: 'test'
+  duration_ms: 67.724561
   ...
 # Subtest: a foreign origin and an unsigned request are refused without writing
-ok 69 - a foreign origin and an unsigned request are refused without writing
+ok 84 - a foreign origin and an unsigned request are refused without writing
   ---
-  duration_ms: 1.069266
-  type: 'test'
+  duration_ms: 0.976202
   ...
 # Subtest: a server without its database fails closed instead of accepting registrations
-ok 70 - a server without its database fails closed instead of accepting registrations
+ok 85 - a server without its database fails closed instead of accepting registrations
   ---
-  duration_ms: 0.312965
-  type: 'test'
+  duration_ms: 0.306581
   ...
-# (node:655) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:741) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: an empty, unfrozen, self-closable account is offered
-ok 71 - an empty, unfrozen, self-closable account is offered
+ok 86 - an empty, unfrozen, self-closable account is offered
   ---
-  duration_ms: 0.779244
-  type: 'test'
+  duration_ms: 0.639247
   ...
 # Subtest: an account with tokens is never offered, not even a single base unit
-ok 72 - an account with tokens is never offered, not even a single base unit
+ok 87 - an account with tokens is never offered, not even a single base unit
   ---
-  duration_ms: 0.125732
-  type: 'test'
+  duration_ms: 0.089478
   ...
 # Subtest: a frozen account is left alone
-ok 73 - a frozen account is left alone
+ok 88 - a frozen account is left alone
   ---
-  duration_ms: 0.09237
-  type: 'test'
+  duration_ms: 0.156267
   ...
 # Subtest: an account whose close authority is someone else is left alone
-ok 74 - an account whose close authority is someone else is left alone
+ok 89 - an account whose close authority is someone else is left alone
   ---
-  duration_ms: 0.09117
-  type: 'test'
+  duration_ms: 0.084477
   ...
 # Subtest: rent is summarised and the largest account comes first
-ok 75 - rent is summarised and the largest account comes first
+ok 90 - rent is summarised and the largest account comes first
   ---
-  duration_ms: 0.789183
-  type: 'test'
+  duration_ms: 0.470294
   ...
 # Subtest: chunks stay inside the per-transaction limit
-ok 76 - chunks stay inside the per-transaction limit
+ok 91 - chunks stay inside the per-transaction limit
   ---
-  duration_ms: 0.156432
-  type: 'test'
+  duration_ms: 0.123504
   ...
 # Subtest: each close instruction pays the rent to the wallet and uses the right token program
-ok 77 - each close instruction pays the rent to the wallet and uses the right token program
+ok 92 - each close instruction pays the rent to the wallet and uses the right token program
   ---
-  duration_ms: 0.658577
-  type: 'test'
+  duration_ms: 0.55646
   ...
 # Subtest: the on-chain lookup offers only the accounts that can safely be closed
-ok 78 - the on-chain lookup offers only the accounts that can safely be closed
+ok 93 - the on-chain lookup offers only the accounts that can safely be closed
   ---
-  duration_ms: 0.837929
-  type: 'test'
+  duration_ms: 0.685311
   ...
 # Subtest: a wallet with no token accounts yields an empty list
-ok 79 - a wallet with no token accounts yields an empty list
+ok 94 - a wallet with no token accounts yields an empty list
   ---
-  duration_ms: 0.436596
-  type: 'test'
+  duration_ms: 0.365312
   ...
 # Subtest: looksLikeRpc accepts https endpoints
-ok 80 - looksLikeRpc accepts https endpoints
+ok 95 - looksLikeRpc accepts https endpoints
   ---
-  duration_ms: 0.676013
-  type: 'test'
+  duration_ms: 0.756676
   ...
 # Subtest: looksLikeRpc refuses plain http (the RPC URL is typed in and can be remote)
-ok 81 - looksLikeRpc refuses plain http (the RPC URL is typed in and can be remote)
+ok 96 - looksLikeRpc refuses plain http (the RPC URL is typed in and can be remote)
   ---
-  duration_ms: 0.157814
-  type: 'test'
+  duration_ms: 0.120894
   ...
 # Subtest: looksLikeRpc refuses non-http schemes and junk
-ok 82 - looksLikeRpc refuses non-http schemes and junk
+ok 97 - looksLikeRpc refuses non-http schemes and junk
   ---
-  duration_ms: 1.07587
-  type: 'test'
+  duration_ms: 0.384678
   ...
 # Subtest: an empty custom RPC falls back to the official default per network
-ok 83 - an empty custom RPC falls back to the official default per network
+ok 98 - an empty custom RPC falls back to the official default per network
   ---
-  duration_ms: 0.233634
-  type: 'test'
+  duration_ms: 0.188209
   ...
 # Subtest: explorer links are always https and keep the query for devnet only
-ok 84 - explorer links are always https and keep the query for devnet only
+ok 99 - explorer links are always https and keep the query for devnet only
   ---
-  duration_ms: 0.292662
-  type: 'test'
+  duration_ms: 1.015324
   ...
-# (node:669) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:763) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: SOL: a send is affordable only if the amount plus the fee fits
-ok 85 - SOL: a send is affordable only if the amount plus the fee fits
+ok 100 - SOL: a send is affordable only if the amount plus the fee fits
   ---
-  duration_ms: 0.66625
-  type: 'test'
+  duration_ms: 0.848056
   ...
 # Subtest: SOL: more than the balance is the asset shortfall, not the fee
-ok 86 - SOL: more than the balance is the asset shortfall, not the fee
+ok 101 - SOL: more than the balance is the asset shortfall, not the fee
   ---
-  duration_ms: 0.10174
-  type: 'test'
+  duration_ms: 0.17934
   ...
 # Subtest: a zero or negative amount is refused
-ok 87 - a zero or negative amount is refused
+ok 102 - a zero or negative amount is refused
   ---
-  duration_ms: 0.086875
-  type: 'test'
+  duration_ms: 0.182728
   ...
 # Subtest: SPL: sending the whole token balance needs SOL for the fee and the new token account
-ok 88 - SPL: sending the whole token balance needs SOL for the fee and the new token account
+ok 103 - SPL: sending the whole token balance needs SOL for the fee and the new token account
   ---
-  duration_ms: 0.143007
-  type: 'test'
+  duration_ms: 0.162808
   ...
 # Subtest: SPL: a token amount above the balance is rejected before the fee is considered
-ok 89 - SPL: a token amount above the balance is rejected before the fee is considered
+ok 104 - SPL: a token amount above the balance is rejected before the fee is considered
   ---
-  duration_ms: 0.085131
-  type: 'test'
+  duration_ms: 0.111939
   ...
 # Subtest: the source uses the shared affordability check, not an inline balance compare
-ok 90 - the source uses the shared affordability check, not an inline balance compare
+ok 105 - the source uses the shared affordability check, not an inline balance compare
   ---
-  duration_ms: 3.161732
-  type: 'test'
+  duration_ms: 3.110843
   ...
 # Subtest: an own account is named by its number, not shown as a stranger
-ok 91 - an own account is named by its number, not shown as a stranger
+ok 106 - an own account is named by its number, not shown as a stranger
   ---
-  duration_ms: 2.594122
-  type: 'test'
+  duration_ms: 1.189034
   ...
 # Subtest: a renamed own account keeps the name
-ok 92 - a renamed own account keeps the name
+ok 107 - a renamed own account keeps the name
   ---
-  duration_ms: 0.24391
-  type: 'test'
+  duration_ms: 0.148217
   ...
 # Subtest: the active account says so, and is still a caution
-ok 93 - the active account says so, and is still a caution
+ok 108 - the active account says so, and is still a caution
   ---
-  duration_ms: 0.125577
-  type: 'test'
+  duration_ms: 0.930991
   ...
 # Subtest: an address-book entry shows its own label
-ok 94 - an address-book entry shows its own label
+ok 109 - an address-book entry shows its own label
   ---
-  duration_ms: 0.111682
-  type: 'test'
+  duration_ms: 0.163645
   ...
 # Subtest: an address seen for the first time is the caution chip
-ok 95 - an address seen for the first time is the caution chip
+ok 110 - an address seen for the first time is the caution chip
   ---
-  duration_ms: 0.099867
-  type: 'test'
+  duration_ms: 0.095048
   ...
 # Subtest: nothing is shown before an address exists
-ok 96 - nothing is shown before an address exists
+ok 111 - nothing is shown before an address exists
   ---
-  duration_ms: 0.090834
-  type: 'test'
+  duration_ms: 0.080431
   ...
 # Subtest: the SOL left after a transfer subtracts amount, fee and token-account rent
-ok 97 - the SOL left after a transfer subtracts amount, fee and token-account rent
+ok 112 - the SOL left after a transfer subtracts amount, fee and token-account rent
   ---
-  duration_ms: 0.118038
-  type: 'test'
+  duration_ms: 0.101561
   ...
 # Subtest: a transfer that cannot be paid shows a negative remainder
-ok 98 - a transfer that cannot be paid shows a negative remainder
+ok 113 - a transfer that cannot be paid shows a negative remainder
   ---
-  duration_ms: 0.178144
-  type: 'test'
+  duration_ms: 0.137906
   ...
 # Subtest: the near-zero warning fires below the rent-exempt minimum only
-ok 99 - the near-zero warning fires below the rent-exempt minimum only
+ok 114 - the near-zero warning fires below the rent-exempt minimum only
   ---
-  duration_ms: 0.236626
-  type: 'test'
+  duration_ms: 0.192435
   ...
 # Subtest: a bare address is accepted, a 31-byte look-alike is not
-ok 100 - a bare address is accepted, a 31-byte look-alike is not
+ok 115 - a bare address is accepted, a 31-byte look-alike is not
   ---
-  duration_ms: 2.171645
-  type: 'test'
+  duration_ms: 1.886047
   ...
 # Subtest: a transfer request carries address, amount, token and memo
-ok 101 - a transfer request carries address, amount, token and memo
+ok 116 - a transfer request carries address, amount, token and memo
   ---
-  duration_ms: 0.632661
-  type: 'test'
+  duration_ms: 0.587968
   ...
 # Subtest: a bare `solana:` URI without parameters is a plain address
-ok 102 - a bare `solana:` URI without parameters is a plain address
+ok 117 - a bare `solana:` URI without parameters is a plain address
   ---
-  duration_ms: 0.195328
-  type: 'test'
+  duration_ms: 0.202059
   ...
 # Subtest: amounts must be plain positive decimals
-ok 103 - amounts must be plain positive decimals
+ok 118 - amounts must be plain positive decimals
   ---
-  duration_ms: 0.23475
-  type: 'test'
+  duration_ms: 0.136811
   ...
 # Subtest: a request with an unusable amount is refused as a whole, not applied partially
-ok 104 - a request with an unusable amount is refused as a whole, not applied partially
+ok 119 - a request with an unusable amount is refused as a whole, not applied partially
   ---
-  duration_ms: 0.315311
-  type: 'test'
+  duration_ms: 0.446988
   ...
 # Subtest: an invalid token mint or address refuses the request
-ok 105 - an invalid token mint or address refuses the request
+ok 120 - an invalid token mint or address refuses the request
   ---
-  duration_ms: 0.141785
-  type: 'test'
+  duration_ms: 0.213814
   ...
 # Subtest: other links and schemes are not payment requests
-ok 106 - other links and schemes are not payment requests
+ok 121 - other links and schemes are not payment requests
   ---
-  duration_ms: 0.166148
-  type: 'test'
+  duration_ms: 0.138107
   ...
 # Subtest: a memo is reduced to one line of printable text
-ok 107 - a memo is reduced to one line of printable text
+ok 122 - a memo is reduced to one line of printable text
   ---
-  duration_ms: 0.124785
-  type: 'test'
+  duration_ms: 0.120857
   ...
 # Subtest: memo text cannot smuggle markup into the sheet
-ok 108 - memo text cannot smuggle markup into the sheet
+ok 123 - memo text cannot smuggle markup into the sheet
   ---
-  duration_ms: 0.283004
-  type: 'test'
+  duration_ms: 0.268717
   ...
 # Subtest: recipient input separates a bare address from a request
-ok 109 - recipient input separates a bare address from a request
+ok 124 - recipient input separates a bare address from a request
   ---
-  duration_ms: 0.424171
-  type: 'test'
+  duration_ms: 0.378753
   ...
 # Subtest: the alien is shrunk to the mark’s own character size, not its box
-ok 110 - the alien is shrunk to the mark’s own character size, not its box
+ok 125 - the alien is shrunk to the mark’s own character size, not its box
   ---
-  duration_ms: 1.631437
-  type: 'test'
+  duration_ms: 0.832576
   ...
 # Subtest: the landing never grows the alien or divides by a missing size
-ok 111 - the landing never grows the alien or divides by a missing size
+ok 126 - the landing never grows the alien or divides by a missing size
   ---
-  duration_ms: 0.289127
-  type: 'test'
+  duration_ms: 0.784052
   ...
 # Subtest: the beat leaves as soon as the intro is over, and still fits the splash
-ok 112 - the beat leaves as soon as the intro is over, and still fits the splash
+ok 127 - the beat leaves as soon as the intro is over, and still fits the splash
   ---
-  duration_ms: 0.215886
-  type: 'test'
+  duration_ms: 0.248675
   ...
 # Subtest: centreOf is the middle of the measured box
-ok 113 - centreOf is the middle of the measured box
+ok 128 - centreOf is the middle of the measured box
   ---
-  duration_ms: 0.734967
-  type: 'test'
+  duration_ms: 0.465869
   ...
 # Subtest: the splash markup carries the landing ending only next to a lock-screen target
-ok 114 - the splash markup carries the landing ending only next to a lock-screen target
+ok 129 - the splash markup carries the landing ending only next to a lock-screen target
   ---
-  duration_ms: 6.121731
-  type: 'test'
+  duration_ms: 7.098639
   ...
 # Subtest: the splash waits for the landing before it fades out
-ok 115 - the splash waits for the landing before it fades out
+ok 130 - the splash waits for the landing before it fades out
   ---
-  duration_ms: 1.454895
-  type: 'test'
+  duration_ms: 0.964773
   ...
 # Subtest: the service worker cache moved past the landed build
-ok 116 - the service worker cache moved past the landed build
+ok 131 - the service worker cache moved past the landed build
   ---
-  duration_ms: 1.941297
-  type: 'test'
+  duration_ms: 2.147124
   ...
 # Subtest: index.html paints the mascot splash before any script runs
-ok 117 - index.html paints the mascot splash before any script runs
+ok 132 - index.html paints the mascot splash before any script runs
   ---
-  duration_ms: 4.439244
-  type: 'test'
+  duration_ms: 3.527913
   ...
 # Subtest: the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot
-ok 118 - the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot
+ok 133 - the splash follows the OS theme and the saved theme, with a dark rim for the matte mascot
   ---
-  duration_ms: 2.045442
-  type: 'test'
+  duration_ms: 2.087699
   ...
 # Subtest: the mascot asset is a small transparent WebP, not a megabyte PNG
-ok 119 - the mascot asset is a small transparent WebP, not a megabyte PNG
+ok 134 - the mascot asset is a small transparent WebP, not a megabyte PNG
   ---
-  duration_ms: 1.994351
-  type: 'test'
+  duration_ms: 3.3106
   ...
 # Subtest: the splash is held long enough to be seen, then never replayed
-ok 120 - the splash is held long enough to be seen, then never replayed
+ok 135 - the splash is held long enough to be seen, then never replayed
   ---
-  duration_ms: 1.536059
-  type: 'test'
+  duration_ms: 1.354263
   ...
 # Subtest: the mascot enters, floats and breathes instead of just appearing
-ok 121 - the mascot enters, floats and breathes instead of just appearing
+ok 136 - the mascot enters, floats and breathes instead of just appearing
   ---
-  duration_ms: 2.173324
-  type: 'test'
+  duration_ms: 2.093725
   ...
 # Subtest: a clay saucer lands, lifts the mascot aboard and carries it off in ~2.8 s
-ok 122 - a clay saucer lands, lifts the mascot aboard and carries it off in ~2.8 s
+ok 137 - a clay saucer lands, lifts the mascot aboard and carries it off in ~2.8 s
   ---
-  duration_ms: 3.723454
-  type: 'test'
+  duration_ms: 3.814923
   ...
 # Subtest: the wordmark stays hidden until lift-off, then rises and is read before the fade
-ok 123 - the wordmark stays hidden until lift-off, then rises and is read before the fade
+ok 138 - the wordmark stays hidden until lift-off, then rises and is read before the fade
   ---
-  duration_ms: 4.467032
-  type: 'test'
+  duration_ms: 3.946702
   ...
 # Subtest: the service worker cache moved past the previous build
-ok 124 - the service worker cache moved past the previous build
+ok 139 - the service worker cache moved past the previous build
   ---
-  duration_ms: 2.170638
-  type: 'test'
+  duration_ms: 2.541056
   ...
 # Subtest: source contains no HTML injection sinks
-ok 125 - source contains no HTML injection sinks
+ok 140 - source contains no HTML injection sinks
   ---
-  duration_ms: 116.642888
-  type: 'test'
+  duration_ms: 139.885351
   ...
 # Subtest: source contains no code-evaluation sinks
-ok 126 - source contains no code-evaluation sinks
+ok 141 - source contains no code-evaluation sinks
   ---
-  duration_ms: 104.756061
-  type: 'test'
+  duration_ms: 129.206658
   ...
 # Subtest: source contains no console logging (keys must never reach a log)
-ok 127 - source contains no console logging (keys must never reach a log)
+ok 142 - source contains no console logging (keys must never reach a log)
   ---
-  duration_ms: 98.481843
-  type: 'test'
+  duration_ms: 121.322103
   ...
 # Subtest: source contains no plaintext http:// endpoint outside localhost
-ok 128 - source contains no plaintext http:// endpoint outside localhost
+ok 143 - source contains no plaintext http:// endpoint outside localhost
   ---
-  duration_ms: 98.984306
-  type: 'test'
+  duration_ms: 124.114974
   ...
 # Subtest: the document CSP denies frames, forms, plugins and base-uri override
-ok 129 - the document CSP denies frames, forms, plugins and base-uri override
+ok 144 - the document CSP denies frames, forms, plugins and base-uri override
   ---
-  duration_ms: 2.077783
-  type: 'test'
+  duration_ms: 2.54048
   ...
 # Subtest: index.html loads only same-origin scripts, with no inline handler attributes
-ok 130 - index.html loads only same-origin scripts, with no inline handler attributes
+ok 145 - index.html loads only same-origin scripts, with no inline handler attributes
   ---
-  duration_ms: 2.039565
-  type: 'test'
+  duration_ms: 2.332501
   ...
 # Subtest: the service worker is same-origin only and drops old caches on activate
-ok 131 - the service worker is same-origin only and drops old caches on activate
+ok 146 - the service worker is same-origin only and drops old caches on activate
   ---
-  duration_ms: 3.134547
-  type: 'test'
+  duration_ms: 2.299316
   ...
 # Subtest: the service worker displays Web Push immediately and validates notification links
-ok 132 - the service worker displays Web Push immediately and validates notification links
+ok 147 - the service worker displays Web Push immediately and validates notification links
   ---
-  duration_ms: 1.560683
-  type: 'test'
+  duration_ms: 2.252666
   ...
 # Subtest: the shipped build carries no source maps and no /src/ path
-ok 133 - the shipped build carries no source maps and no /src/ path
+ok 148 - the shipped build carries no source maps and no /src/ path
   ---
-  duration_ms: 45.634791
-  type: 'test'
+  duration_ms: 55.219806
   ...
 # Subtest: derivation path literals in the app are hardened
-ok 134 - derivation path literals in the app are hardened
+ok 149 - derivation path literals in the app are hardened
   ---
-  duration_ms: 97.22666
-  type: 'test'
+  duration_ms: 122.753544
   ...
 # Subtest: the onboarding screen names the shared standard path instead of a literal
-ok 135 - the onboarding screen names the shared standard path instead of a literal
+ok 150 - the onboarding screen names the shared standard path instead of a literal
   ---
-  duration_ms: 3.149899
-  type: 'test'
+  duration_ms: 3.85372
   ...
 # Subtest: custom RPC input is validated as https-only in the settings screen
-ok 136 - custom RPC input is validated as https-only in the settings screen
+ok 151 - custom RPC input is validated as https-only in the settings screen
   ---
-  duration_ms: 2.988922
-  type: 'test'
+  duration_ms: 3.655096
   ...
 # Subtest: send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes
-ok 137 - send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes
+ok 152 - send and swap approval screens reject a prepared preview after wallet, network, or RPC context changes
   ---
-  duration_ms: 3.102459
-  type: 'test'
+  duration_ms: 3.842232
   ...
-# (node:711) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:829) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: a normal Jupiter swap passes the structural guard
-ok 138 - a normal Jupiter swap passes the structural guard
+ok 153 - a normal Jupiter swap passes the structural guard
   ---
-  duration_ms: 5.930623
-  type: 'test'
+  duration_ms: 6.273228
   ...
 # Subtest: a transaction paid for by another key is refused
-ok 139 - a transaction paid for by another key is refused
+ok 154 - a transaction paid for by another key is refused
   ---
-  duration_ms: 4.042839
-  type: 'test'
+  duration_ms: 3.860823
   ...
 # Subtest: a transaction that requires a second signature is refused
-ok 140 - a transaction that requires a second signature is refused
+ok 155 - a transaction that requires a second signature is refused
   ---
-  duration_ms: 4.167001
-  type: 'test'
+  duration_ms: 3.253906
   ...
 # Subtest: a transaction that does not need this wallet signature is refused
-ok 141 - a transaction that does not need this wallet signature is refused
+ok 156 - a transaction that does not need this wallet signature is refused
   ---
-  duration_ms: 2.374176
-  type: 'test'
+  duration_ms: 2.111655
   ...
 # Subtest: an unknown program is refused
-ok 142 - an unknown program is refused
+ok 157 - an unknown program is refused
   ---
-  duration_ms: 3.869675
-  type: 'test'
+  duration_ms: 3.622024
   ...
 # Subtest: a SOL transfer to a stranger hidden in the swap is refused
-ok 143 - a SOL transfer to a stranger hidden in the swap is refused
+ok 158 - a SOL transfer to a stranger hidden in the swap is refused
   ---
-  duration_ms: 2.998467
-  type: 'test'
+  duration_ms: 2.62172
   ...
 # Subtest: a SOL transfer to the wallet own wSOL account is allowed (wrap)
-ok 144 - a SOL transfer to the wallet own wSOL account is allowed (wrap)
+ok 159 - a SOL transfer to the wallet own wSOL account is allowed (wrap)
   ---
-  duration_ms: 3.999064
-  type: 'test'
+  duration_ms: 2.605109
   ...
 # Subtest: an unexpected System instruction (assign/allocate) is refused
-ok 145 - an unexpected System instruction (assign/allocate) is refused
+ok 160 - an unexpected System instruction (assign/allocate) is refused
   ---
-  duration_ms: 1.639666
-  type: 'test'
+  duration_ms: 1.614216
   ...
 # Subtest: a token approve (delegate to a third party) is refused
-ok 146 - a token approve (delegate to a third party) is refused
+ok 161 - a token approve (delegate to a third party) is refused
   ---
-  duration_ms: 2.620615
-  type: 'test'
+  duration_ms: 2.705477
   ...
 # Subtest: a token setAuthority (hand over account ownership) is refused
-ok 147 - a token setAuthority (hand over account ownership) is refused
+ok 162 - a token setAuthority (hand over account ownership) is refused
   ---
-  duration_ms: 2.927818
-  type: 'test'
+  duration_ms: 2.42753
   ...
 # Subtest: closing a token account into another wallet is refused
-ok 148 - closing a token account into another wallet is refused
+ok 163 - closing a token account into another wallet is refused
   ---
-  duration_ms: 3.694426
-  type: 'test'
+  duration_ms: 2.460302
   ...
 # Subtest: a token transfer authorized by someone else is refused
-ok 149 - a token transfer authorized by someone else is refused
+ok 164 - a token transfer authorized by someone else is refused
   ---
-  duration_ms: 3.81841
-  type: 'test'
+  duration_ms: 3.293648
   ...
 # Subtest: a simulation that matches the quote passes
-ok 150 - a simulation that matches the quote passes
+ok 165 - a simulation that matches the quote passes
   ---
-  duration_ms: 0.625297
-  type: 'test'
+  duration_ms: 1.404349
   ...
 # Subtest: a simulation error blocks the swap
-ok 151 - a simulation error blocks the swap
+ok 166 - a simulation error blocks the swap
   ---
-  duration_ms: 0.154271
-  type: 'test'
+  duration_ms: 0.139035
   ...
 # Subtest: a simulation that takes more SOL than the quoted input is refused
-ok 152 - a simulation that takes more SOL than the quoted input is refused
+ok 167 - a simulation that takes more SOL than the quoted input is refused
   ---
-  duration_ms: 0.120025
-  type: 'test'
+  duration_ms: 0.112393
   ...
 # Subtest: a simulation that pays less than the minimum received is refused
-ok 153 - a simulation that pays less than the minimum received is refused
+ok 168 - a simulation that pays less than the minimum received is refused
   ---
-  duration_ms: 0.214747
-  type: 'test'
+  duration_ms: 0.121503
   ...
 # Subtest: a simulation without balance data fails closed
-ok 154 - a simulation without balance data fails closed
+ok 169 - a simulation without balance data fails closed
   ---
-  duration_ms: 0.130262
-  type: 'test'
+  duration_ms: 0.070305
   ...
 # Subtest: an SPL input that is over-drawn is refused
-ok 155 - an SPL input that is over-drawn is refused
+ok 170 - an SPL input that is over-drawn is refused
   ---
-  duration_ms: 0.22635
-  type: 'test'
+  duration_ms: 0.197968
   ...
 # Subtest: a swap that spends an unrelated user token is refused even when its quoted input and output are valid
-ok 156 - a swap that spends an unrelated user token is refused even when its quoted input and output are valid
+ok 171 - a swap that spends an unrelated user token is refused even when its quoted input and output are valid
   ---
-  duration_ms: 0.349931
-  type: 'test'
+  duration_ms: 0.206062
   ...
 # Subtest: SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units
-ok 157 - SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units
+ok 172 - SPL-to-SOL output enforces the SOL minimum without subtracting SPL base units
   ---
-  duration_ms: 0.176649
-  type: 'test'
+  duration_ms: 0.192738
   ...
 # Subtest: the SOL fee tolerance is small enough to be a real bound
-ok 158 - the SOL fee tolerance is small enough to be a real bound
+ok 173 - the SOL fee tolerance is small enough to be a real bound
   ---
-  duration_ms: 0.059223
-  type: 'test'
+  duration_ms: 0.064317
   ...
 # Subtest: executeSwap runs guard → simulate → sign → send → confirm and returns the signature
-ok 159 - executeSwap runs guard → simulate → sign → send → confirm and returns the signature
+ok 174 - executeSwap runs guard → simulate → sign → send → confirm and returns the signature
   ---
-  duration_ms: 12.316479
-  type: 'test'
+  duration_ms: 9.400434
   ...
 # Subtest: executeSwap never broadcasts a draining transaction
-ok 160 - executeSwap never broadcasts a draining transaction
+ok 175 - executeSwap never broadcasts a draining transaction
   ---
-  duration_ms: 1.834247
-  type: 'test'
+  duration_ms: 2.136495
   ...
 # Subtest: executeSwap never broadcasts when the simulation fails
-ok 161 - executeSwap never broadcasts when the simulation fails
+ok 176 - executeSwap never broadcasts when the simulation fails
   ---
-  duration_ms: 2.079726
-  type: 'test'
+  duration_ms: 2.314836
   ...
 # Subtest: executeSwap never broadcasts when the simulation moves more than quoted
-ok 162 - executeSwap never broadcasts when the simulation moves more than quoted
+ok 177 - executeSwap never broadcasts when the simulation moves more than quoted
   ---
-  duration_ms: 2.830509
-  type: 'test'
+  duration_ms: 2.64396
   ...
 # Subtest: executeSwap rejects a payload that is not a transaction
-ok 163 - executeSwap rejects a payload that is not a transaction
+ok 178 - executeSwap rejects a payload that is not a transaction
   ---
-  duration_ms: 0.288906
-  type: 'test'
+  duration_ms: 0.311221
   ...
 # Subtest: executeSwap will not broadcast if persisting the local signature fails
-ok 164 - executeSwap will not broadcast if persisting the local signature fails
+ok 179 - executeSwap will not broadcast if persisting the local signature fails
   ---
-  duration_ms: 4.385906
-  type: 'test'
+  duration_ms: 3.016314
   ...
 # Subtest: executeSwap keeps an RPC-loss attempt pending and does not clear its record
-ok 165 - executeSwap keeps an RPC-loss attempt pending and does not clear its record
+ok 180 - executeSwap keeps an RPC-loss attempt pending and does not clear its record
   ---
-  duration_ms: 3.911918
-  type: 'test'
+  duration_ms: 3.171558
   ...
 # Subtest: executeSwap refuses to sign when Jupiter omits the real last valid block height
-ok 166 - executeSwap refuses to sign when Jupiter omits the real last valid block height
+ok 181 - executeSwap refuses to sign when Jupiter omits the real last valid block height
   ---
-  duration_ms: 1.256297
-  type: 'test'
+  duration_ms: 1.020631
   ...
 # Subtest: prepared swap byte guard refuses a changed transaction before signing or broadcast
-ok 167 - prepared swap byte guard refuses a changed transaction before signing or broadcast
+ok 182 - prepared swap byte guard refuses a changed transaction before signing or broadcast
   ---
-  duration_ms: 2.425189
-  type: 'test'
+  duration_ms: 2.135895
   ...
 # Subtest: swap preview fails closed when simulation accounts or invocation logs are missing
-ok 168 - swap preview fails closed when simulation accounts or invocation logs are missing
+ok 183 - swap preview fails closed when simulation accounts or invocation logs are missing
   ---
-  duration_ms: 2.831607
-  type: 'test'
+  duration_ms: 3.371546
   ...
 # Subtest: swap preview is bound to the same wallet and quote and expires by age or block height
-ok 169 - swap preview is bound to the same wallet and quote and expires by age or block height
+ok 184 - swap preview is bound to the same wallet and quote and expires by age or block height
   ---
-  duration_ms: 3.552593
-  type: 'test'
+  duration_ms: 2.628786
   ...
-# (node:718) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:840) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: portfolio keeps zero-balance token account addresses for history lookup
-ok 170 - portfolio keeps zero-balance token account addresses for history lookup
+ok 185 - portfolio keeps zero-balance token account addresses for history lookup
   ---
-  duration_ms: 65.492847
-  type: 'test'
+  duration_ms: 37.825473
   ...
 # Subtest: token account discovery remembers seen addresses locally and isolates network
-ok 171 - token account discovery remembers seen addresses locally and isolates network
+ok 186 - token account discovery remembers seen addresses locally and isolates network
   ---
-  duration_ms: 2.198188
-  type: 'test'
+  duration_ms: 1.707201
   ...
-# (node:725) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:851) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants
-ok 172 - BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants
+ok 187 - BASE_FEE_LAMPORTS and ATA rent match Solana mainnet constants
   ---
-  duration_ms: 0.898551
-  type: 'test'
+  duration_ms: 0.707588
   ...
 # Subtest: maxTransferableSol always leaves the network fee behind
-ok 173 - maxTransferableSol always leaves the network fee behind
+ok 188 - maxTransferableSol always leaves the network fee behind
   ---
-  duration_ms: 81.185192
-  type: 'test'
+  duration_ms: 35.090631
   ...
 # Subtest: estimateFee charges rent only when the recipient token account must be created
-ok 174 - estimateFee charges rent only when the recipient token account must be created
+ok 189 - estimateFee charges rent only when the recipient token account must be created
   ---
-  duration_ms: 8.184394
-  type: 'test'
+  duration_ms: 4.854782
   ...
 # Subtest: a SOL send to your own address and a zero amount are refused before any RPC call
-ok 175 - a SOL send to your own address and a zero amount are refused before any RPC call
+ok 190 - a SOL send to your own address and a zero amount are refused before any RPC call
   ---
-  duration_ms: 3.523542
-  type: 'test'
+  duration_ms: 2.404646
   ...
 # Subtest: an invalid recipient address never reaches signing
-ok 176 - an invalid recipient address never reaches signing
+ok 191 - an invalid recipient address never reaches signing
   ---
-  duration_ms: 1.382826
-  type: 'test'
+  duration_ms: 0.866036
   ...
 # Subtest: a signed SOL send is persisted before RPC broadcast and confirmed with the same signature
-ok 177 - a signed SOL send is persisted before RPC broadcast and confirmed with the same signature
+ok 192 - a signed SOL send is persisted before RPC broadcast and confirmed with the same signature
   ---
-  duration_ms: 16.716833
-  type: 'test'
+  duration_ms: 9.666831
   ...
 # Subtest: a pending-record write failure prevents any RPC broadcast
-ok 178 - a pending-record write failure prevents any RPC broadcast
+ok 193 - a pending-record write failure prevents any RPC broadcast
   ---
-  duration_ms: 4.969405
-  type: 'test'
+  duration_ms: 3.844473
   ...
 # Subtest: a lost RPC response with an unconfirmed signature stays pending and is not reported failed
-ok 179 - a lost RPC response with an unconfirmed signature stays pending and is not reported failed
+ok 194 - a lost RPC response with an unconfirmed signature stays pending and is not reported failed
   ---
-  duration_ms: 5.667399
-  type: 'test'
+  duration_ms: 4.212943
   ...
 # Subtest: processed failures are not treated as final; confirmed failures are terminal
-ok 180 - processed failures are not treated as final; confirmed failures are terminal
+ok 195 - processed failures are not treated as final; confirmed failures are terminal
   ---
-  duration_ms: 0.390353
-  type: 'test'
+  duration_ms: 0.381765
   ...
 # Subtest: expired blockhash with no history is reported as unresolved expiry, not proof of non-inclusion
-ok 181 - expired blockhash with no history is reported as unresolved expiry, not proof of non-inclusion
+ok 196 - expired blockhash with no history is reported as unresolved expiry, not proof of non-inclusion
   ---
-  duration_ms: 1.307692
-  type: 'test'
+  duration_ms: 0.850787
   ...
 # Subtest: RPC status lookup failure stays unknown
-ok 182 - RPC status lookup failure stays unknown
+ok 197 - RPC status lookup failure stays unknown
   ---
-  duration_ms: 0.665127
-  type: 'test'
+  duration_ms: 0.629704
   ...
 # Subtest: recent history merges and sorts signatures from the owner and token accounts
-ok 183 - recent history merges and sorts signatures from the owner and token accounts
+ok 198 - recent history merges and sorts signatures from the owner and token accounts
   ---
-  duration_ms: 3.224055
-  type: 'test'
+  duration_ms: 2.169372
   ...
 # Subtest: SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing
-ok 184 - SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing
+ok 199 - SOL preparation previews exact requested recipient amount, fee, and wallet delta without signing
   ---
-  duration_ms: 3.18082
-  type: 'test'
+  duration_ms: 1.670158
   ...
 # Subtest: SPL preparation displays simulated ATA rent rather than relying on a fixed estimate
-ok 185 - SPL preparation displays simulated ATA rent rather than relying on a fixed estimate
+ok 200 - SPL preparation displays simulated ATA rent rather than relying on a fixed estimate
   ---
-  duration_ms: 9.739668
-  type: 'test'
+  duration_ms: 7.580459
   ...
 # Subtest: simulation errors or missing result data fail before any signature or broadcast
-ok 186 - simulation errors or missing result data fail before any signature or broadcast
+ok 201 - simulation errors or missing result data fail before any signature or broadcast
   ---
-  duration_ms: 3.912175
-  type: 'test'
+  duration_ms: 3.528546
   ...
 # Subtest: a changed message is rejected before sign or send
-ok 187 - a changed message is rejected before sign or send
+ok 202 - a changed message is rejected before sign or send
   ---
-  duration_ms: 2.094071
-  type: 'test'
+  duration_ms: 1.999204
   ...
 # Subtest: send preview is bound to the same wallet and expires by age or block height
-ok 188 - send preview is bound to the same wallet and expires by age or block height
+ok 203 - send preview is bound to the same wallet and expires by age or block height
   ---
-  duration_ms: 2.200472
-  type: 'test'
+  duration_ms: 2.405245
   ...
 # Subtest: history detail lookup failures preserve signature rows and successful details parse balances
-ok 189 - history detail lookup failures preserve signature rows and successful details parse balances
+ok 204 - history detail lookup failures preserve signature rows and successful details parse balances
   ---
-  duration_ms: 183.454184
-  type: 'test'
+  duration_ms: 182.280058
   ...
 # Subtest: the RPC-accepted hook fires once, right after broadcast and before confirmation
-ok 190 - the RPC-accepted hook fires once, right after broadcast and before confirmation
+ok 205 - the RPC-accepted hook fires once, right after broadcast and before confirmation
   ---
-  duration_ms: 6.15995
-  type: 'test'
+  duration_ms: 5.027707
   ...
 # Subtest: a transaction that never confirms ends as pending inside the confirmation window
-ok 191 - a transaction that never confirms ends as pending inside the confirmation window
+ok 206 - a transaction that never confirms ends as pending inside the confirmation window
   ---
-  duration_ms: 310.424869
-  type: 'test'
+  duration_ms: 309.030423
   ...
 # Subtest: an RPC whose status calls never answer still ends as unknown, not as a hang
-ok 192 - an RPC whose status calls never answer still ends as unknown, not as a hang
+ok 207 - an RPC whose status calls never answer still ends as unknown, not as a hang
   ---
-  duration_ms: 123.427276
-  type: 'test'
+  duration_ms: 123.182895
   ...
 # Subtest: a status call that never answers still leaves the confirmation loop and reports unknown
-ok 193 - a status call that never answers still leaves the confirmation loop and reports unknown
+ok 208 - a status call that never answers still leaves the confirmation loop and reports unknown
   ---
-  duration_ms: 325.113709
-  type: 'test'
+  duration_ms: 325.623403
   ...
 # Subtest: a broadcast that never answers is bounded by the step timeout and keeps the signed signature
-ok 194 - a broadcast that never answers is bounded by the step timeout and keeps the signed signature
+ok 209 - a broadcast that never answers is bounded by the step timeout and keeps the signed signature
   ---
-  duration_ms: 123.24807
-  type: 'test'
+  duration_ms: 124.170925
   ...
 # Subtest: a failed or erroring status read inside the window reports unknown without inventing success
-ok 195 - a failed or erroring status read inside the window reports unknown without inventing success
+ok 210 - a failed or erroring status read inside the window reports unknown without inventing success
   ---
-  duration_ms: 306.155678
-  type: 'test'
+  duration_ms: 308.612603
   ...
 # Subtest: production timeouts keep the whole send flow under a minute
-ok 196 - production timeouts keep the whole send flow under a minute
+ok 211 - production timeouts keep the whole send flow under a minute
   ---
-  duration_ms: 0.31744
-  type: 'test'
+  duration_ms: 0.344352
   ...
 # Subtest: encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable
-ok 197 - encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable
+ok 212 - encrypted localStorage fallback can be saved and loaded when IndexedDB is unavailable
   ---
-  duration_ms: 4.078173
-  type: 'test'
+  duration_ms: 2.55755
   ...
 # Subtest: fallback write failure is returned to the caller
-ok 198 - fallback write failure is returned to the caller
+ok 213 - fallback write failure is returned to the caller
   ---
-  duration_ms: 0.760268
-  type: 'test'
+  duration_ms: 0.868213
   ...
 # Subtest: corrupt stored data is not treated as an empty wallet
-ok 199 - corrupt stored data is not treated as an empty wallet
+ok 214 - corrupt stored data is not treated as an empty wallet
   ---
-  duration_ms: 0.634166
-  type: 'test'
+  duration_ms: 0.364643
   ...
 # Subtest: clear failure is returned and the fallback copy remains untouched
-ok 200 - clear failure is returned and the fallback copy remains untouched
+ok 215 - clear failure is returned and the fallback copy remains untouched
   ---
-  duration_ms: 0.708761
-  type: 'test'
+  duration_ms: 0.464333
   ...
 # Subtest: vault declares PBKDF2-SHA256 with 210,000 iterations, 16-byte salt, 12-byte IV
-ok 201 - vault declares PBKDF2-SHA256 with 210,000 iterations, 16-byte salt, 12-byte IV
+ok 216 - vault declares PBKDF2-SHA256 with 210,000 iterations, 16-byte salt, 12-byte IV
   ---
-  duration_ms: 43.105008
-  type: 'test'
+  duration_ms: 43.059788
   ...
 # Subtest: encrypt → decrypt round-trips the exact payload
-ok 202 - encrypt → decrypt round-trips the exact payload
+ok 217 - encrypt → decrypt round-trips the exact payload
   ---
-  duration_ms: 71.241626
-  type: 'test'
+  duration_ms: 75.372009
   ...
 # Subtest: a wrong PIN is rejected with InvalidPinError and yields no payload
-ok 203 - a wrong PIN is rejected with InvalidPinError and yields no payload
+ok 218 - a wrong PIN is rejected with InvalidPinError and yields no payload
   ---
-  duration_ms: 109.476846
-  type: 'test'
+  duration_ms: 111.525015
   ...
 # Subtest: a tampered authentication tag (last ciphertext byte) throws instead of returning data
-ok 204 - a tampered authentication tag (last ciphertext byte) throws instead of returning data
+ok 219 - a tampered authentication tag (last ciphertext byte) throws instead of returning data
   ---
-  duration_ms: 67.377528
-  type: 'test'
+  duration_ms: 73.12064
   ...
 # Subtest: a tampered ciphertext body throws
-ok 205 - a tampered ciphertext body throws
+ok 220 - a tampered ciphertext body throws
   ---
-  duration_ms: 93.927134
-  type: 'test'
+  duration_ms: 73.637326
   ...
 # Subtest: a tampered IV throws (GCM must not open with the wrong nonce)
-ok 206 - a tampered IV throws (GCM must not open with the wrong nonce)
+ok 221 - a tampered IV throws (GCM must not open with the wrong nonce)
   ---
-  duration_ms: 68.148373
-  type: 'test'
+  duration_ms: 94.307009
   ...
 # Subtest: a tampered salt throws (key derivation must not silently succeed)
-ok 207 - a tampered salt throws (key derivation must not silently succeed)
+ok 222 - a tampered salt throws (key derivation must not silently succeed)
   ---
-  duration_ms: 62.323412
-  type: 'test'
+  duration_ms: 81.86163
   ...
 # Subtest: a downgraded or excessive iteration count is rejected before expensive derivation
-ok 208 - a downgraded or excessive iteration count is rejected before expensive derivation
+ok 223 - a downgraded or excessive iteration count is rejected before expensive derivation
   ---
-  duration_ms: 30.783438
-  type: 'test'
+  duration_ms: 38.31111
   ...
 # Subtest: a truncated ciphertext throws instead of returning a partial payload
-ok 209 - a truncated ciphertext throws instead of returning a partial payload
+ok 224 - a truncated ciphertext throws instead of returning a partial payload
   ---
-  duration_ms: 30.677956
-  type: 'test'
+  duration_ms: 41.349998
   ...
 # Subtest: IV and salt are fresh for every vault (no key/nonce reuse)
-ok 210 - IV and salt are fresh for every vault (no key/nonce reuse)
+ok 225 - IV and salt are fresh for every vault (no key/nonce reuse)
   ---
-  duration_ms: 1313.621647
-  type: 'test'
+  duration_ms: 1506.009903
   ...
 # Subtest: the vault never contains the mnemonic in clear text
-ok 211 - the vault never contains the mnemonic in clear text
+ok 226 - the vault never contains the mnemonic in clear text
   ---
-  duration_ms: 33.461582
-  type: 'test'
+  duration_ms: 36.697444
   ...
 # Subtest: isVaultShape accepts a real vault and rejects malformed records
-ok 212 - isVaultShape accepts a real vault and rejects malformed records
+ok 227 - isVaultShape accepts a real vault and rejects malformed records
   ---
-  duration_ms: 36.655238
-  type: 'test'
+  duration_ms: 38.09278
   ...
-# (node:750) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+# (node:884) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 # (Use `node --trace-deprecation ...` to show where the warning was created)
 # Subtest: validateMnemonic accepts 12 and 24 valid words and rejects everything else
-ok 213 - validateMnemonic accepts 12 and 24 valid words and rejects everything else
+ok 228 - validateMnemonic accepts 12 and 24 valid words and rejects everything else
   ---
-  duration_ms: 2.06622
-  type: 'test'
+  duration_ms: 1.783286
   ...
 # Subtest: normalizeMnemonic folds case, newlines and full-width spaces
-ok 214 - normalizeMnemonic folds case, newlines and full-width spaces
+ok 229 - normalizeMnemonic folds case, newlines and full-width spaces
   ---
-  duration_ms: 107.177227
-  type: 'test'
+  duration_ms: 92.378246
   ...
 # Subtest: a 64-byte Base58 secret key imports and round-trips its address
-ok 215 - a 64-byte Base58 secret key imports and round-trips its address
+ok 230 - a 64-byte Base58 secret key imports and round-trips its address
   ---
-  duration_ms: 4.333477
-  type: 'test'
+  duration_ms: 4.975107
   ...
 # Subtest: a 32-byte Base58 seed imports as a valid keypair
-ok 216 - a 32-byte Base58 seed imports as a valid keypair
+ok 231 - a 32-byte Base58 seed imports as a valid keypair
   ---
-  duration_ms: 0.980014
-  type: 'test'
+  duration_ms: 0.792783
   ...
 # Subtest: wrong-length and non-Base58 keys are rejected with a readable error
-ok 217 - wrong-length and non-Base58 keys are rejected with a readable error
+ok 232 - wrong-length and non-Base58 keys are rejected with a readable error
   ---
-  duration_ms: 1.700889
-  type: 'test'
+  duration_ms: 1.183657
   ...
 # Subtest: isValidAddress accepts real addresses and rejects malformed input
-ok 218 - isValidAddress accepts real addresses and rejects malformed input
+ok 233 - isValidAddress accepts real addresses and rejects malformed input
   ---
-  duration_ms: 2.405924
-  type: 'test'
+  duration_ms: 0.881445
   ...
 # Subtest: a mnemonic-derived payload always reports the same address
-ok 219 - a mnemonic-derived payload always reports the same address
+ok 234 - a mnemonic-derived payload always reports the same address
   ---
-  duration_ms: 22.410062
-  type: 'test'
+  duration_ms: 31.684574
   ...
 # Subtest: account list includes the base and user-registered indices only
-ok 220 - account list includes the base and user-registered indices only
+ok 235 - account list includes the base and user-registered indices only
   ---
-  duration_ms: 1.956786
-  type: 'test'
+  duration_ms: 1.450632
   ...
 # Subtest: registered account indices and active account survive a metadata reload
-ok 221 - registered account indices and active account survive a metadata reload
+ok 236 - registered account indices and active account survive a metadata reload
   ---
-  duration_ms: 0.599482
-  type: 'test'
+  duration_ms: 0.504878
   ...
 # Subtest: metadata write failure is reported and does not update saved metadata
-ok 222 - metadata write failure is reported and does not update saved metadata
+ok 237 - metadata write failure is reported and does not update saved metadata
   ---
-  duration_ms: 0.687602
-  type: 'test'
+  duration_ms: 0.523919
   ...
 # Subtest: blocked metadata reads throw instead of appearing to be an empty install
-ok 223 - blocked metadata reads throw instead of appearing to be an empty install
+ok 238 - blocked metadata reads throw instead of appearing to be an empty install
   ---
-  duration_ms: 0.415246
-  type: 'test'
+  duration_ms: 0.339395
   ...
 # Subtest: initialization retains legacy auth and wallet data; clear remains user-invoked only
-ok 224 - initialization retains legacy auth and wallet data; clear remains user-invoked only
+ok 239 - initialization retains legacy auth and wallet data; clear remains user-invoked only
   ---
-  duration_ms: 4.884356
-  type: 'test'
+  duration_ms: 4.44723
   ...
 # Subtest: a wallet can register far more than the three accounts older builds showed
-ok 225 - a wallet can register far more than the three accounts older builds showed
+ok 240 - a wallet can register far more than the three accounts older builds showed
   ---
-  duration_ms: 1.113026
-  type: 'test'
+  duration_ms: 1.156212
   ...
 # Subtest: adding reuses the lowest free index after a delete, and the space can fill
-ok 226 - adding reuses the lowest free index after a delete, and the space can fill
+ok 241 - adding reuses the lowest free index after a delete, and the space can fill
   ---
-  duration_ms: 0.375615
-  type: 'test'
+  duration_ms: 0.243295
   ...
 # Subtest: twelve accounts survive a metadata reload and keep their active index
-ok 227 - twelve accounts survive a metadata reload and keep their active index
+ok 242 - twelve accounts survive a metadata reload and keep their active index
   ---
-  duration_ms: 0.227152
-  type: 'test'
+  duration_ms: 0.216627
   ...
 # Subtest: metadata written before the registry keeps exactly the accounts that build showed
-ok 228 - metadata written before the registry keeps exactly the accounts that build showed
+ok 243 - metadata written before the registry keeps exactly the accounts that build showed
   ---
-  duration_ms: 0.466018
-  type: 'test'
+  duration_ms: 0.325951
   ...
 # Subtest: the registry rejects non-derivable indices instead of storing them
-ok 229 - the registry rejects non-derivable indices instead of storing them
+ok 244 - the registry rejects non-derivable indices instead of storing them
   ---
-  duration_ms: 0.241736
-  type: 'test'
+  duration_ms: 0.212235
   ...
 # Subtest: account management exposes add and delete and never a fixed three-account base
-ok 230 - account management exposes add and delete and never a fixed three-account base
+ok 245 - account management exposes add and delete and never a fixed three-account base
   ---
-  duration_ms: 3.814391
-  type: 'test'
+  duration_ms: 3.947645
   ...
-1..230
-# tests 230
+1..245
+# tests 245
 # suites 0
-# pass 230
+# pass 245
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 9000.914972
+# duration_ms 9079.397141
 

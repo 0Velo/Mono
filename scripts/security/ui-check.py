@@ -82,7 +82,36 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if method == "getBlockHeight":
             return 123456
         if method == "getFeeForMessage":
-            return {"context": context, "value": 5000}
+            return {"context": context, "value": MOCK_FEE_LAMPORTS}
+        # The send preview reads the pre-state of every account in the message
+        # and then simulates it. The stand-in answers for the one send the
+        # built-app checks make (0.1 SOL to a never-seen address), so the
+        # confirm screen can be reached without a network.
+        if method == "getMultipleAccounts":
+            keys = params[0] if params and isinstance(params[0], list) else []
+            return {
+                "context": context,
+                "value": [mock_account(lamports_for_index(index)) for index in range(len(keys))],
+            }
+        if method == "simulateTransaction":
+            options = params[1] if len(params) > 1 and isinstance(params[1], dict) else {}
+            accounts = (options.get("accounts") or {}) if isinstance(options, dict) else {}
+            addresses = accounts.get("addresses") or []
+            return {
+                "context": context,
+                "value": {
+                    "err": None,
+                    "logs": [
+                        "Program 11111111111111111111111111111111 invoke [1]",
+                        "Program 11111111111111111111111111111111 success",
+                    ],
+                    "accounts": [
+                        mock_account(lamports_for_index(index, after=True)) for index in range(len(addresses))
+                    ],
+                    "unitsConsumed": 150,
+                    "returnData": None,
+                },
+            }
         return None
 
     def do_POST(self):
@@ -124,6 +153,36 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 MOCK_SOL_LAMPORTS = 5_000_000_000
 MOCK_TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 MOCK_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+# What the built-app send checks transfer: 0.1 SOL, 5000 lamports of fee.
+MOCK_SEND_LAMPORTS = 100_000_000
+MOCK_FEE_LAMPORTS = 5000
+
+
+def lamports_for_index(index: int, after: bool = False) -> int:
+    """One account's lamports for the 0.1 SOL transfer check.
+
+    Index 0 is the fee payer (the wallet), index 1 the recipient. Before the
+    transfer the wallet holds MOCK_SOL_LAMPORTS and the recipient nothing;
+    after it the wallet paid amount + fee and the recipient received the amount.
+    Any other account in the message is untouched.
+    """
+    if index == 0:
+        return MOCK_SOL_LAMPORTS - MOCK_SEND_LAMPORTS - MOCK_FEE_LAMPORTS if after else MOCK_SOL_LAMPORTS
+    if index == 1:
+        return MOCK_SEND_LAMPORTS if after else 0
+    return MOCK_FEE_LAMPORTS
+
+
+def mock_account(lamports: int) -> dict:
+    """An account as the RPC reports it with base64 data."""
+    return {
+        "executable": False,
+        "owner": "11111111111111111111111111111111",
+        "lamports": lamports,
+        "data": ["", "base64"],
+        "rentEpoch": 0,
+        "space": 0,
+    }
 
 
 def mock_token_account(address: str, lamports: int) -> dict:
@@ -1049,6 +1108,257 @@ def main():
                 "PASS" if cleanup_rows == 0 else "FAIL",
                 f"rows={cleanup_rows}",
             )
+
+        # --- read-only auto-login: home without a key, PIN only when needed --
+        # Off by default, so every check above still started at the lock screen.
+        page.get_by_role("button", name="설정", exact=True).first.click()
+        page.wait_for_selector("text=자동 로그인 (조회 전용)", timeout=15000)
+        auto_row = page.locator("button[data-auto-login]")
+        default_off = auto_row.first.get_attribute("data-auto-login") == "off"
+        # The wallet is open, so turning it on needs no extra prompt here.
+        auto_row.first.click()
+        try:
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.autoLogin === true",
+                timeout=10000,
+            )
+            auto_saved = True
+        except Exception:
+            auto_saved = False
+        record(
+            "UI-38",
+            "Auto-login is off by default and the settings row stores the choice",
+            "PASS" if default_off and auto_saved else "FAIL",
+            json.dumps({"defaultOff": default_off, "saved": auto_saved}, ensure_ascii=False),
+        )
+
+        # A fresh launch must land on the home screen with no PIN, from public
+        # data only: the vault in IndexedDB stays the encrypted file.
+        page.reload(wait_until="domcontentloaded")
+        view_ready = False
+        try:
+            page.wait_for_selector("[data-view-only='true']", timeout=30000)
+            view_ready = True
+        except Exception:
+            view_ready = False
+        lock_screen_shown = page.get_by_text("지갑 잠김").count()
+        storage_after = page.evaluate(
+            """async () => {
+                const local = { ...localStorage };
+                const session = { ...sessionStorage };
+                let vault = null;
+                try {
+                    const open = indexedDB.open('mono-vault');
+                    const db = await new Promise((resolve, reject) => {
+                        open.onsuccess = () => resolve(open.result);
+                        open.onerror = () => reject(open.error);
+                    });
+                    if (db.objectStoreNames.contains('vault')) {
+                        vault = await new Promise((resolve) => {
+                            const get = db.transaction('vault', 'readonly').objectStore('vault').get('primary');
+                            get.onsuccess = () => resolve(get.result ?? null);
+                            get.onerror = () => resolve(null);
+                        });
+                    }
+                    db.close();
+                } catch (error) { vault = null; }
+                return { local, session, vault };
+            }"""
+        )
+        blob_after = json.dumps(storage_after, default=str)
+        runs_after = sum(
+            1 for index in range(len(words) - 2) if " ".join(words[index : index + 3]) in blob_after
+        )
+        vault_after = (storage_after.get("vault") or {}) if isinstance(storage_after, dict) else {}
+        vault_still_encrypted = (
+            isinstance(vault_after, dict)
+            and vault_after.get("iter") == 210000
+            and isinstance(vault_after.get("ct"), str)
+            and len(vault_after.get("ct", "")) > 40
+        )
+        home_has_balance = page.locator("[data-balance-hidden]").count() >= 1
+        record(
+            "UI-39",
+            "With auto-login on, a launch opens the home screen with no PIN and no key material",
+            "PASS" if view_ready and lock_screen_shown == 0 and vault_still_encrypted and runs_after == 0 else "FAIL",
+            json.dumps({
+                "viewOnlyChip": view_ready,
+                "lockScreen": lock_screen_shown,
+                "balanceArea": home_has_balance,
+                "vaultEncrypted": vault_still_encrypted,
+                "seedRuns": runs_after,
+            }, ensure_ascii=False),
+        )
+
+        # The token detail sheet keeps the three actions on one line, and 받기
+        # opens the wallet's own receive screen without needing the key.
+        page.locator("button", has_text="Solana").first.click()
+        page.wait_for_selector("[data-token-actions]", timeout=15000)
+        action_ids = page.evaluate(
+            """() => [...document.querySelectorAll('[data-token-actions] button')].map(b => b.id)"""
+        )
+        action_labels = page.evaluate(
+            """() => [...document.querySelectorAll('[data-token-actions] button')].map(b => b.innerText.trim())"""
+        )
+        page.locator("#token-receive").click()
+        receive_label = ""
+        receive_hint = ""
+        receive_address = ""
+        try:
+            page.wait_for_selector("[data-receive-network-hint]", timeout=15000)
+            receive_text = page.locator("[role='dialog']").last.inner_text()
+            receive_label = "Solana (SOL · SPL)" if "Solana (SOL · SPL)" in receive_text else receive_text.split("\n")[1].strip() if len(receive_text.split("\n")) > 1 else ""
+            receive_hint = page.locator("[data-receive-network-hint]").first.inner_text().replace("\n", " ").strip()
+            receive_address = page.evaluate(
+                """() => {
+                    const dialog = document.querySelector('[role="dialog"]');
+                    const text = dialog ? dialog.innerText : '';
+                    const meta = JSON.parse(localStorage.getItem('mono.meta.v1') || 'null');
+                    return text.includes(meta?.address || '\u0000') ? meta.address : '';
+                }"""
+            )
+        except Exception:
+            receive_label = receive_label or ""
+        record(
+            "UI-40",
+            "Token detail offers 보내기·받기·스왑 in one row and 받기 opens the receive screen",
+            "PASS" if action_ids == ["token-send", "token-receive", "token-swap"] and "받기" in (action_labels[1] if len(action_labels) > 1 else "") else "FAIL",
+            json.dumps({"buttons": action_ids, "labels": action_labels}, ensure_ascii=False),
+        )
+        record(
+            "UI-41",
+            "The receive screen names the chain as an exchange does and warns about BEP20/ERC20",
+            "PASS"
+            if "Solana (SOL · SPL)" in receive_label
+            and "Solana(SOL)" in receive_hint
+            and "BEP20/ERC20" in receive_hint
+            and bool(receive_address)
+            else "FAIL",
+            json.dumps({"subtitle": receive_label, "hint": receive_hint, "addressShown": bool(receive_address)}, ensure_ascii=False),
+        )
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
+
+        # --- sending from the read-only session: the PIN gate -----------------
+        page.get_by_role("button", name="보내기").first.click()
+        page.wait_for_selector("#recipient-input", timeout=10000)
+        page.fill("#recipient-input", unknown_address)
+        page.fill("#amount-input", "0.1")
+        page.wait_for_timeout(600)
+        page.locator("#send-next").click()
+        gate_open = False
+        try:
+            page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
+            gate_open = True
+        except Exception:
+            gate_open = False
+        gate_title = page.locator("[role='dialog']").last.inner_text().split("\n")[0].strip() if gate_open else ""
+        confirm_without_pin = page.locator("#send-confirm").count()
+        # Backing out leaves the send unbuilt and the form untouched.
+        page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
+        page.wait_for_timeout(600)
+        cancelled_closed = page.locator("[data-auth-prompt]").count() == 0
+        still_on_form = page.locator("#send-next").count() == 1 and page.locator("#send-confirm").count() == 0
+        record(
+            "UI-42",
+            "Sending from the read-only session asks for the PIN and cancelling builds nothing",
+            "PASS"
+            if gate_open and confirm_without_pin == 0 and cancelled_closed and still_on_form and "인증" in gate_title
+            else "FAIL",
+            json.dumps({"gate": gate_open, "title": gate_title, "confirmBeforePin": confirm_without_pin, "cancelled": cancelled_closed}, ensure_ascii=False),
+        )
+
+        # A wrong PIN is refused; the right one releases the key for this send only.
+        page.locator("#send-next").click()
+        page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
+        type_pin(page, "000000")
+        wrong_pin_refused = False
+        try:
+            page.wait_for_selector("text=PIN이 올바르지 않습니다", timeout=10000)
+            wrong_pin_refused = True
+        except Exception:
+            wrong_pin_refused = False
+        page.wait_for_timeout(500)
+        type_pin(page, "123456")
+        signed_preview = False
+        try:
+            page.wait_for_selector("#send-confirm", timeout=25000)
+            signed_preview = True
+        except Exception:
+            signed_preview = False
+        send_state = page.locator("[role='dialog']").last.inner_text().replace("\n", " ")[:300]
+        record(
+            "UI-43",
+            "A wrong PIN is refused and the right one unlocks the send preview",
+            "PASS" if wrong_pin_refused and signed_preview else "FAIL",
+            json.dumps({"wrongRefused": wrong_pin_refused, "preview": signed_preview, "state": send_state}, ensure_ascii=False),
+        )
+
+        # Closing the sheet releases the key: the next attempt asks again. That
+        # is the observable proof that the key does not outlive the action.
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(700)
+        page.get_by_role("button", name="보내기").first.click()
+        page.wait_for_selector("#recipient-input", timeout=10000)
+        page.fill("#recipient-input", unknown_address)
+        page.fill("#amount-input", "0.1")
+        page.wait_for_timeout(600)
+        page.locator("#send-next").click()
+        asks_again = False
+        try:
+            page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
+            asks_again = True
+        except Exception:
+            asks_again = False
+        page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
+        page.wait_for_timeout(500)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        record(
+            "UI-44",
+            "The key released after one send is gone: the next send asks for the PIN again",
+            "PASS" if asks_again else "FAIL",
+            json.dumps({"askedAgain": asks_again}, ensure_ascii=False),
+        )
+
+        # --- turning the setting off is itself gated, and returns the lock ----
+        page.get_by_role("button", name="설정", exact=True).first.click()
+        page.wait_for_selector("button[data-auto-login]", timeout=15000)
+        page.locator("button[data-auto-login]").first.click()
+        gate_for_setting = False
+        try:
+            page.wait_for_selector("[data-auth-prompt='auto-login']", timeout=15000)
+            gate_for_setting = True
+        except Exception:
+            gate_for_setting = False
+        type_pin(page, "123456")
+        try:
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.meta.v1') || 'null')?.autoLogin === false",
+                timeout=15000,
+            )
+            setting_off = True
+        except Exception:
+            setting_off = False
+        back_on_lock = False
+        try:
+            page.wait_for_selector("text=지갑 잠김", timeout=15000)
+            back_on_lock = True
+        except Exception:
+            back_on_lock = False
+        page.reload(wait_until="domcontentloaded")
+        locked_after_reload = False
+        try:
+            page.wait_for_selector("text=지갑 잠김", timeout=20000)
+            locked_after_reload = True
+        except Exception:
+            locked_after_reload = False
+        record(
+            "UI-45",
+            "Turning auto-login off needs the PIN, and the next launch is locked again",
+            "PASS" if gate_for_setting and setting_off and back_on_lock and locked_after_reload else "FAIL",
+            json.dumps({"gate": gate_for_setting, "savedOff": setting_off, "lockedNow": back_on_lock, "lockedAfterReload": locked_after_reload}, ensure_ascii=False),
+        )
 
         # Put the wallet back on the default RPC so nothing else (and nobody
         # opening this build) is left pointing at a test endpoint.

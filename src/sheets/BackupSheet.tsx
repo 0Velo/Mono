@@ -15,7 +15,7 @@ interface BackupSheetProps {
 }
 
 export function BackupSheet({ open, onClose }: BackupSheetProps) {
-  const { verifyPin, vault, meta } = useWallet()
+  const { verifyPin, vault, meta, requestAuth, endAuthSession } = useWallet()
   const [pin, setPin] = useState('')
   const [secret, setSecret] = useState<SecretPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +59,9 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
 
   const exportEncrypted = async () => {
     if (!vault || exporting) return
+    // Taking the vault file off the device is a gated action in auto-login mode.
+    const signer = await requestAuth('export-backup')
+    if (!signer) return
     setExporting(true)
     try {
       const result = await saveBackupFile(vault, meta?.address)
@@ -73,6 +76,7 @@ export function BackupSheet({ open, onClose }: BackupSheetProps) {
       }
     } finally {
       setExporting(false)
+      endAuthSession()
     }
   }
 
