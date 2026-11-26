@@ -1239,87 +1239,104 @@ def main():
         page.keyboard.press("Escape")
         page.wait_for_timeout(400)
 
-        # --- sending from the read-only session: the PIN gate -----------------
-        page.get_by_role("button", name="보내기").first.click()
-        page.wait_for_selector("#recipient-input", timeout=10000)
-        page.fill("#recipient-input", unknown_address)
-        page.fill("#amount-input", "0.1")
-        page.wait_for_timeout(600)
-        page.locator("#send-next").click()
-        gate_open = False
-        try:
-            page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
-            gate_open = True
-        except Exception:
+        # A freshly created wallet holds no SOL, so the send sheet cannot be
+        # advanced on the live deployment (there is no stand-in RPC there).
+        # The local suite proves the gate; the live run records it as REVIEW
+        # instead of pretending it passed.
+        if mock_available:
+            # --- sending from the read-only session: the PIN gate -----------------
+            page.get_by_role("button", name="보내기").first.click()
+            page.wait_for_selector("#recipient-input", timeout=10000)
+            page.fill("#recipient-input", unknown_address)
+            page.fill("#amount-input", "0.1")
+            page.wait_for_timeout(600)
+            page.locator("#send-next").click()
             gate_open = False
-        gate_title = page.locator("[role='dialog']").last.inner_text().split("\n")[0].strip() if gate_open else ""
-        confirm_without_pin = page.locator("#send-confirm").count()
-        # Backing out leaves the send unbuilt and the form untouched.
-        page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
-        page.wait_for_timeout(600)
-        cancelled_closed = page.locator("[data-auth-prompt]").count() == 0
-        still_on_form = page.locator("#send-next").count() == 1 and page.locator("#send-confirm").count() == 0
-        record(
-            "UI-42",
-            "Sending from the read-only session asks for the PIN and cancelling builds nothing",
-            "PASS"
-            if gate_open and confirm_without_pin == 0 and cancelled_closed and still_on_form and "인증" in gate_title
-            else "FAIL",
-            json.dumps({"gate": gate_open, "title": gate_title, "confirmBeforePin": confirm_without_pin, "cancelled": cancelled_closed}, ensure_ascii=False),
-        )
+            try:
+                page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
+                gate_open = True
+            except Exception:
+                gate_open = False
+            gate_title = page.locator("[role='dialog']").last.inner_text().split("\n")[0].strip() if gate_open else ""
+            confirm_without_pin = page.locator("#send-confirm").count()
+            # Backing out leaves the send unbuilt and the form untouched.
+            page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
+            page.wait_for_timeout(600)
+            cancelled_closed = page.locator("[data-auth-prompt]").count() == 0
+            still_on_form = page.locator("#send-next").count() == 1 and page.locator("#send-confirm").count() == 0
+            record(
+                "UI-42",
+                "Sending from the read-only session asks for the PIN and cancelling builds nothing",
+                "PASS"
+                if gate_open and confirm_without_pin == 0 and cancelled_closed and still_on_form and "인증" in gate_title
+                else "FAIL",
+                json.dumps({"gate": gate_open, "title": gate_title, "confirmBeforePin": confirm_without_pin, "cancelled": cancelled_closed}, ensure_ascii=False),
+            )
 
-        # A wrong PIN is refused; the right one releases the key for this send only.
-        page.locator("#send-next").click()
-        page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
-        type_pin(page, "000000")
-        wrong_pin_refused = False
-        try:
-            page.wait_for_selector("text=PIN이 올바르지 않습니다", timeout=10000)
-            wrong_pin_refused = True
-        except Exception:
-            wrong_pin_refused = False
-        page.wait_for_timeout(500)
-        type_pin(page, "123456")
-        signed_preview = False
-        try:
-            page.wait_for_selector("#send-confirm", timeout=25000)
-            signed_preview = True
-        except Exception:
-            signed_preview = False
-        send_state = page.locator("[role='dialog']").last.inner_text().replace("\n", " ")[:300]
-        record(
-            "UI-43",
-            "A wrong PIN is refused and the right one unlocks the send preview",
-            "PASS" if wrong_pin_refused and signed_preview else "FAIL",
-            json.dumps({"wrongRefused": wrong_pin_refused, "preview": signed_preview, "state": send_state}, ensure_ascii=False),
-        )
-
-        # Closing the sheet releases the key: the next attempt asks again. That
-        # is the observable proof that the key does not outlive the action.
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(700)
-        page.get_by_role("button", name="보내기").first.click()
-        page.wait_for_selector("#recipient-input", timeout=10000)
-        page.fill("#recipient-input", unknown_address)
-        page.fill("#amount-input", "0.1")
-        page.wait_for_timeout(600)
-        page.locator("#send-next").click()
-        asks_again = False
-        try:
+            # A wrong PIN is refused; the right one releases the key for this send only.
+            page.locator("#send-next").click()
             page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
-            asks_again = True
-        except Exception:
+            type_pin(page, "000000")
+            wrong_pin_refused = False
+            try:
+                page.wait_for_selector("text=PIN이 올바르지 않습니다", timeout=10000)
+                wrong_pin_refused = True
+            except Exception:
+                wrong_pin_refused = False
+            page.wait_for_timeout(500)
+            type_pin(page, "123456")
+            signed_preview = False
+            try:
+                page.wait_for_selector("#send-confirm", timeout=25000)
+                signed_preview = True
+            except Exception:
+                signed_preview = False
+            send_state = page.locator("[role='dialog']").last.inner_text().replace("\n", " ")[:300]
+            record(
+                "UI-43",
+                "A wrong PIN is refused and the right one unlocks the send preview",
+                "PASS" if wrong_pin_refused and signed_preview else "FAIL",
+                json.dumps({"wrongRefused": wrong_pin_refused, "preview": signed_preview, "state": send_state}, ensure_ascii=False),
+            )
+
+            # Closing the sheet releases the key: the next attempt asks again. That
+            # is the observable proof that the key does not outlive the action.
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(700)
+            page.get_by_role("button", name="보내기").first.click()
+            page.wait_for_selector("#recipient-input", timeout=10000)
+            page.fill("#recipient-input", unknown_address)
+            page.fill("#amount-input", "0.1")
+            page.wait_for_timeout(600)
+            page.locator("#send-next").click()
             asks_again = False
-        page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
-        page.wait_for_timeout(500)
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(500)
-        record(
-            "UI-44",
-            "The key released after one send is gone: the next send asks for the PIN again",
-            "PASS" if asks_again else "FAIL",
-            json.dumps({"askedAgain": asks_again}, ensure_ascii=False),
-        )
+            try:
+                page.wait_for_selector("[data-auth-prompt='send']", timeout=15000)
+                asks_again = True
+            except Exception:
+                asks_again = False
+            page.locator("[role='dialog']").last.get_by_role("button", name="취소").first.click()
+            page.wait_for_timeout(500)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(500)
+            record(
+                "UI-44",
+                "The key released after one send is gone: the next send asks for the PIN again",
+                "PASS" if asks_again else "FAIL",
+                json.dumps({"askedAgain": asks_again}, ensure_ascii=False),
+            )
+        else:
+            for cid, title in (
+                ("UI-42", "Sending from the read-only session asks for the PIN and cancelling builds nothing"),
+                ("UI-43", "A wrong PIN is refused and the right one unlocks the send preview"),
+                ("UI-44", "The key released after one send is gone: the next send asks for the PIN again"),
+            ):
+                record(
+                    cid,
+                    title,
+                    "REVIEW",
+                    "live mode: the funded stand-in RPC lives on the local static server; the same check runs in the local suite",
+                )
 
         # --- turning the setting off is itself gated, and returns the lock ----
         page.get_by_role("button", name="설정", exact=True).first.click()
