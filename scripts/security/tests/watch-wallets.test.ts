@@ -19,7 +19,9 @@ Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable
 
 const {
   MAX_WATCH_WALLETS,
+  WATCH_PRESETS,
   addWatch,
+  addWatchPresets,
   looksLikeSolanaAddress,
   normalizeWatchLabel,
   removeWatch,
@@ -32,8 +34,20 @@ const OWN = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'
 const WHALE = '5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1'
 const OTHER = '7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G5'
 
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
 function syntheticAddress(index: number): string {
-  return `ABCDEFGHJKLMNPQRSTUVWXYZ${index + 2}${'x'.repeat(18)}`
+  const first = BASE58_ALPHABET[index % BASE58_ALPHABET.length]
+  const second = BASE58_ALPHABET[Math.floor(index / BASE58_ALPHABET.length) % BASE58_ALPHABET.length]
+  return `ABCDEFGHJKLMNPQRSTUVWXYZ${first}${second}${'x'.repeat(17)}`
+}
+
+function storedEntries(): any[] {
+  return JSON.parse(storage.getItem('mono.watchWallets.v1') ?? '[]')
+}
+
+function clearWatchList(): void {
+  for (const entry of storedEntries()) removeWatch(entry.id)
 }
 
 test('watch labels stay one line and addresses are shape-checked only', () => {
@@ -108,4 +122,85 @@ test('without a configured push server the list never leaves the device', async 
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+/** The 15 recommended whales exactly as the user listed them. */
+const EXPECTED_PRESETS: [string, string][] = [
+  ['Trunoest', 'ardinRsN1mNYVeoJWTBsWeYeXvuR9UUDGMsCDKpb6AT'],
+  ['OGAntD', '215nhcAHjQQGgwpQSJQ7zR26etbjjtVdW74NLzwEgQjP'],
+  ['Decu', '4vw54BmAogeRV3vPKWyFet5yf8DTLcREzdSzx4rw9Ud9'],
+  ['Cooker', '8deJ9xeUvXSJwicYptA9mHsU2rN2pDx37KWzkDkEXhU6'],
+  ['Ansem', 'AVAZvHLR2PcWpDf8BXY4rVxNHYRBytycHkcB5z5QNXYm'],
+  ['SKX', 'C4eZg1rJX6v1u7LzqermPrA1pDNNxQe6g3vyY5cHHoWq'],
+  ['LJC', '6HJetMbdHBuk3mLUainxAPpBpWzDgYbHGTS2TqDAUSX2'],
+  ['ozark', 'DZAa55HwXgv5hStwaTEJGXZz1DhHejvpb7Yr762urXam'],
+  ['rayan', 'BNahnx13rLru9zxuWNGBD7vVv1pGQXB11Q7qeTyupdWf'],
+  ['Pain', 'J6TDXvarvpBdPXTaTU8eJbtso1PUCYKGkVtMKUUY8iEa'],
+  ['Mitch', '4Be9CvxqHW6BYiRAxW9Q3xu1ycTMWaL5z8NX4HR3ha7t'],
+  ['Jijo', '4BdKaxN8G6ka4GYtQQWk4G4dZRUTX2vQH9GcXdBREFUk'],
+  ['Frank DeGods', '498g1rVnFcnjBjpfw1xyqA1WvgQXUU8RWuELjxkjAayQ'],
+  ['Cap', 'CAPn1yH4oSywsxGU456jfgTrSSUidf9jgeAnHceNUJdw'],
+  ['Dov', '8nqtxpFpuXwfXG4pBLsDkkuMMPK9FjSkBMCn542HiM3v'],
+]
+
+test('the recommended whales are fifteen fixed public addresses', () => {
+  assert.deepEqual(WATCH_PRESETS.map((preset) => [preset.name, preset.address]), EXPECTED_PRESETS)
+  assert.equal(new Set(WATCH_PRESETS.map((preset) => preset.address)).size, WATCH_PRESETS.length)
+  for (const preset of WATCH_PRESETS) {
+    assert.equal(looksLikeSolanaAddress(preset.address), true)
+    assert.equal(normalizeWatchLabel(preset.name), preset.name)
+  }
+})
+
+test('all recommended whales can be added in one tap with a single write', () => {
+  clearWatchList()
+  const first = addWatchPresets(WATCH_PRESETS, OWN)
+  assert.deepEqual(first, { added: 15, alreadyTracked: 0, skipped: 0, reachedLimit: false })
+  const stored = storedEntries()
+  assert.deepEqual(stored.map((entry: any) => entry.label), WATCH_PRESETS.map((preset) => preset.name))
+  assert.deepEqual(stored.map((entry: any) => entry.address), WATCH_PRESETS.map((preset) => preset.address))
+  assert.ok(stored.every((entry: any) => entry.enabled === true))
+  // Still only a public address and a label per row.
+  for (const entry of stored) assert.deepEqual(Object.keys(entry).sort(), ['address', 'createdAt', 'enabled', 'id', 'label'])
+  // A second tap skips every address instead of duplicating it.
+  const again = addWatchPresets(WATCH_PRESETS, OWN)
+  assert.deepEqual(again, { added: 0, alreadyTracked: 15, skipped: 0, reachedLimit: false })
+  assert.equal(storedEntries().length, 15)
+})
+
+test('a single recommended whale can be added from its chip and is flagged afterwards', () => {
+  clearWatchList()
+  const preset = WATCH_PRESETS[2]
+  assert.equal(addWatch(preset.name, preset.address, OWN).ok, true)
+  assert.equal(addWatch(preset.name, preset.address, OWN).ok, false)
+  assert.equal(storedEntries().length, 1)
+  const rest = addWatchPresets(WATCH_PRESETS, OWN)
+  assert.equal(rest.added, WATCH_PRESETS.length - 1)
+  assert.equal(rest.alreadyTracked, 1)
+  assert.equal(storedEntries().length, WATCH_PRESETS.length)
+})
+
+test('the cap is twenty wallets and a bulk add fills only the empty seats', () => {
+  clearWatchList()
+  assert.equal(MAX_WATCH_WALLETS, 20)
+  for (let index = 0; index < MAX_WATCH_WALLETS - 1; index += 1) {
+    assert.equal(addWatch(`수동 ${index}`, syntheticAddress(index), OWN).ok, true)
+  }
+  const result = addWatchPresets(WATCH_PRESETS, OWN)
+  assert.equal(result.added, 1)
+  assert.equal(result.reachedLimit, true)
+  assert.equal(storedEntries().length, MAX_WATCH_WALLETS)
+  assert.equal(storedEntries()[0].address, WATCH_PRESETS[0].address)
+  // At the cap nothing more can be stored, by hand or by preset.
+  assert.equal(addWatch('초과', syntheticAddress(40), OWN).ok, false)
+  assert.equal(addWatchPresets(WATCH_PRESETS, OWN).added, 0)
+})
+
+test('a recommended whale that is the own wallet is skipped, not stored', () => {
+  clearWatchList()
+  const result = addWatchPresets(WATCH_PRESETS, WATCH_PRESETS[0].address)
+  assert.equal(result.skipped, 1)
+  assert.equal(result.added, WATCH_PRESETS.length - 1)
+  assert.equal(storedEntries().some((entry: any) => entry.address === WATCH_PRESETS[0].address), false)
+  clearWatchList()
 })

@@ -14,7 +14,7 @@ import type { NetworkId } from './rpc'
 import { syncWatchList, type RemoteWatchEntry } from './pushSubscriptions'
 
 const KEY = 'mono.watchWallets.v1'
-export const MAX_WATCH_WALLETS = 8
+export const MAX_WATCH_WALLETS = 20
 export const MAX_WATCH_LABEL = 24
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]+$/
 
@@ -25,6 +25,34 @@ export interface WatchEntry {
   enabled: boolean
   createdAt: number
 }
+
+export interface WatchPreset {
+  name: string
+  address: string
+}
+
+/**
+ * 추천 고래 — 공개 주소만 담은 고정 목록이다. 서버에서 받아오지 않으므로
+ * 오프라인에서도 같은 15명이 그대로 보이고, 추가는 기존 수동 추가와 똑같이
+ * 기기 저장소에만 쓰인다.
+ */
+export const WATCH_PRESETS: readonly WatchPreset[] = [
+  { name: 'Trunoest', address: 'ardinRsN1mNYVeoJWTBsWeYeXvuR9UUDGMsCDKpb6AT' },
+  { name: 'OGAntD', address: '215nhcAHjQQGgwpQSJQ7zR26etbjjtVdW74NLzwEgQjP' },
+  { name: 'Decu', address: '4vw54BmAogeRV3vPKWyFet5yf8DTLcREzdSzx4rw9Ud9' },
+  { name: 'Cooker', address: '8deJ9xeUvXSJwicYptA9mHsU2rN2pDx37KWzkDkEXhU6' },
+  { name: 'Ansem', address: 'AVAZvHLR2PcWpDf8BXY4rVxNHYRBytycHkcB5z5QNXYm' },
+  { name: 'SKX', address: 'C4eZg1rJX6v1u7LzqermPrA1pDNNxQe6g3vyY5cHHoWq' },
+  { name: 'LJC', address: '6HJetMbdHBuk3mLUainxAPpBpWzDgYbHGTS2TqDAUSX2' },
+  { name: 'ozark', address: 'DZAa55HwXgv5hStwaTEJGXZz1DhHejvpb7Yr762urXam' },
+  { name: 'rayan', address: 'BNahnx13rLru9zxuWNGBD7vVv1pGQXB11Q7qeTyupdWf' },
+  { name: 'Pain', address: 'J6TDXvarvpBdPXTaTU8eJbtso1PUCYKGkVtMKUUY8iEa' },
+  { name: 'Mitch', address: '4Be9CvxqHW6BYiRAxW9Q3xu1ycTMWaL5z8NX4HR3ha7t' },
+  { name: 'Jijo', address: '4BdKaxN8G6ka4GYtQQWk4G4dZRUTX2vQH9GcXdBREFUk' },
+  { name: 'Frank DeGods', address: '498g1rVnFcnjBjpfw1xyqA1WvgQXUU8RWuELjxkjAayQ' },
+  { name: 'Cap', address: 'CAPn1yH4oSywsxGU456jfgTrSSUidf9jgeAnHceNUJdw' },
+  { name: 'Dov', address: '8nqtxpFpuXwfXG4pBLsDkkuMMPK9FjSkBMCn542HiM3v' },
+]
 
 let state: WatchEntry[] | null = null
 const listeners = new Set<() => void>()
@@ -112,6 +140,48 @@ export function addWatch(label: string, address: string, ownAddress = ''): Watch
   }
   write([entry, ...entries])
   return { ok: true, entry }
+}
+
+export interface WatchPresetResult {
+  added: number
+  alreadyTracked: number
+  skipped: number
+  reachedLimit: boolean
+}
+
+/**
+ * 추천 고래를 한 번에 추가한다. 저장은 마지막에 한 번만 하므로 화면은 한 번
+ * 다시 그려지고, 그 변화 하나로 `/v1/watch` 동기화도 한 번만 나간다. 이미 있는
+ * 주소는 건너뛰고, 남은 자리까지만 채운 뒤에는 상한에 닿았음을 알린다.
+ */
+export function addWatchPresets(presets: readonly WatchPreset[], ownAddress = ''): WatchPresetResult {
+  const existing = read()
+  const tracked = new Set(existing.map((entry) => entry.address))
+  const added: WatchEntry[] = []
+  let alreadyTracked = 0
+  let skipped = 0
+  let reachedLimit = false
+  const now = Date.now()
+  for (const preset of presets) {
+    const label = normalizeWatchLabel(preset.name)
+    const address = preset.address.trim()
+    if (!label || !looksLikeSolanaAddress(address) || (ownAddress && address === ownAddress)) {
+      skipped += 1
+      continue
+    }
+    if (tracked.has(address)) {
+      alreadyTracked += 1
+      continue
+    }
+    if (existing.length + added.length >= MAX_WATCH_WALLETS) {
+      reachedLimit = true
+      continue
+    }
+    tracked.add(address)
+    added.push({ id: newId(), label, address, enabled: true, createdAt: now })
+  }
+  if (added.length) write([...added, ...existing])
+  return { added: added.length, alreadyTracked, skipped, reachedLimit }
 }
 
 export function updateWatch(id: string, patch: { label?: string; enabled?: boolean }): boolean {

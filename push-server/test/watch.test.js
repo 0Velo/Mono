@@ -73,6 +73,13 @@ function watchBody(entries, overrides = {}) {
   return { id: ID, managementToken: TOKEN, network: "mainnet-beta", entries, ...overrides };
 }
 
+const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+/** Unique, shape-valid addresses for cap tests (never used as real keys). */
+function bulkAddress(index) {
+  return `W${BASE58[index % BASE58.length]}${BASE58[Math.floor(index / BASE58.length) % BASE58.length]}${"z".repeat(41)}`;
+}
+
 function pushRecorder() {
   const calls = [];
   const fetcher = async (input, init = {}) => {
@@ -132,6 +139,34 @@ test("POST /v1/watch stores the list for the matching management token only", as
   assert.equal(ownWallet.status, 400);
   const devnetEntries = await fetchHandler(watchRequest(watchBody(entries, { network: "devnet" })), env, kv);
   assert.equal(devnetEntries.status, 409);
+});
+
+test("the watch list takes twenty wallets and refuses twenty-one", () => {
+  assert.equal(MAX_WATCH_WALLETS, 20);
+  const twenty = Array.from({ length: MAX_WATCH_WALLETS }, (_, index) => ({
+    address: bulkAddress(index), label: `고래 ${index + 1}`, enabled: true
+  }));
+  assert.equal(parseWatchEntries(twenty, OWNER).length, MAX_WATCH_WALLETS);
+  assert.deepEqual(parseWatchEntries(twenty, OWNER)[0], twenty[0]);
+  assert.equal(parseWatchEntries([...twenty, { address: bulkAddress(99), label: "하나 더", enabled: true }], OWNER), null);
+});
+
+test("POST /v1/watch stores twenty wallets and the webhook watches them all", async () => {
+  const record = await makeRecord();
+  const kv = new FakeKV([[`sub/${ID}`, JSON.stringify(record)]]);
+  const env = { SUBSCRIPTIONS: kv, APP_ORIGIN };
+  const twenty = Array.from({ length: MAX_WATCH_WALLETS }, (_, index) => ({
+    address: bulkAddress(index), label: `고래 ${index + 1}`, enabled: true
+  }));
+
+  const response = await fetchHandler(watchRequest(watchBody(twenty)), env, kv);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { watchCount: MAX_WATCH_WALLETS });
+  assert.equal((await loadWatchEntries(kv, record)).length, MAX_WATCH_WALLETS);
+
+  const over = await fetchHandler(watchRequest(watchBody([...twenty, { address: bulkAddress(99), label: "하나 더", enabled: true }])), env, kv);
+  assert.equal(over.status, 400);
+  assert.equal((await loadWatchEntries(kv, record)).length, MAX_WATCH_WALLETS);
 });
 
 test("an empty list clears the watch record and its dedupe window", async () => {
