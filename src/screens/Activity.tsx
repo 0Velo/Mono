@@ -63,7 +63,7 @@ export function Activity({
             <div
               key={item.signature}
               className="animate-rise"
-              style={{ animationDelay: `${Math.min(index * 22, 200)}ms` }}
+              style={{ animationDelay: `${Math.min(index, 10) * 22}ms` }}
             >
               <TxRow
                 item={item}

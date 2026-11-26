@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Check, ChevronRight, Copy, EyeOff, RefreshCw, Settings2, Star } from 'lucide-react'
+import { AnimatedNumber } from '../components/AnimatedNumber'
 import { Sparkline, SolMark, TokenIcon } from '../components/ui'
 import { TxRow, type TokenSymbolMap } from '../components/TxRow'
 import { showToast } from '../components/Toast'
@@ -37,6 +38,15 @@ interface HomeProps {
   onNetworkChange: (network: NetworkId) => void
   /** Auto-login view-only session: public data with no key in memory. */
   viewOnly?: boolean
+}
+
+/**
+ * The SOL subline reads through the same rolling formatter as the list rows:
+ * a number in, the app's usual grouping and 4-digit cap out.
+ */
+function formatSolRoll(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${formatAmount(BigInt(Math.round(value * 1e9)), 9, 4)} SOL`
 }
 
 export function Home({
@@ -105,7 +115,9 @@ export function Home({
     }
   }
 
-  const heroValue = currency === 'usd' ? formatUsd(totalUsd) : formatKrw(krw)
+  // The hero rolls between two readings of one total; both tick against the
+  // same number, so the currency toggle never shows a balance it isn't.
+  const heroAmount = currency === 'usd' ? totalUsd : krw
 
   return (
     <div className="animate-fade flex flex-1 flex-col">
@@ -193,7 +205,16 @@ export function Home({
               )}
               data-balance-hidden={prefs.hideBalance ? 'true' : 'false'}
             >
-              {prefs.hideBalance ? '••••' : heroValue}
+              {prefs.hideBalance ? (
+                '••••'
+              ) : (
+                /* 탭해서 가린 상태는 모션이 없다: 가린 잔액이 굴러가면 가린 의미가 없다. */
+                <AnimatedNumber
+                  value={heroAmount}
+                  format={currency === 'usd' ? formatUsd : formatKrw}
+                  snapKey={currency}
+                />
+              )}
             </span>
           </button>
         ) : (
@@ -202,11 +223,11 @@ export function Home({
 
         <div className="mt-2.5 flex items-center gap-2 text-[12.5px]">
           <span className="tnum font-medium text-muted">
-            {solUi === null
-              ? '—'
-              : prefs.hideBalance
-                ? '•••• SOL'
-                : `${formatAmount(BigInt(portfolio!.solLamports), 9, 4)} SOL`}
+            {prefs.hideBalance ? (
+              '•••• SOL'
+            ) : (
+              <AnimatedNumber value={solUi} format={formatSolRoll} />
+            )}
           </span>
           {change !== null && (
             <>
@@ -282,28 +303,34 @@ export function Home({
           </div>
           <div className="mt-1.5 px-5">
             {watched.map((token, index) => (
-              <button
+              <div
                 key={`watch-${token.mint}`}
-                onClick={() => onToken(token.key)}
-                className="press animate-rise flex w-full items-center gap-3.5 py-3 text-left"
-                style={{ animationDelay: `${Math.min(index * 26, 160)}ms` }}
+                className="animate-rise"
+                style={{ animationDelay: `${Math.min(index, 10) * 22}ms` }}
               >
-                <TokenIcon symbol={token.symbol} icon={token.icon} size={36} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[14px] font-semibold tracking-[-0.02em] text-ink">
-                    {token.symbol}
+                <button
+                  onClick={() => onToken(token.key)}
+                  className="press flex w-full items-center gap-3.5 py-3 text-left"
+                >
+                  <TokenIcon symbol={token.symbol} icon={token.icon} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] font-semibold tracking-[-0.02em] text-ink">
+                      {token.symbol}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-muted tnum">
+                      {formatPrice(token.priceUsd)}
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-[11px] text-muted tnum">
-                    {formatPrice(token.priceUsd)}
+                  <div className="text-right">
+                    <div className="tnum text-[13.5px] font-semibold text-ink">
+                      {formatAmount(token.amount, token.decimals, 4)}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-muted tnum">
+                      {formatUsd(token.valueUsd)}
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="tnum text-[13.5px] font-semibold text-ink">
-                    {formatAmount(token.amount, token.decimals, 4)}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-muted tnum">{formatUsd(token.valueUsd)}</div>
-                </div>
-              </button>
+                </button>
+              </div>
             ))}
           </div>
         </>
@@ -342,32 +369,38 @@ export function Home({
         </button>
 
         {ordered.map((token, index) => (
-          <button
+          <div
             key={token.mint}
-            onClick={() => onToken(token.key)}
-            className="press animate-rise flex w-full items-center gap-3.5 py-3.5 text-left"
-            style={{ animationDelay: `${Math.min(index * 26, 180)}ms` }}
+            className="animate-rise"
+            style={{ animationDelay: `${Math.min(index, 10) * 22}ms` }}
           >
-            <TokenIcon symbol={token.symbol} icon={token.icon} size={40} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[14.5px] font-semibold tracking-[-0.02em] text-ink">
-                {token.symbol}
+            <button
+              onClick={() => onToken(token.key)}
+              className="press flex w-full items-center gap-3.5 py-3.5 text-left"
+            >
+              <TokenIcon symbol={token.symbol} icon={token.icon} size={40} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14.5px] font-semibold tracking-[-0.02em] text-ink">
+                  {token.symbol}
+                </div>
+                <div className="mt-0.5 h-[15px] truncate text-[11.5px] text-muted">
+                  {token.priceUsd !== null
+                    ? formatPrice(token.priceUsd)
+                    : token.name && token.name !== token.symbol
+                      ? token.name
+                      : ''}
+                </div>
               </div>
-              <div className="mt-0.5 h-[15px] truncate text-[11.5px] text-muted">
-                {token.priceUsd !== null
-                  ? formatPrice(token.priceUsd)
-                  : token.name && token.name !== token.symbol
-                    ? token.name
-                    : ''}
+              <div className="text-right">
+                <div className="tnum text-[14.5px] font-semibold tracking-[-0.02em] text-ink">
+                  {formatAmount(token.amount, token.decimals, 4)}
+                </div>
+                <div className="mt-0.5 text-[11.5px] text-muted tnum">
+                  {formatUsd(token.valueUsd)}
+                </div>
               </div>
-            </div>
-            <div className="text-right">
-              <div className="tnum text-[14.5px] font-semibold tracking-[-0.02em] text-ink">
-                {formatAmount(token.amount, token.decimals, 4)}
-              </div>
-              <div className="mt-0.5 text-[11.5px] text-muted tnum">{formatUsd(token.valueUsd)}</div>
-            </div>
-          </button>
+            </button>
+          </div>
         ))}
 
         {collapsedCount > 0 && (
@@ -424,13 +457,18 @@ export function Home({
 
       <div className="mt-1">
         {recent.slice(0, 3).map((item, index) => (
-          <TxRow
+          <div
             key={item.signature}
-            item={item}
-            tokenSymbols={tokenSymbols}
-            network={network}
-            showBorder={index > 0}
-          />
+            className="animate-rise"
+            style={{ animationDelay: `${index * 22}ms` }}
+          >
+            <TxRow
+              item={item}
+              tokenSymbols={tokenSymbols}
+              network={network}
+              showBorder={index > 0}
+            />
+          </div>
         ))}
         {recent.length === 0 && (
           <div className="px-5 py-2 text-[12px] leading-relaxed text-muted">

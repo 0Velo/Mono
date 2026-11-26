@@ -348,13 +348,13 @@ export default function Shell() {
                   size={21}
                   strokeWidth={active ? 2.1 : 1.7}
                   className={cx(
-                    'transition-transform duration-200',
-                    active ? 'scale-105 text-ink' : 'text-faint2',
+                    'transition-transform duration-300 ease-[cubic-bezier(0.34,1.42,0.64,1)]',
+                    active ? 'scale-110 text-ink' : 'text-faint2',
                   )}
                 />
                 <span
                   className={cx(
-                    'text-[10.5px] tracking-[-0.01em] transition-colors',
+                    'text-[10.5px] tracking-[-0.01em] transition-colors duration-200',
                     active ? 'font-semibold text-ink' : 'font-medium text-faint2',
                   )}
                 >

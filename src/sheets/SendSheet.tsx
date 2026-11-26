@@ -4,6 +4,7 @@ import { Bookmark, Check, ChevronDown, ClipboardPaste, ExternalLink, QrCode, X }
 import { Sheet } from '../components/Sheet'
 import { Button } from '../components/Button'
 import { Spinner } from '../components/Spinner'
+import { SuccessMark } from '../components/SuccessMark'
 import { QrScanner } from '../components/QrScanner'
 import { TokenIcon } from '../components/ui'
 import {
@@ -1158,9 +1159,7 @@ export function SendSheet({
 
       {step === 'done' && signature && (
         <div className="flex h-full flex-col items-center justify-center pb-6">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-mintSoft text-mint">
-            <Check size={28} strokeWidth={2.6} />
-          </div>
+          <SuccessMark />
           <div className="mt-5 text-[19px] font-bold tracking-[-0.03em] text-ink">전송 완료</div>
           <div className="tnum mt-2 text-[15px] font-semibold text-ink">
             {formatTxAmount(baseUnits, asset?.decimals ?? 9)} {ticker}

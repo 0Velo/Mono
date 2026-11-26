@@ -34,6 +34,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 - **다크 모드** — 라이트 / 다크 / 시스템, 설정에 저장되고 첫 페인트 전에 적용
 - **첫 화면** — 앱을 열면 블랙 클레이 마스코트가 곧바로 뜨고, 금고를 읽는 동안 흰 화면이 보이지 않습니다. 마스코트는 살짝 떠오르며 나타나 천천히 떠다니고, 최소 1.15초 노출된 뒤 0.38초에 걸쳐 사라집니다(동작 줄이기 설정에서는 애니메이션 없이 바로 표시)
 - **입출금 알림** — 설정에서 켜면 입금·출금·스왑을 OS 알림과 화면 안 토스트로 알립니다. 앱이 열려 있는 동안은 기기가 20초마다 직접 조회하고, **앱을 닫아 둔 동안의 입금**은 `설정 → 알림 → 백그라운드 Web Push`로 기기를 등록하면 푸시 서버가 알려 줍니다(주소·금액 없이 "입금 감지"만). iPhone은 홈 화면에 추가한 앱에서만 웹 알림 권한을 줄 수 있습니다
+- **모션** — 총 자산 숫자는 바뀔 때 520ms 동안 굴러가며 새 값에 앉고(가린 잔액·동작 줄이기 설정에서는 생략), 송금·스왑 완료 화면의 체크는 선이 그려지며 민트 링이 한 번 퍼집니다. 버튼은 누를 때 빠르게 눌리고 뗄 때 스프링으로 돌아오며, 바텀시트와 탭 전환은 iOS 커브로 미세하게 슬라이드·스케일합니다. 자산·내역 목록은 데이터가 도착하면 22ms 간격으로 최대 10개까지만 차례로 떠오릅니다
 - **고래 지갑 알림 (Wallet Watch)** — `설정 → 알림 → 고래 지갑 알림`에서 추적할 외부 솔라나 지갑의 **공개 주소와 별명**(예: `고래 1`, `트레이더 A`)을 추가·이름 변경·삭제하고 알림을 켜고 끌 수 있습니다(최대 20개). 시트 위쪽의 **추천 고래 15명**은 칩 하나로 1명, `전체 추가`로 한 번에 넣을 수 있고 이미 등록된 주소는 `추가됨`으로 표시됩니다(저장 1회, `/v1/watch` 동기화 1회). 백그라운드 Web Push를 켜면 그 주소들이 Helius **메인넷** 웹훅에 함께 등록되어, 스왑·송금이 감지되면 `[고래 1] 스왑 감지` / `Mainnet · SOL · token …`처럼 **내 지갑 알림과 구분되는** 푸시가 옵니다(금액은 넣지 않음). 공개 주소만 서버로 가고 키·서명은 필요 없어서 조회 전용(자동 로그인) 상태에서도 목록을 고칠 수 있습니다
 
 ### 보안 구조
@@ -130,6 +131,7 @@ happens client-side. There is no server component and no analytics.
 - **Spam control** — hide any SPL token from the wallet list
 - **Theme** — light / dark / system, persisted and applied before first paint
 - **Splash** — the black clay mascot paints from plain HTML before any script runs, floats in and breathes for at least 1.15s, then fades over 0.38s once the vault is read (motion respects `prefers-reduced-motion`)
+- **Motion** — the total rolls to its new value over 520ms of cubic-out (skipped for a hidden balance or `prefers-reduced-motion`), the send/swap tick draws itself under a single mint ring, buttons press fast and release on a spring, sheets and tab changes use the iOS curve, and asset/activity rows rise in 22ms steps (first ten only)
 - **Activity alerts** — optional deposit / withdrawal / swap notices as OS notifications plus in-app toasts. No backend: the device polls its own RPC every 20 seconds, so alerts exist only while the app is open. iPhone grants web notification permission only to the Home Screen app
 
 ### Security model
