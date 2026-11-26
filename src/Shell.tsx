@@ -84,7 +84,7 @@ function readActivityAlerts(): ActivityAlertState {
 }
 
 export default function Shell() {
-  const { meta, keypair, activeAccount, lock, updateMeta, resetWallet } = useWallet()
+  const { meta, keypair, activeAccount, lock, updateMeta, resetWallet, viewOnly } = useWallet()
   const [tab, setTab] = useState<Tab>('wallet')
   const [sheet, setSheet] = useState<SheetState>(null)
   const [activityAlerts, setActivityAlerts] = useState(() => readActivityAlerts())
@@ -254,6 +254,7 @@ export default function Shell() {
               onAccounts={() => setSheet({ type: 'accounts' })}
               onToken={(key) => setSheet({ type: 'token', key })}
               onSwap={() => openSwap(null)}
+              viewOnly={viewOnly}
               onNetworkChange={(next) => {
                 // The connection is rebuilt for the new network, which already
                 // refetches the portfolio and history.
@@ -395,6 +396,7 @@ export default function Shell() {
             onRefreshHistory={() => void history.refresh()}
             onClose={() => setSheet(null)}
             onSend={(mint) => setSheet({ type: 'send', mint })}
+            onReceive={() => setSheet({ type: 'receive' })}
             onSwap={(mint) => openSwap(mint)}
           />
         </Suspense>

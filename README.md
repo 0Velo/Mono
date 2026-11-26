@@ -27,7 +27,9 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 - **주소록** — "투빗 입금", "내 팬텀" 같은 이름으로 저장하고 보내기 화면에서 한 번에 선택
 - **계정** — 같은 시드 문구에서 `m/44'/501'/n'/0'` 파생. 최대 100개까지 추가·전환·이름 변경·삭제할 수 있고, 삭제한 번호를 다시 추가하면 같은 주소가 돌아옵니다
 - **스왑** — Jupiter 애그리게이터 견적·실행, 슬리피지(0.5 / 1 / 3%), 가격 영향·최소 수령·경로 표시
-- **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장)
+- **토큰 상세** — 가격 차트(1일/7일), 관심 목록(★), 보안 체크(민트 권한·동결 권한·Token-2022 확장). 하단에 `보내기 · 받기 · 스왑` 세 버튼이 한 줄로 있고, 받기는 그 토큰을 받을 주소·QR 화면으로 바로 연결됩니다
+- **받기 화면의 네트워크 표기** — 거래소 출금 화면과 같은 `Solana (SOL · SPL)`로 적고, `거래소 출금 시 반드시 Solana(SOL) 네트워크 · BEP20/ERC20 불가` 한 줄을 함께 둡니다(Devnet은 `Solana Devnet`으로 구분)
+- **조회 자동 로그인 (선택)** — 설정 → 보안에서 켜면 앱을 열 때 PIN 없이 홈(잔액·토큰·차트·받기·거래내역)이 바로 뜨고, 왼쪽 위에 `조회 전용` 칩이 붙습니다. 이때 시드 문구·개인키는 메모리에 올리지 않고 암호화된 금고에만 남기며, 화면은 주소·이름·잔액 같은 공개 데이터만 씁니다. **송금·스왑·빈 계정 정리·시드 문구 확인·백업 내보내기·보안 설정 변경·계정 관리**를 실행할 때만 인증 시트가 PIN을 묻고, 확인 뒤에야 금고를 복호화해 그 작업에만 키를 쓰고 끝나면 곧바로 0으로 덮어 지웁니다(작업이 멈춰도 3분 뒤 자동 삭제). 끄는 것도 PIN 확인을 거치고 즉시 잠금 화면으로 돌아갑니다
 - **숨긴 토큰** — 에어드랍 스팸을 목록에서 숨기고 필요할 때만 다시 보기
 - **다크 모드** — 라이트 / 다크 / 시스템, 설정에 저장되고 첫 페인트 전에 적용
 - **첫 화면** — 앱을 열면 블랙 클레이 마스코트가 곧바로 뜨고, 금고를 읽는 동안 흰 화면이 보이지 않습니다. 마스코트는 살짝 떠오르며 나타나 천천히 떠다니고, 최소 1.15초 노출된 뒤 0.38초에 걸쳐 사라집니다(동작 줄이기 설정에서는 애니메이션 없이 바로 표시)
@@ -40,6 +42,7 @@ Mono는 브라우저 안에서만 동작하는 개인 솔라나 지갑입니다.
 | 키 보관 | PBKDF2-SHA256(210,000회) → AES-256-GCM. 암호화된 금고만 기기에 저장 |
 | 저장 위치 | **IndexedDB** (`mono-vault`). 구버전 `localStorage` 금고는 최초 실행 시 자동 이전 후 삭제 |
 | 잠금 해제 | 6자리 PIN (생체인증 로그인은 지원하지 않음) |
+| 조회 자동 로그인 | 공개 데이터(주소·계정 목록·잔액·토큰·내역)만으로 홈을 엽니다. 니모닉·개인키는 이 상태에서 메모리에 없고 암호화 금고에만 있습니다. 키가 필요한 작업은 `requestAuth(목적)` 한 곳을 거쳐 PIN 확인 뒤에만 키를 받고, 작업이 끝나면 `endAuthSession()`이 바이트를 덮어씁니다(최대 3분) |
 | 잠금 시 | 복호화된 키페어의 `secretKey` 바이트를 `fill(0)`으로 덮어쓰고 메모리 참조 해제 |
 | 전송 계층 | HTTPS + `Content-Security-Policy` (`script-src 'self'`, 인라인 스크립트 없음, `form-action 'none'`, `frame-src 'none'`) |
 | RPC 연결 | 지정한 RPC로 HTTPS와 WebSocket(wss)을 연결합니다. `connect-src`는 사용자 지정 RPC를 위해 `https:`·`wss:`를 허용합니다(스크립트는 `self`만) |
@@ -121,7 +124,8 @@ happens client-side. There is no server component and no analytics.
 - **Address book** — label recurring recipients and pick them with one tap in the send sheet
 - **Accounts** — up to 100 accounts from one seed (`m/44'/501'/n'/0'`), each addable, renamable and removable; a removed index comes back with the same address
 - **Swap** — Jupiter quote/execute, slippage presets, price impact, minimum received, route
-- **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions)
+- **Token detail** — 1d/7d chart, watchlist star, on-chain security check (mint/freeze authority, Token-2022 extensions), and one row of `Send · Receive · Swap` where Receive opens that wallet's address/QR sheet
+- **Read-only auto-login (optional)** — with it on (Settings → Security), opening the app goes straight to the home screen with no PIN and a `조회 전용` chip. Nothing is decrypted: balances, tokens and history come from the public address. Sending, swapping, closing empty accounts, revealing the seed, exporting a backup, changing security settings and account management each open one PIN sheet first, and the key that sheet releases is zeroed as soon as the action ends (three minutes at most)
 - **Spam control** — hide any SPL token from the wallet list
 - **Theme** — light / dark / system, persisted and applied before first paint
 - **Splash** — the black clay mascot paints from plain HTML before any script runs, floats in and breathes for at least 1.15s, then fades over 0.38s once the vault is read (motion respects `prefers-reduced-motion`)
@@ -132,6 +136,8 @@ happens client-side. There is no server component and no analytics.
 - Vault: `PBKDF2-SHA256 (210k) → AES-256-GCM`, stored in **IndexedDB** (`mono-vault`). Legacy
   `localStorage` vaults are migrated once and deleted.
 - Unlock: 6-digit PIN only; biometric authentication is not supported.
+- Read-only auto-login: public data only, no key in memory. A key is released by a single PIN gate
+  (`requestAuth(purpose)`) and zeroed by `endAuthSession()` when the action finishes.
 - On lock: the decrypted `secretKey` bytes are zeroed with `fill(0)` and the payload reference dropped.
 - Transport: HTTPS plus a strict `Content-Security-Policy` (`script-src 'self'`, no inline scripts).
 - Backup: a single PIN-encrypted `.json`; the mnemonic is never written in plaintext.

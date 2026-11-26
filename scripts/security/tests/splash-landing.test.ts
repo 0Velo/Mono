@@ -117,7 +117,9 @@ test('the splash markup carries the landing ending only next to a lock-screen ta
   assert.match(landing, /mono-land-mark/)
   assert.match(landing, /mono-lock-content/)
   // ...and the app starts the landing exactly where the splash is dismissed.
-  assert.match(app, /if \(vaultExists && !unlocked\) beginSplashLanding\(\)\s*\n\s*hideAppSplash\(\)/)
+  // The target is the lock screen: an auto-login session opens the read-only
+  // home instead, so `canView` (keypair or view-only) is what decides it.
+  assert.match(app, /if \(vaultExists && !canView\) beginSplashLanding\(\)\s*\n\s*hideAppSplash\(\)/)
 })
 
 test('the splash waits for the landing before it fades out', () => {

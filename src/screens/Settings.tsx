@@ -15,6 +15,7 @@ import {
   UserRound,
   BookUser,
   Bell,
+  KeyRound,
 } from 'lucide-react'
 import { MonoMark, Segmented } from '../components/ui'
 import { Spinner } from '../components/Spinner'
@@ -106,6 +107,11 @@ export function Settings({
     activeIndex,
     activeAccount,
     keypair,
+    viewOnly,
+    requestAuth,
+    endAuthSession,
+    updateMeta,
+    lock,
   } = useWallet()
   const { pref: themePref, setTheme } = useTheme()
   const book = useAddressBook()
@@ -121,15 +127,17 @@ export function Settings({
   }, [meta.network, meta.rpc])
 
   // Which empty token accounts this wallet holds — the only reason the cleanup
-  // row exists. Nothing is shown until the chain answered.
+  // row exists. Nothing is shown until the chain answered. Only the address is
+  // needed, so the row also works in the read-only auto-login session; the PIN
+  // is asked for when the accounts are actually closed.
   useEffect(() => {
-    if (!connection || !keypair) {
+    if (!connection) {
       setEmptyTokenAccounts(null)
       return
     }
     let cancelled = false
     setEmptyTokenAccounts(null)
-    findEmptyTokenAccounts(connection, keypair.publicKey.toBase58())
+    findEmptyTokenAccounts(connection, meta.address)
       .then((list) => {
         if (!cancelled) setEmptyTokenAccounts(list)
       })
@@ -139,7 +147,7 @@ export function Settings({
     return () => {
       cancelled = true
     }
-  }, [connection, keypair, rentLookup])
+  }, [connection, meta.address, rentLookup])
 
   const dirty = (meta.rpc[meta.network] ?? '') !== rpcInput
   const valid = !rpcInput.trim() || looksLikeRpc(rpcInput)
@@ -203,6 +211,10 @@ export function Settings({
 
   const exportBackup = async () => {
     if (!vault || exporting) return
+    // An encrypted backup can be taken off the device: it is one of the actions
+    // the auto-login mode gates behind a PIN check.
+    const signer = await requestAuth('export-backup')
+    if (!signer) return
     setExporting(true)
     try {
       const result = await saveBackupFile(vault, meta.address, {
@@ -221,7 +233,31 @@ export function Settings({
       }
     } finally {
       setExporting(false)
+      endAuthSession()
     }
+  }
+
+  const toggleAutoLogin = async () => {
+    const next = !meta.autoLogin
+    const signer = await requestAuth('auto-login')
+    if (!signer) return
+    try {
+      updateMeta({ autoLogin: next })
+    } catch (error) {
+      showToast((error as Error)?.message ?? '보안 설정을 저장하지 못했습니다')
+      endAuthSession()
+      return
+    }
+    if (next) {
+      showToast('자동 로그인을 켰습니다 · 송금할 때 PIN을 확인합니다')
+      endAuthSession()
+      return
+    }
+    showToast('자동 로그인을 껐습니다')
+    // Turning it off means the next launch has to pass the lock screen, and a
+    // read-only session has no reason to stay open.
+    if (viewOnly) lock()
+    else endAuthSession()
   }
 
   return (
@@ -494,7 +530,34 @@ export function Settings({
       </Group>
 
       <Group title="보안">
-        <div className="flex items-center justify-between px-4 py-3.5">
+        <button
+          onClick={() => void toggleAutoLogin()}
+          aria-pressed={meta.autoLogin}
+          data-auto-login={meta.autoLogin ? 'on' : 'off'}
+          className="flex w-full items-center justify-between px-4 py-4 text-left transition-colors active:bg-press"
+        >
+          <span className="flex items-center gap-2.5 text-[14.5px] tracking-[-0.02em] text-ink">
+            <KeyRound size={16} strokeWidth={1.9} /> 자동 로그인 (조회 전용)
+          </span>
+          <span
+            className={cx(
+              'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+              meta.autoLogin ? 'bg-mintSoft text-mint' : 'bg-card text-muted',
+            )}
+          >
+            {meta.autoLogin ? '켜짐' : '끔'}
+          </span>
+        </button>
+        <p className="border-t border-line2 px-4 py-3 text-[11px] leading-[1.65] text-faint">
+          앱을 열면 잠금 없이 잔액·토큰·내역을 보여 줍니다. 시드 문구와 개인키는 켜 둔 상태에서도
+          메모리에 올리지 않고 암호화된 볼트에만 둡니다. 송금·스왑·시드 확인 같은 작업을 할 때만
+          PIN을 한 번 더 확인하고, 끝나면 바로 키를 지웁니다.
+          {viewOnly && (
+            <span className="mt-1 block text-faint2">지금 조회 전용 모드로 보고 있습니다.</span>
+          )}
+        </p>
+
+        <div className="flex items-center justify-between border-t border-line2 px-4 py-3.5">
           <span className="text-[14.5px] tracking-[-0.02em] text-ink">자동 잠금</span>
           <div className="w-[172px]">
             <Segmented

@@ -14,6 +14,7 @@ import {
   type EmptyTokenAccount,
 } from '../lib/rent'
 import { explorerTx, type NetworkId } from '../lib/rpc'
+import { useWallet } from '../state/WalletProvider'
 
 interface RentSheetProps {
   open: boolean
@@ -44,6 +45,7 @@ export function RentSheet({
   const [step, setStep] = useState<Step>('confirm')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<CloseEmptyAccountsResult | null>(null)
+  const { requestAuth, endAuthSession } = useWallet()
 
   useEffect(() => {
     if (!open) return
@@ -56,11 +58,14 @@ export function RentSheet({
   const expected = total > BASE_FEE_LAMPORTS ? total - BASE_FEE_LAMPORTS : 0n
 
   const close = async () => {
-    if (!connection || !keypair || accounts.length === 0) return
+    if (!connection || accounts.length === 0) return
+    // Closing accounts signs transactions: this is a gated action.
+    const signer = keypair ?? (await requestAuth('reclaim'))
+    if (!signer) return
     setError(null)
     setStep('closing')
     try {
-      const next = await closeEmptyTokenAccounts(connection, keypair, accounts)
+      const next = await closeEmptyTokenAccounts(connection, signer, accounts)
       setResult(next)
       setStep('done')
       showToast(`${next.closed}개 계정을 닫았습니다`)
@@ -68,13 +73,15 @@ export function RentSheet({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '빈 계정을 정리하지 못했습니다.')
       setStep('confirm')
+    } finally {
+      endAuthSession()
     }
   }
 
   const footer =
     step === 'confirm' ? (
       <div className="space-y-2">
-        <Button full onClick={() => void close()} disabled={!connection || !keypair || accounts.length === 0} id="rent-confirm">
+        <Button full onClick={() => void close()} disabled={!connection || accounts.length === 0} id="rent-confirm">
           빈 계정 {accounts.length}개 닫고 회수
         </Button>
         <Button full variant="secondary" onClick={onClose}>

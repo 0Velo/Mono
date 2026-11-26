@@ -15,12 +15,16 @@
  * v19 (Mono): 송금 화면에 카메라 QR 스캔(`jsqr` 번들 디코더, 외부 스크립트 없음),
  * 받는 주소 별명·`처음 보내는 주소` 칩과 `보낸 뒤 잔액`, 홈 총 잔액 탭해서
  * 가리기(프라이버시 모드), 설정의 빈 토큰 계정 정리(SOL rent 회수).
+ * v20 (Mono): 조회 자동 로그인 — 잠금 없이 공개 데이터로 홈을 열고, 송금·스왑·
+ * 빈 계정 정리·시드 확인·백업 내보내기·보안 설정 변경 때만 PIN 모달로 키를
+ * 잠깐 복호화한다. 토큰 상세에 `보내기·받기·스왑` 3버튼, 받기 화면의 네트워크
+ * 표기를 거래소 출금 화면과 같은 `Solana (SOL · SPL)`로 맞췄다.
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v19`
+const CACHE = `${CACHE_PREFIX}v20`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

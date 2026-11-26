@@ -5,6 +5,7 @@ import {
   EyeOff,
   Eye,
   Loader2,
+  QrCode,
   RefreshCw,
   Send,
   ShieldAlert,
@@ -23,6 +24,7 @@ import { fetchPriceSeries, type PriceSeries } from '../lib/chart'
 import { SECURITY_DISCLAIMER, fetchTokenSecurity, type TokenSecurity } from '../lib/security'
 import { isHidden, isWatched, setHidden, toggleWatch, usePrefs } from '../lib/prefs'
 import { TxRow, type TokenSymbolMap } from '../components/TxRow'
+import { networkDisplayName } from '../lib/rpc'
 
 interface TokenDetailSheetProps {
   open: boolean
@@ -39,6 +41,7 @@ interface TokenDetailSheetProps {
   onRefreshHistory: () => void
   onClose: () => void
   onSend: (mint: string) => void
+  onReceive: () => void
   onSwap: (mint: string) => void
 }
 
@@ -127,6 +130,7 @@ export default function TokenDetailSheet({
   onRefreshHistory,
   onClose,
   onSend,
+  onReceive,
   onSwap,
 }: TokenDetailSheetProps) {
   const asset = assets.find((item) => item.key === assetKey) ?? assets[0] ?? null
@@ -441,21 +445,40 @@ export default function TokenDetailSheet({
         </button>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-2.5 pb-[calc(env(safe-area-inset-bottom)+6px)]">
-        <Button variant="secondary" onClick={() => onSend(asset.isSol ? 'SOL' : asset.mint)}>
+      <div className="mt-5 grid grid-cols-3 gap-2 pb-[calc(env(safe-area-inset-bottom)+6px)]" data-token-actions>
+        <Button
+          className="px-2 text-[13.5px]"
+          onClick={() => onSend(asset.isSol ? 'SOL' : asset.mint)}
+          id="token-send"
+        >
           <span className="flex items-center gap-1.5">
-            <Send size={15} /> 보내기
+            <Send size={14} /> 보내기
           </span>
         </Button>
-        <Button onClick={() => onSwap(asset.isSol ? 'SOL' : asset.mint)}>
+        <Button
+          variant="secondary"
+          className="px-2 text-[13.5px]"
+          onClick={onReceive}
+          id="token-receive"
+        >
           <span className="flex items-center gap-1.5">
-            <ArrowLeftRight size={15} /> 스왑
+            <QrCode size={14} /> 받기
+          </span>
+        </Button>
+        <Button
+          variant="secondary"
+          className="px-2 text-[13.5px]"
+          onClick={() => onSwap(asset.isSol ? 'SOL' : asset.mint)}
+          id="token-swap"
+        >
+          <span className="flex items-center gap-1.5">
+            <ArrowLeftRight size={14} /> 스왑
           </span>
         </Button>
       </div>
 
       <p className="mt-3 text-[10px] text-faint">
-        {network === 'mainnet' ? 'Solana Mainnet' : 'Solana Devnet'} · {isWatched(asset.mint) ? '관심 목록에 있음' : '관심 목록에 없음'}
+        {networkDisplayName(network)} · {isWatched(asset.mint) ? '관심 목록에 있음' : '관심 목록에 없음'}
       </p>
     </Sheet>
   )

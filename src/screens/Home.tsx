@@ -35,6 +35,8 @@ interface HomeProps {
   onToken: (key: string) => void
   onSwap: () => void
   onNetworkChange: (network: NetworkId) => void
+  /** Auto-login view-only session: public data with no key in memory. */
+  viewOnly?: boolean
 }
 
 export function Home({
@@ -55,6 +57,7 @@ export function Home({
   onToken,
   onSwap,
   onNetworkChange,
+  viewOnly,
 }: HomeProps) {
   const [showHidden, setShowHidden] = useState(false)
   const [currency, setCurrency] = useState<'usd' | 'krw'>('usd')
@@ -147,6 +150,16 @@ export function Home({
           </button>
         </div>
       </div>
+
+      {viewOnly && (
+        <div
+          data-view-only="true"
+          className="mx-5 mt-2 flex w-max items-center gap-1.5 rounded-full bg-surface px-2.5 py-[5px] text-[10.5px] font-medium text-muted"
+        >
+          <EyeOff size={11} strokeWidth={2} />
+          조회 전용 · 보내려면 PIN 확인
+        </div>
+      )}
 
       <div className="px-5 pt-10">
         <div className="flex items-center gap-2">
