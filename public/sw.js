@@ -22,12 +22,14 @@
  * v21 (Mono): 고래 지갑 알림 — 설정 › 알림 › `고래 지갑 알림`에서 외부 지갑을
  * 별명으로 저장하면, 푸시 서버가 Helius 메인넷 웹훅으로 그 지갑의 스왑·송금을
  * 감지해 `[별명] 스왑 감지` 알림을 보낸다(공개 주소만, 키·서명 없음).
+ * v22 (Mono): 고래 지갑 시트에 추천 고래 15명 프리셋 — 칩 하나로 1명, `전체 추가`로
+ * 15명을 한 번에(이미 등록된 주소는 건너뛰고 `/v1/watch` 동기화 1회) 넣는다.
  * Same caching rules as v14; hashed asset names change with every deploy, so a
  * new SW drops the old caches on activate and the iPhone picks the new build on
  * the next launch. */
 const ROOT = new URL(self.registration.scope).pathname // e.g. '/Mono/'
 const CACHE_PREFIX = 'mono-shell-'
-const CACHE = `${CACHE_PREFIX}v21`
+const CACHE = `${CACHE_PREFIX}v22`
 
 self.addEventListener('install', () => {
   self.skipWaiting()

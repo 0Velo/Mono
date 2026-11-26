@@ -8,7 +8,7 @@
  * rejected here: the deposit path already covers it, and two alerts for one
  * transfer would be noise.
  */
-export const MAX_WATCH_WALLETS = 8;
+export const MAX_WATCH_WALLETS = 20;
 export const MAX_WATCH_LABEL = 24;
 
 const ADDRESS_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

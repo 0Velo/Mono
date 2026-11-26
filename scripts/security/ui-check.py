@@ -831,6 +831,93 @@ def main():
         )
         page.evaluate("() => localStorage.removeItem('mono.watchWallets.v1')")
 
+        # --- recommended whales (추천 고래) one-tap presets ---------------------
+        # Fifteen fixed public addresses: one tap adds them all in a single write,
+        # each chip adds only itself, a tracked chip reads 추가됨, and the list
+        # stops at twenty wallets (the raised cap the person asked for).
+        PRESET_NAMES = [
+            "Trunoest", "OGAntD", "Decu", "Cooker", "Ansem", "SKX", "LJC", "ozark",
+            "rayan", "Pain", "Mitch", "Jijo", "Frank DeGods", "Cap", "Dov",
+        ]
+        preset_state = {"chips": None, "bulk": None, "marked": None, "readded": None, "full": None}
+        try:
+            page.locator("button", has_text="고래 지갑 알림").first.click()
+            dialog = page.get_by_role("dialog")
+            dialog.wait_for(state="visible", timeout=10000)
+            preset_state["chips"] = sum(
+                1
+                for name in PRESET_NAMES
+                if dialog.get_by_role("button", name=f"{name} 추가", exact=True).count() == 1
+            )
+            dialog.get_by_role("button", name="전체 추가", exact=True).click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === 15",
+                timeout=10000,
+            )
+            preset_state["bulk"] = page.evaluate(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1')).map(e => e.label)"
+            )
+            preset_state["marked"] = page.get_by_text("· 추가됨").count()
+            # Delete one row, then the chip for it adds only that wallet back.
+            dialog.get_by_role("button", name="삭제").first.click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === 14",
+                timeout=10000,
+            )
+            dialog.get_by_role("button", name="Trunoest 추가", exact=True).click()
+            page.wait_for_function(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === 15",
+                timeout=10000,
+            )
+            preset_state["readded"] = page.evaluate(
+                "() => JSON.parse(localStorage.getItem('mono.watchWallets.v1'))"
+                ".some(e => e.label === 'Trunoest' && e.address === 'ardinRsN1mNYVeoJWTBsWeYeXvuR9UUDGMsCDKpb6AT')"
+            )
+            # Fill the last five seats by hand; twenty is the cap and then the
+            # footer button and the preset controls all lock.
+            manual_addresses = [
+                f"7YttLkHDoNj9wyDur5pM1ejNaAvT9X4eqaYcHQqtj2G{suffix}" for suffix in "abcde"
+            ]
+            for index, address in enumerate(manual_addresses):
+                dialog.get_by_role("button", name=re.compile("고래 지갑 추가")).click()
+                dialog.get_by_text("Solana 주소").wait_for(timeout=10000)
+                dialog.locator("input").nth(0).fill(f"수동 {index + 1}")
+                dialog.locator("input").nth(1).fill(address)
+                dialog.get_by_role("button", name="추가", exact=True).click()
+                page.wait_for_function(
+                    f"() => JSON.parse(localStorage.getItem('mono.watchWallets.v1') || '[]').length === {16 + index}",
+                    timeout=10000,
+                )
+            preset_state["full"] = {
+                "count": page.evaluate("() => JSON.parse(localStorage.getItem('mono.watchWallets.v1')).length"),
+                "addDisabled": dialog.get_by_role("button", name=re.compile("고래 지갑 추가")).is_disabled(),
+                "allDisabled": dialog.get_by_role("button", name="모두 추가됨", exact=True).is_disabled(),
+                "chipDisabled": dialog.get_by_role("button", name="Ansem 추가됨", exact=True).is_disabled(),
+            }
+            dialog.locator('button[aria-label="닫기"]').click()
+            page.wait_for_timeout(400)
+        except Exception as error:
+            preset_state["error"] = str(error)[:200]
+            try:
+                page.get_by_role("dialog").locator('button[aria-label="닫기"]').click()
+                page.wait_for_timeout(300)
+            except Exception:
+                pass
+        record(
+            "UI-47",
+            "The fifteen recommended whales add in one tap, one by one, and the list stops at twenty",
+            "PASS"
+            if preset_state.get("chips") == 15
+            and preset_state.get("bulk") == PRESET_NAMES
+            and preset_state.get("marked") == 15
+            and preset_state.get("readded") is True
+            and preset_state.get("full")
+            == {"count": 20, "addDisabled": True, "allDisabled": True, "chipDisabled": True}
+            else "FAIL",
+            json.dumps(preset_state, ensure_ascii=False),
+        )
+        page.evaluate("() => localStorage.removeItem('mono.watchWallets.v1')")
+
         page.get_by_role("button", name="지갑", exact=True).first.click()
         page.wait_for_timeout(400)
 

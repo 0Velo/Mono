@@ -8,12 +8,15 @@ import type { NetworkId } from '../lib/rpc'
 import {
   MAX_WATCH_LABEL,
   MAX_WATCH_WALLETS,
+  WATCH_PRESETS,
   addWatch,
+  addWatchPresets,
   looksLikeSolanaAddress,
   removeWatch,
   updateWatch,
   useWatchWallets,
   type WatchAddFailure,
+  type WatchPreset,
 } from '../lib/watchWallets'
 
 interface WatchSheetProps {
@@ -53,6 +56,8 @@ export function WatchSheet({ open, onClose, network, pushEnabled, ownAddress }: 
 
   const validAddress = looksLikeSolanaAddress(address)
   const canAdd = mainnet && watches.length < MAX_WATCH_WALLETS
+  const trackedAddresses = new Set(watches.map((entry) => entry.address))
+  const presetRemaining = WATCH_PRESETS.filter((preset) => !trackedAddresses.has(preset.address)).length
 
   const reset = () => {
     setAdding(false)
@@ -69,6 +74,29 @@ export function WatchSheet({ open, onClose, network, pushEnabled, ownAddress }: 
     }
     showToast(pushEnabled ? '고래 지갑을 추가했습니다' : '추가했습니다 · Web Push를 켜면 알림이 시작됩니다')
     reset()
+  }
+
+  /** 추천 고래 1명 — 저장은 addWatch 한 번, 동기화는 Shell의 목록 변화 1회. */
+  const addPreset = (preset: WatchPreset) => {
+    const result = addWatch(preset.name, preset.address, ownAddress)
+    if (!result.ok) {
+      showToast(reasonMessage(result.reason))
+      return
+    }
+    showToast(pushEnabled ? `${preset.name} 고래 지갑을 추가했습니다` : `${preset.name} 추가 · Web Push를 켜면 알림이 시작됩니다`)
+  }
+
+  /** 추천 고래 15명을 한 번에 — 저장 1회, `/v1/watch` 동기화도 1회. */
+  const addAllPresets = () => {
+    const result = addWatchPresets(WATCH_PRESETS, ownAddress)
+    if (!result.added) {
+      showToast(result.reachedLimit ? `고래 지갑은 ${MAX_WATCH_WALLETS}개까지 추적할 수 있습니다` : '추천 고래를 이미 모두 추가했습니다')
+      return
+    }
+    const parts = [`${result.added}명을 추가했습니다`]
+    if (result.alreadyTracked) parts.push(`${result.alreadyTracked}명은 이미 추가됨`)
+    if (result.reachedLimit) parts.push(`최대 ${MAX_WATCH_WALLETS}개`)
+    showToast(pushEnabled ? parts.join(' · ') : `${parts.join(' · ')} · Web Push를 켜면 알림이 시작됩니다`)
   }
 
   const note = !mainnet
@@ -99,6 +127,43 @@ export function WatchSheet({ open, onClose, network, pushEnabled, ownAddress }: 
       )}>
         {note}
       </p>
+
+      <div className="mt-3 rounded-[18px] bg-surface p-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[12px] font-medium text-muted">추천 고래 {WATCH_PRESETS.length}</span>
+          <button
+            type="button"
+            onClick={addAllPresets}
+            disabled={!mainnet || presetRemaining === 0 || !canAdd}
+            className={cx(
+              'press -mr-1 rounded-full px-2 py-1 text-[12px] font-semibold',
+              mainnet && presetRemaining > 0 && canAdd ? 'text-ink' : 'text-faint',
+            )}
+          >
+            {presetRemaining === 0 ? '모두 추가됨' : canAdd ? '전체 추가' : '자리 없음'}
+          </button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {WATCH_PRESETS.map((preset) => {
+            const tracked = trackedAddresses.has(preset.address)
+            return (
+              <button
+                key={preset.address}
+                type="button"
+                onClick={() => addPreset(preset)}
+                disabled={!mainnet || tracked || !canAdd}
+                aria-label={tracked ? `${preset.name} 추가됨` : `${preset.name} 추가`}
+                className={cx(
+                  'press rounded-full bg-card px-2.5 py-1.5 text-[12px]',
+                  tracked ? 'text-faint' : 'font-medium text-ink',
+                )}
+              >
+                {tracked ? `${preset.name} · 추가됨` : preset.name}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {adding && (
         <div className="animate-pop mt-3 rounded-[18px] bg-surface p-4">
