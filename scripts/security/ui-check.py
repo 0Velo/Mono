@@ -892,7 +892,7 @@ def main():
                 "count": page.evaluate("() => JSON.parse(localStorage.getItem('mono.watchWallets.v1')).length"),
                 "addDisabled": dialog.get_by_role("button", name=re.compile("고래 지갑 추가")).is_disabled(),
                 "allDisabled": dialog.get_by_role("button", name="모두 추가됨", exact=True).is_disabled(),
-                "chipDisabled": dialog.get_by_role("button", name="Ansem · 추가됨", exact=True).is_disabled(),
+                "chipDisabled": dialog.get_by_role("button", name="Ansem 추가됨", exact=True).is_disabled(),
             }
             dialog.locator('button[aria-label="닫기"]').click()
             page.wait_for_timeout(400)
